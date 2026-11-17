@@ -1,0 +1,73 @@
+// Transfer Flow layout and product data. REAL SCALE: 1 scene unit = 1 metre.
+// Everything is sized from the largest TV (75", ~1.68 × 0.97 m with bezel).
+import type { LabelDef } from '../../sim/labels';
+import type { ViewDef } from '../../sim/views';
+
+export const INCHES = [32, 43, 50, 55, 65, 75] as const;
+export type Inch = (typeof INCHES)[number];
+
+/** TV outline [width, height] in metres (16:9 panel from the diagonal + ~1 cm bezel); confirm against each spec sheet. */
+export const SIZES: Record<Inch, [number, number]> = { 32: [0.73, 0.43], 43: [0.97, 0.57], 50: [1.12, 0.65], 55: [1.24, 0.72], 65: [1.45, 0.84], 75: [1.68, 0.97] };
+export const TV_T = 0.06; // body thickness
+export const TV_BACK = 0.06; // back cover (electronics bump) distance from the panel centre
+
+// conveyors
+export const TOP = 0.88; // belt top height
+export const BELT_ASM = 1.2, BELT_TEST = 1.2; // both belts 1.2 m wide
+export const Z_ASM = 1.05, Z_TEST = -1.05; // belt centres; robots between them at z = 0
+export const ROBOT_Z = 0;
+export const LINE_X0 = -8.3, LINE_X1 = 5.1; // 13.4 m of belt; ~15.8 m overall with the lift units
+/** Pallets ride on the robot side of the test belt (30 cm off its centre), so the hook gripper reaches behind the TV. */
+export const Z_PAL = Z_TEST + 0.3;
+export const SPEED_ASM = 0.6, SPEED_TEST = 0.8; // m/s
+export const LIFT_OPEN = 2.1; // clear height: a 75" standing on a pallet reaches ~1.98 m
+
+// assembly jig (standard for every model): 2.3 × 1.1 m, a pair of 32"/43" side by side or one 50"–75"
+export const JIG_L = 2.3, JIG_TOP = 0.08, SLOT = 0.52;
+// test pallet (standard, one TV): 1.9 × 0.55 m, TV seated 0.13 m above the belt
+export const PAL_W = 1.9, PAL_D = 0.55, SEAT_Y = 0.13;
+export const ITEM_GAP = 0.1; // accumulation: queued items keep 10 cm apart
+
+// transfer robots (UR30) with the hook gripper
+export const HOOK_D = 0.37, CUP_Z = 0.1, GRIP = 0.25; // flange→cup row · bracket axis→cup face · grip point below the TV's top edge
+export const TRANSFER_PED = 1.5; // pedestal height to reach over a 75" (top at ~1.98 m)
+export const ROBOT_X1 = -2.0, ROBOT_X2 = 2.0; // 4.0 m apart: room for one full pallet queued between them
+export const BUFFER_X = ROBOT_X1 - 2.25; // empty-pallet buffer just before Transfer 1
+/** Back-cover height of a TV lying screen-down on the jig. */
+export const PICK_Y = TOP + JIG_TOP + TV_T / 2 + TV_BACK;
+
+// inspection cell (2.4 × 1.8 × 2.3 m) beside the assembly belt, open side facing the belt, 3.8 m before Transfer 1
+export const CELL = { x: -5.8, z: Z_ASM + BELT_ASM / 2 + 0.1 + 0.9, w: 2.4, d: 1.8, h: 2.3 };
+
+export const FENCE_Z = -3.05; // 1.4 m aisle behind the test belt, where the screens face
+
+/** 32" and 43": two TVs side by side per jig (one TV per test pallet). 50" and up: one TV, centred. */
+export const slotsFor = (inch: Inch) => (inch <= 43 ? 2 : 1);
+export const slotX = (inch: Inch, k: number) => (slotsFor(inch) === 2 ? (k === 0 ? -SLOT : SLOT) : 0);
+
+export const SHADOW_FRUSTUM = { left: -14, right: 14, top: 10, bottom: -10, near: 1, far: 70 };
+
+export const VIEWS: Record<string, ViewDef> = {
+  persp: { pos: [-1.6, 6.4, 12], target: [-1.6, 0.6, 0] },
+  robots: { pos: [4.6, 2.7, 3.4], target: [0, 1.1, 0] },
+  insp: { pos: [-2.8, 2.5, 5.6], target: [-5.8, 1.2, 1.7] },
+  test: { pos: [0, 2.3, 3.6], target: [0, 1.4, -0.75] }, // facing the screens on the test belt
+  top: { pos: [0, 17, 0.01], target: [-1.6, 0, 0.3] },
+};
+
+export const TOUR = {
+  positions: [[-9, 3, 6], [-3.5, 2, 5], [0.5, 2.2, 4], [5, 2.5, 2.8], [6, 3, -2], [2, 2, -2.4], [-3, 2.3, -2.4], [-9, 3.2, -1]] as [number, number, number][],
+  targets: [[-5, 1, 1.5], [-5.4, 1.1, 1.6], [-1.6, 1.1, 0], [1.6, 1.1, 0], [1.5, 1.2, -1], [0, 1.3, -0.95], [-1.6, 1.2, -0.5], [-5, 1, 0.5]] as [number, number, number][],
+  seconds: 60,
+};
+
+export const LABELS: LabelDef[] = [
+  { lines: ['Esteira de Montagem'], x: LINE_X1 - 1.2, y: 1.7, z: Z_ASM + 0.2 },
+  { lines: ['Esteira de Teste'], x: LINE_X0 + 1.0, y: 1.9, z: Z_TEST },
+  { lines: ['Inspeção Visual', 'com Robô (IA) · UR10e'], x: CELL.x, y: 2.75, z: CELL.z + 0.3 },
+  { lines: ['Transfer 1 · UR30', 'Telas 32” a 75”'], x: ROBOT_X1, y: 3.25, z: ROBOT_Z },
+  { lines: ['Transfer 2 · UR30', 'Telas 32” a 75”'], x: ROBOT_X2, y: 3.25, z: ROBOT_Z },
+  { lines: ['Pulmão de pallets'], x: BUFFER_X - 1.2, y: 2.3, z: Z_TEST - 0.3 },
+];
+
+export const FONT = '"Barlow Semi Condensed", "Segoe UI", Arial, sans-serif';
