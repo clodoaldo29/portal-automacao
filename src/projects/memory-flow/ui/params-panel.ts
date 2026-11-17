@@ -6,7 +6,8 @@ import { mi } from './format';
 
 const PKEY = 'memoryflow3d.params.v1';
 
-export function createParamsPanel(onApply: (p: Params) => void) {
+/** onApply restarts the plant and may return a summary of what changed, shown under the button. */
+export function createParamsPanel(onApply: (p: Params) => string | void) {
   const form = $<HTMLFormElement>('params'), status = $('p-status');
   const release = $<HTMLInputElement>('p-release'), releaseH = $('p-release-h');
   const field = (id: string) => $<HTMLInputElement>(id);
@@ -97,14 +98,13 @@ export function createParamsPanel(onApply: (p: Params) => void) {
     const p = read();
     write(p);
     try { localStorage.setItem(PKEY, JSON.stringify(p)); } catch { /* not saved: still applied */ }
-    onApply(p);
-    status.textContent = 'Aplicado. A planta foi reiniciada com os novos valores.';
+    status.textContent = onApply(p) ?? 'Aplicado. A planta foi reiniciada com os novos valores.';
   });
   $('p-reset').onclick = () => {
     write(cloneParams(DEFAULT_PARAMS));
     try { localStorage.removeItem(PKEY); } catch { /* ignore */ }
-    onApply(read());
-    status.textContent = 'Valores padrão restaurados. A planta foi reiniciada.';
+    const msg = onApply(read());
+    status.textContent = `Valores padrão restaurados. ${msg ?? ''}`.trim();
   };
 
   return { load, read };

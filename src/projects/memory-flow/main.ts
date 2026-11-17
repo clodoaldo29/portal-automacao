@@ -99,19 +99,49 @@ stage.finalizeShadows();
 // ---------- engine ----------
 let params: Params = DEFAULT_PARAMS;
 let engine: Engine;
-/** Start the plant: warm-up (the plant starts empty), then a week measured so the panel opens with real numbers. */
+/** Warm-up (the plant starts empty), then a week measured, so the panel opens with real numbers. */
+function warmed(p: Params) {
+  const e = createEngine({ params: p, scenario });
+  e.advanceTo(WARMUP_DAYS * 1440);
+  e.resetStats();
+  e.advanceTo(2 * WARMUP_DAYS * 1440);
+  return e;
+}
 function restart() {
-  engine = createEngine({ params, scenario });
-  engine.advanceTo(WARMUP_DAYS * 1440);
-  engine.resetStats();
-  engine.advanceTo(2 * WARMUP_DAYS * 1440);
+  engine = warmed(params);
   info.update(engine);
   kpi.update(engine);
 }
 
+/** What changed when parameters were applied, on the scenario on screen (same measured week before and after). */
+function applyReport(old: Params, p: Params): string {
+  const a = warmed(old).metrics(), b = engine.metrics();
+  const f = (v: number, d = 1) => v.toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
+  const short = SCENARIOS.find(s => s.id === scenario)!.short;
+  const parts = [
+    `lotes/dia ${f(a.lotsPerDay)} → ${f(b.lotsPerDay)}`,
+    `lead time ${f(a.leadTimeH)} → ${f(b.leadTimeH)} h`,
+    `espera por coleta ${f(a.transportWaitMin)} → ${f(b.transportWaitMin)} min`,
+    `ocupação da frota ${Math.round(a.fleetUtil * 100)}% → ${Math.round(b.fleetUtil * 100)}%`,
+  ];
+  let msg = `Aplicado no cenário ${short}: ${parts.join(' · ')}.`;
+  const manualChanged = old.operators !== p.operators || old.share !== p.share || old.record !== p.record;
+  const amrChanged = old.amrs !== p.amrs, iaChanged = old.insAi !== p.insAi;
+  if (manualChanged && scenario !== 'atual') msg += ' Operadores, dedicação e registro só valem no cenário Atual: troque o cenário no topo para ver o efeito.';
+  if (amrChanged && scenario === 'atual') msg += ' A quantidade de AMRs só vale nos cenários AMR e AMR + IA: troque o cenário no topo para ver o efeito.';
+  if (iaChanged && scenario !== 'amr-ia') msg += ' O tempo da inspeção com IA só vale no cenário AMR + IA.';
+  return msg;
+}
+
 const kpi = createKpiPanel();
 const info = createInfoCard(() => { selBox.visible = false; });
-const paramsPanel = createParamsPanel(p => { params = p; compare.invalidate(); restart(); });
+const paramsPanel = createParamsPanel(p => {
+  const old = params;
+  params = p;
+  compare.invalidate();
+  restart();
+  return applyReport(old, p);
+});
 const compare = createComparePanel(() => params);
 if (!benchDays) params = paramsPanel.load();
 

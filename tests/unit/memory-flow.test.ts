@@ -85,3 +85,22 @@ describe('memory-flow engine', () => {
     expect(ia.leadTimeH).toBeLessThan(atual.leadTimeH);
   });
 });
+
+describe('memory-flow dispatching', () => {
+  it('a saturated AMR fleet still moves lots along the whole route (no starvation of later steps)', () => {
+    const p = cloneParams(DEFAULT_PARAMS);
+    p.amrs = 1;
+    const m = runScenario(p, 'amr');
+    expect(m.fleetUtil).toBeGreaterThan(0.95);
+    expect(m.lotsPerDay).toBeGreaterThan(5);
+  });
+
+  it('fewer operators means longer waits for pickup and longer lead time', () => {
+    const few = cloneParams(DEFAULT_PARAMS), many = cloneParams(DEFAULT_PARAMS);
+    few.operators = 6;
+    many.operators = 12;
+    const a = runScenario(few, 'atual'), b = runScenario(many, 'atual');
+    expect(a.transportWaitMin).toBeGreaterThan(b.transportWaitMin * 10);
+    expect(a.leadTimeH).toBeGreaterThan(b.leadTimeH);
+  });
+});

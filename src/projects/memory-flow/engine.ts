@@ -109,6 +109,9 @@ export interface Metrics {
 
 export interface EngineOptions { params: Params; scenario: ScenarioId; seed?: number }
 
+/** Minutes of priority a lot gets when it goes to a machine that is idle for lack of lots (AMR dispatching). */
+export const STARVING_BONUS = 30;
+
 const graphCache: { g: LaneGraph | null } = { g: null };
 
 /** Graph of lanes with every load port, WIP shelf, the dock and parking spots as named points. */
@@ -215,8 +218,14 @@ export function createEngine(opts: EngineOptions) {
     while (pending.length) {
       const idle = carriers.filter(c => c.state === 'idle');
       if (!idle.length) return;
+      // fifo: oldest request. starving: oldest too, but a lot for an idle machine counts as if it had waited
+      // STARVING_BONUS minutes more. Pure priority to idle machines would let a saturated fleet feed only the
+      // start of the route (always starving) and never move the lots further on.
       let ri = 0;
-      if (fleet.dispatch === 'starving') { const k = pending.findIndex(r => starving(r.to)); if (k >= 0) ri = k; }
+      if (fleet.dispatch === 'starving') {
+        let best = -Infinity;
+        pending.forEach((r, k) => { const s = q.now - r.t + (starving(r.to) ? STARVING_BONUS : 0); if (s > best) { best = s; ri = k; } });
+      }
       const req = pending[ri];
       let best = idle[0], bd = Infinity;
       for (const c of idle) { const d = graph.distance(c.node, req.from); if (d < bd) { bd = d; best = c; } }

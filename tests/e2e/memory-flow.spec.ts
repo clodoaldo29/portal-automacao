@@ -40,11 +40,15 @@ test.describe('Memory Flow 3D', () => {
     await expect(page.locator('#c-out table.cmp')).toHaveCount(2, { timeout: 60_000 });
     await expect(page.locator('#c-out table.cmp').first().locator('thead th')).toHaveText(['', 'Atual', 'AMR', 'AMR + IA']);
     await page.click('#tab-par');
-    await page.fill('#p-release', '16');
+    await page.fill('#p-ops', '6');
     await page.click('#p-apply');
-    await expect(page.locator('#p-status')).toContainText('reiniciada');
-    const release = await page.evaluate(() => (window as unknown as { __mf: { engine: { params: { release: number } } } }).__mf.engine.params.release);
-    expect(release).toBe(16);
+    await expect(page.locator('#p-status')).toContainText('Aplicado no cenário Atual: lotes/dia');
+    const ops = await page.evaluate(() => (window as unknown as { __mf: { engine: { carriers: unknown[] } } }).__mf.engine.carriers.length);
+    expect(ops).toBe(6);
+    // a parameter that does not apply to the scenario on screen is pointed out
+    await page.fill('#p-amrs', '5');
+    await page.click('#p-apply');
+    await expect(page.locator('#p-status')).toContainText('só vale nos cenários AMR');
     await page.click('#p-reset');
   });
 
