@@ -1,5 +1,6 @@
-// A production room around a cell: ESD floor with tile lines, walls with a coloured band (front wall kept low so
-// the cameras see in), and ceiling light panels (hidden when the camera goes above them).
+// The production area around a cell: an ESD floor with tile lines and a coloured border. No walls by default:
+// walls got in front of the equipment while orbiting the camera. They can still be turned on (`walls: true`),
+// with ceiling light panels that hide when the camera goes above them.
 import * as THREE from 'three';
 import { at, box, canvasTex, mk, std } from './kit';
 
@@ -10,10 +11,12 @@ export interface RoomOptions {
   h?: number;
   x?: number;
   z?: number;
-  /** Floor and band colours. */
+  /** Floor and border colours. */
   floor?: string;
   band?: number;
-  /** Room name painted on the back wall. */
+  /** Walls and ceiling panels (default off). */
+  walls?: boolean;
+  /** Area name painted on the floor at the back edge. */
   name?: string;
   font?: string;
 }
@@ -35,7 +38,7 @@ export function buildRoom(scene: THREE.Scene, o: RoomOptions) {
   const root = new THREE.Group();
   root.position.set(cx, 0, cz);
   scene.add(root);
-  // ESD floor, 0.6 m tiles
+  // ESD floor, 0.6 m tiles, with a coloured border
   const tex = tileTex(o.floor ?? '#c9d3dc');
   tex.repeat.set(w / 0.6, d / 0.6);
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshLambertMaterial({ map: tex }));
@@ -44,14 +47,15 @@ export function buildRoom(scene: THREE.Scene, o: RoomOptions) {
   floor.receiveShadow = true;
   floor.userData.noShadow = true;
   root.add(floor);
-  // walls: back and sides full height, front low
-  const wall = std(0xe9edf1, 0.05, 0.8), band = std(o.band ?? 0x2f6fb0, 0.1, 0.5);
-  root.add(at(box(w, h, 0.15, wall), 0, h / 2, -d / 2));
-  for (const s of [-1, 1]) root.add(at(box(0.15, h, d, wall), s * w / 2, h / 2, 0));
-  root.add(at(box(w, 0.9, 0.12, wall), 0, 0.45, d / 2));
-  root.add(at(box(w, 0.12, 0.17, band), 0, 1.2, -d / 2 + 0.01));
-  for (const s of [-1, 1]) root.add(at(box(0.17, 0.12, d, band), s * (w / 2 - 0.01), 1.2, 0));
-  root.add(at(box(w, 0.1, 0.14, band), 0, 0.85, d / 2));
+  const bandMat = new THREE.MeshBasicMaterial({ color: o.band ?? 0x2f6fb0 });
+  const strip = (sw: number, sd: number, x: number, z: number) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(sw, sd), bandMat);
+    m.rotation.x = -Math.PI / 2;
+    m.position.set(x, 0.012, z);
+    m.userData.noShadow = true;
+    root.add(m);
+  };
+  strip(w, 0.12, 0, -d / 2 + 0.06); strip(w, 0.12, 0, d / 2 - 0.06); strip(0.12, d, -w / 2 + 0.06, 0); strip(0.12, d, w / 2 - 0.06, 0);
   if (o.name) {
     const [c, g] = mk(1024, 128);
     g.fillStyle = '#0b3a6b';
@@ -59,15 +63,21 @@ export function buildRoom(scene: THREE.Scene, o: RoomOptions) {
     g.textBaseline = 'middle';
     g.fillText(o.name, 24, 64);
     const sign = new THREE.Mesh(new THREE.PlaneGeometry(4, 0.5), new THREE.MeshBasicMaterial({ map: canvasTex(c), transparent: true }));
-    sign.position.set(-w / 2 + 2.4, 2.6, -d / 2 + 0.09);
+    sign.rotation.x = -Math.PI / 2;
+    sign.position.set(-w / 2 + 2.3, 0.014, -d / 2 + 0.45);
     sign.userData.noShadow = true;
     root.add(sign);
   }
-  // ceiling light panels (clean-room filter units)
   const ceiling = new THREE.Group();
   root.add(ceiling);
-  const panelMat = new THREE.MeshBasicMaterial({ color: 0xf6fbff });
-  for (let x = -w / 2 + 1; x < w / 2 - 0.5; x += 2) for (let z = -d / 2 + 1; z < d / 2 - 0.5; z += 2) ceiling.add(at(box(1.1, 0.04, 0.55, panelMat), x + 0.5, h - 0.02, z + 0.5));
-  ceiling.traverse(m => (m.userData.noShadow = true));
+  if (o.walls) {
+    const wall = std(0xe9edf1, 0.05, 0.8), band = std(o.band ?? 0x2f6fb0, 0.1, 0.5);
+    root.add(at(box(w, h, 0.15, wall), 0, h / 2, -d / 2));
+    for (const s of [-1, 1]) root.add(at(box(0.15, h, d, wall), s * w / 2, h / 2, 0));
+    root.add(at(box(w, 0.12, 0.17, band), 0, 1.2, -d / 2 + 0.01));
+    const panelMat = new THREE.MeshBasicMaterial({ color: 0xf6fbff });
+    for (let x = -w / 2 + 1; x < w / 2 - 0.5; x += 2) for (let z = -d / 2 + 1; z < d / 2 - 0.5; z += 2) ceiling.add(at(box(1.1, 0.04, 0.55, panelMat), x + 0.5, h - 0.02, z + 0.5));
+    ceiling.traverse(m => (m.userData.noShadow = true));
+  }
   return { root, ceiling, h };
 }
