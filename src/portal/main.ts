@@ -8,6 +8,8 @@ interface Project {
   status: StatusId;
   description?: string;
   metrics?: Partial<Record<MetricKey, string>>;
+  /** Replaces a metric's default label (for projects where "UPH" or "Estações" do not fit). */
+  metricLabels?: Partial<Record<MetricKey, string>>;
   cover?: string;
   url?: string;
   updatedAt?: string;
@@ -85,7 +87,7 @@ function card(p: Project) {
     }
   }
   const m = p.metrics || {};
-  if (METRICS.some(([k]) => m[k])) b.append(el('div', { className: 'metrics' }, METRICS.map(([k, l]) => el('div', { className: 'metric' }, el('span', { textContent: l }), el('b', { textContent: m[k] || '—' })))));
+  if (METRICS.some(([k]) => m[k])) b.append(el('div', { className: 'metrics' }, METRICS.map(([k, l]) => el('div', { className: 'metric' }, el('span', { textContent: p.metricLabels?.[k] || l }), el('b', { textContent: m[k] || '—' })))));
   if (url) b.append(el('a', { className: 'open-sim', href: url, textContent: 'Abrir simulação 3D' }));
   if (p.updatedAt) b.append(el('div', { className: 'foot', textContent: `Atualizado em ${fmtDate(p.updatedAt)}` }));
   c.append(b);

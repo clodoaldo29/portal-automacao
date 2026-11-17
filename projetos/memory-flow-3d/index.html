@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Memory Flow 3D</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="/src/sim/ui/sim.css">
+<link rel="stylesheet" href="/src/projects/memory-flow/style.css">
+</head>
+<body>
+<div id="app">
+  <header class="bar">
+    <div class="plaque">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1.5"/><path d="M9 2.5v3.5M12 2.5v3.5M15 2.5v3.5M9 18v3.5M12 18v3.5M15 18v3.5M2.5 9h3.5M2.5 12h3.5M2.5 15h3.5M18 9h3.5M18 12h3.5M18 15h3.5"/></svg>
+      <h1>MEMORY FLOW</h1>
+      <p>Fluxo de lotes e gêmeo digital<br>da planta de memórias</p>
+    </div>
+    <div class="dock" role="toolbar" aria-label="Controles da cena">
+      <div class="group" aria-label="Câmera">
+        <button id="v-planta" aria-pressed="true">Planta</button>
+        <button id="v-limpa" aria-pressed="false">Sala limpa</button>
+        <button id="v-testes" aria-pressed="false">Testes</button>
+        <button id="v-utilidades" aria-pressed="false">Utilidades</button>
+        <button id="v-logistica" aria-pressed="false">Logística</button>
+        <button id="v-cima" aria-pressed="false">De cima</button>
+        <button id="v-tour" aria-pressed="false">Tour</button>
+      </div>
+      <div class="group" aria-label="Produção">
+        <label class="model" for="scenario">Cenário
+          <select id="scenario">
+            <option value="atual">Atual (manual)</option>
+            <option value="amr">AMR</option>
+            <option value="amr-ia">AMR + IA</option>
+          </select>
+        </label>
+        <button id="b-play" aria-pressed="false">Pausar</button>
+        <button id="b-speed" aria-pressed="false" title="Velocidade da simulação">30×</button>
+        <button id="b-heat" aria-pressed="false" title="Cor das máquinas: estado agora ou utilização média">Utilização</button>
+      </div>
+      <div class="group" aria-label="Exibição">
+        <button id="b-labels" aria-pressed="true">Etiquetas</button>
+        <button id="b-quality" aria-pressed="false">Qualidade alta</button>
+        <button id="b-kpi" aria-pressed="true">Painel</button>
+        <button id="b-shot" aria-pressed="false">Gerar PNG</button>
+      </div>
+    </div>
+  </header>
+
+  <div id="stage">
+    <div class="legend" id="legend" aria-label="Legenda"></div>
+    <div class="info" id="info" hidden role="dialog" aria-labelledby="info-title">
+      <div class="info-head"><h2 id="info-title"></h2><button id="info-close" aria-label="Fechar">×</button></div>
+      <p class="info-sub" id="info-sub"></p>
+      <dl id="info-dl"></dl>
+    </div>
+    <div class="modal" id="modal" hidden>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="shot-title">
+        <div class="row">
+          <p id="shot-title" class="shot-title">Imagem em alta resolução</p>
+          <button id="b-close">Fechar</button>
+        </div>
+        <form class="shot-opts" id="shot-form">
+          <label for="shot-res">Resolução
+            <select id="shot-res">
+              <option value="1920">Full HD · 1920 px</option>
+              <option value="2560">QHD · 2560 px</option>
+              <option value="3840" selected>4K · 3840 px</option>
+              <option value="5760">6K · 5760 px</option>
+            </select>
+          </label>
+          <label for="shot-aspect">Formato
+            <select id="shot-aspect">
+              <option value="view">Igual à tela</option>
+              <option value="1.7778">16:9</option>
+              <option value="1.3333">4:3</option>
+              <option value="1">Quadrado</option>
+            </select>
+          </label>
+          <label class="chk" for="shot-labels"><input type="checkbox" id="shot-labels" checked> Etiquetas</label>
+          <button type="submit" id="shot-go">Gerar imagem</button>
+        </form>
+        <div class="shot-frame"><img id="shot" alt="Imagem renderizada da planta Memory Flow"></div>
+        <div class="row">
+          <p id="shot-info" class="shot-info" role="status"></p>
+          <a id="shot-dl" class="shot-dl" hidden>Baixar PNG</a>
+        </div>
+        <p id="shot-help" class="shot-help">Para salvar: clique com o botão direito na imagem e escolha “Salvar imagem como”. No celular, toque e segure.</p>
+      </div>
+    </div>
+  </div>
+
+  <aside class="kpi open" id="kpi" aria-label="Indicadores, comparação e parâmetros da planta">
+    <div class="tabs three" role="tablist">
+      <button id="tab-kpi" role="tab" aria-selected="true" aria-controls="pane-kpi">Indicadores</button>
+      <button id="tab-cmp" role="tab" aria-selected="false" aria-controls="pane-cmp">Comparar</button>
+      <button id="tab-par" role="tab" aria-selected="false" aria-controls="pane-par">Parâmetros</button>
+    </div>
+
+    <section id="pane-kpi" role="tabpanel" aria-labelledby="tab-kpi">
+      <header><span id="k-clock">Planta</span><span class="live">ao vivo</span></header>
+      <p class="scen" id="k-scen"></p>
+      <div class="grid">
+        <div><b id="k-lots">—</b><span>Lotes expedidos por dia</span></div>
+        <div><b id="k-chips">—</b><span>Chips por mês (equivalente)</span></div>
+        <div><b id="k-lead">—</b><span>Lead time médio</span></div>
+        <div><b id="k-wip">—</b><span>WIP médio (lotes)</span></div>
+      </div>
+
+      <h3>Gargalo</h3>
+      <p class="bott" id="k-bott">—</p>
+
+      <h3>Etapas do processo</h3>
+      <table class="cells">
+        <thead><tr><th scope="col">Etapa</th><th scope="col">Utilização</th><th scope="col">Fila</th></tr></thead>
+        <tbody id="stage-rows"></tbody>
+      </table>
+      <details class="steps">
+        <summary>As 35 operações do roteiro</summary>
+        <table class="cells"><thead><tr><th scope="col">Operação</th><th scope="col">Utilização</th><th scope="col">Espera</th></tr></thead><tbody id="step-rows"></tbody></table>
+      </details>
+
+      <h3>Movimentação de materiais</h3>
+      <div class="grid small">
+        <div><b id="k-fleet">—</b><span id="k-fleet-l">Frota</span></div>
+        <div><b id="k-occ">—</b><span>Ocupação da frota</span></div>
+        <div><b id="k-wait">—</b><span>Espera média por coleta</span></div>
+        <div><b id="k-moves">—</b><span>Movimentações por dia</span></div>
+      </div>
+
+      <h3>OEE do gargalo <small>(simulado)</small></h3>
+      <div class="oee">
+        <div><b id="o-av">—</b><span>Disponibilidade</span></div>
+        <div><b id="o-pf">—</b><span>Performance</span></div>
+        <div><b id="o-q">—</b><span>Qualidade</span></div>
+        <div class="total"><b id="o-oee">—</b><span>OEE</span></div>
+      </div>
+      <p class="note">Disponibilidade: tempo sem parada nas máquinas do gargalo. Performance: tempo produzindo ÷ tempo disponível. Qualidade: 100%, porque refugo e retrabalho ainda não estão no modelo.</p>
+
+      <h3>Agora</h3>
+      <ul id="st-list"></ul>
+    </section>
+
+    <section id="pane-cmp" role="tabpanel" aria-labelledby="tab-cmp" hidden>
+      <p class="note">Roda os três cenários com os mesmos parâmetros e a mesma sequência de lotes: 7 dias de aquecimento e 14 dias medidos. Também repete a conta com a liberação 33% maior, para ver quanto cada cenário aguenta.</p>
+      <button type="button" id="c-run" class="btn">Comparar cenários</button>
+      <div id="c-out" role="status"></div>
+    </section>
+
+    <section id="pane-par" role="tabpanel" aria-labelledby="tab-par" hidden>
+      <form id="params" class="params">
+        <p class="warn">Valores provisórios. Os documentos trazem a sequência, as áreas e as máquinas, mas não os tempos. Substitua pelos dados da Adata Technology.</p>
+        <fieldset>
+          <legend>Produção</legend>
+          <label for="p-release">Lotes liberados por dia</label>
+          <input id="p-release" type="number" min="1" max="60" step="0.5" inputmode="decimal">
+          <p class="hint" id="p-release-h"></p>
+          <div class="mix" id="p-mix"></div>
+          <p class="hint">Mix por família, em %. Lote de 25 wafers.</p>
+        </fieldset>
+        <fieldset>
+          <legend>Movimentação manual (cenário atual)</legend>
+          <div class="two">
+            <label>Operadores<input id="p-ops" type="number" min="1" max="40" step="1" inputmode="numeric"></label>
+            <label>Dedicação (%)<input id="p-share" type="number" min="10" max="100" step="5" inputmode="numeric"></label>
+          </div>
+          <label for="p-record">Registro por movimentação (min)</label>
+          <input id="p-record" type="number" min="0" max="30" step="0.5" inputmode="decimal">
+          <p class="hint">Dedicação: parte do tempo que os operadores dão à movimentação (no resto, operam máquinas). Registro: checklist em papel e lançamento no sistema.</p>
+        </fieldset>
+        <fieldset>
+          <legend>Cenários propostos</legend>
+          <div class="two">
+            <label>AMRs<input id="p-amrs" type="number" min="1" max="30" step="1" inputmode="numeric"></label>
+            <label>Inspeção IA (min/lote)<input id="p-insai" type="number" min="1" max="600" step="1" inputmode="numeric"></label>
+          </div>
+          <p class="hint">AMR a 1 m/s, carga e descarga de 30 s, registro automático no MES e despacho que prioriza máquina parada por falta de lote.</p>
+        </fieldset>
+        <fieldset>
+          <legend>Máquinas</legend>
+          <div class="two">
+            <label>Disponibilidade (%)<input id="p-avail" type="number" min="50" max="100" step="1" inputmode="numeric"></label>
+            <label>Reparo médio (min)<input id="p-mttr" type="number" min="5" max="1440" step="5" inputmode="numeric"></label>
+          </div>
+          <details class="steps">
+            <summary>Tempo de ciclo por operação (min/lote)</summary>
+            <table class="cells" id="p-steps"></table>
+          </details>
+        </fieldset>
+        <div class="actions">
+          <button type="submit" id="p-apply">Aplicar e reiniciar a planta</button>
+          <button type="button" id="p-reset" class="link">Restaurar valores padrão</button>
+          <span id="p-status" role="status"></span>
+        </div>
+      </form>
+    </section>
+
+    <footer>Arraste para girar · role para zoom · botão direito move · clique numa máquina para ver os dados<br><br>
+      Estudo conceitual. O layout foi reconstruído da Planta Baixa Rev. C: geometria equivalente de 120 × 90 m, que não é as-built. Os tempos, o mix e as frotas são provisórios. Parceria Conecthus + Lade. <a href="/">Voltar ao portal</a></footer>
+  </aside>
+</div>
+<script type="module" src="/src/projects/memory-flow/main.ts"></script>
+</body>
+</html>

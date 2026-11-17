@@ -21,14 +21,25 @@ src/
     andon.ts · labels.ts · views.ts torre de sinalização, etiquetas, câmeras e tour
     kpi.ts                          UPH e OEE (funções puras)
     shot.ts                         PNG em alta resolução
+    des.ts                          eventos discretos: fila no tempo e sorteio com semente (dias em milissegundos)
+    paths.ts                        rotas no piso: grafo de corredores, menor caminho, posição na rota (AGV, AMR, carrinho)
+    beacons.ts · merge.ts           luzes de estado instanciadas; junção da geometria estática por material
+    ui/                             sim.css (layout das páginas), dom.ts, shot-modal.ts (diálogo do PNG)
   projects/transfer-flow/           Transfer Flow 3D
     config.ts                       medidas, layout, modelos de TV, câmeras, etiquetas
     world.ts                        monta a linha, alimenta, avança no tempo, reinicia
     transfers.ts                    Transfer 1 e 2: divisão do trabalho, poses, intertravamento
     inspection.ts                   célula de inspeção com IA
     products.ts                     TV, suporte da montagem, pallet de teste
-    ui/                             painel de indicadores, parâmetros, PNG
+    ui/                             painel de indicadores, parâmetros
     main.ts                         liga tudo e roda o laço
+  projects/memory-flow/             Memory Flow 3D (planta de memórias da Adata Technology)
+    layout.ts                       áreas, 219 equipamentos e corredores da planta baixa Rev. C (troque pelo DXF quando chegar)
+    process.ts                      famílias, roteiro de 35 operações, tempos (provisórios), cenários
+    engine.ts                       fluxo de lotes por eventos discretos: filas, falhas, frota, indicadores
+    machines.ts · plant3d.ts        modelos dos equipamentos e a planta em 3D
+    actors.ts                       lotes, operadores com carrinho e AMRs
+    ui/                             indicadores, comparação de cenários, parâmetros, cartão do equipamento
   portal/                           portal
 public/
   projetos.json                     lista de projetos do portal
@@ -36,8 +47,9 @@ public/
   assets/ur10e/*.dae · assets/env/  modelos originais do UR10e e HDRI do galpão
   licencas/                         licenças de terceiros
 tests/
-  unit/                             Vitest: pista, esteira, IK, indicadores
-  e2e/                              Playwright: página sem erros, vazão de referência por modelo
+  unit/                             Vitest: pista, esteira, IK, indicadores, rotas, eventos, planta e fluxo da Memory Flow
+  e2e/                              Playwright: páginas sem erros, vazão e fluxo de referência, portal
+  e2e/capa.spec.ts                  gera a capa de um projeto (só com CAPA=<id>)
 ```
 
 ## Comandos
@@ -63,6 +75,21 @@ Se a lógica da linha mudar de propósito, meça de novo e atualize os números 
 A página aceita `?model=65` (modelo inicial) e `?bench=10` (roda 10 minutos simulados de uma vez e publica
 o resultado em `window.__bench`).
 
+`tests/unit/memory-flow.test.ts` e `tests/e2e/memory-flow.spec.ts` rodam a Memory Flow por 14 dias, depois de
+7 dias de aquecimento, nos três cenários, com os parâmetros padrão e a semente 1. Eles exigem exatamente os lotes
+expedidos, o lead time e o gargalo de referência. A Memory Flow aceita `?cenario=amr` e `?bench=14` (publica em
+`window.__mfBench`). Os tempos de ciclo são provisórios. Quando chegarem os dados do cliente, meça de novo e
+atualize as duas tabelas no mesmo commit.
+
+## Capa de um projeto
+
+```
+npm run build
+CAPA=memory-flow-3d npx playwright test tests/e2e/capa.spec.ts
+```
+
+Gera `public/capas/<id>.png` (1600 × 900) em qualidade alta, sem barra, painel e legenda.
+
 ## Adicionar um projeto
 
 1. Criar `src/projects/<id>/` usando a biblioteca `src/sim/`.
@@ -85,6 +112,9 @@ o resultado em `window.__bench`).
 ```
 
 Status aceitos: `estudo`, `validacao`, `aprovado`, `implantacao`, `pausado`.
+
+Quando os rótulos "UPH", "Robôs", "Produtos" e "Estações" não servirem, `metricLabels` troca o rótulo de cada
+métrica. Exemplo: `"metricLabels": { "uph": "Capacidade" }`.
 
 ## Publicação
 
