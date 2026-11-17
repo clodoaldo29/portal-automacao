@@ -121,7 +121,7 @@ const LABELS: LabelDef[] = [
   { lines: ['Sensor 3D (laser) + bico de sucção'], x: 0, y: 1.45, z: 0.1 },
   { lines: ['Empilhador de entrada'], x: -0.85, y: 1.6, z: 0 },
   { lines: ['Empilhador de saída'], x: 0.85, y: 1.6, z: 0 },
-  { lines: ['Bandeja de descarte'], x: 0.42, y: 1.1, z: 0.42 },
+  { lines: ['Bandeja de descarte'], x: 0.2, y: 1.1, z: 0.42 },
 ];
 for (let i = 0; i < 150; i++) cell.step(1 / 30);
 cell.resetStats();
@@ -131,7 +131,7 @@ page.start({
     maquina: { pos: [1.5, 1.9, 2.0], target: [0, 1.0, 0] },
     sensor: { pos: [0.18, 1.12, 0.32], target: [0, 0.95, 0] },
     bandeja: { pos: [0.02, 1.45, 0.25], target: [0, 0.94, 0.0] },
-    descarte: { pos: [0.75, 1.3, 0.85], target: [0.42, 0.95, 0.36] },
+    descarte: { pos: [0.55, 1.3, 0.9], target: [0.2, 0.95, 0.36] },
     cima: { pos: [0, 3.2, 0.01], target: [0, 0.9, 0] },
   },
   tour: { positions: [[1.6, 1.9, 2.0], [0.4, 1.3, 0.6], [-1.4, 1.6, 1.2], [-1.2, 1.8, -1.4], [1.3, 1.6, -1.2]], targets: [[0, 1, 0], [0, 0.96, 0], [-0.4, 1, 0], [0, 1, 0], [0.4, 1, 0]], seconds: 40 },

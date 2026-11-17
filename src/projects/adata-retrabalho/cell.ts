@@ -15,7 +15,8 @@ const TABLE = 0.94;
 const TRAY = { l: 0.3226, w: 0.1359, h: 0.00762, cols: 20, rows: 8 };
 export const PER_TRAY = TRAY.cols * TRAY.rows;
 const X_IN = -0.85, X_SCAN = 0, X_OUT = 0.85;
-const REJ = { x: 0.42, z: 0.36 };
+/** Reject tray: front of the table, clear of the gantry posts (x ±0.5, z ±0.36). */
+const REJ = { x: 0.2, z: 0.36 };
 const HEAD_Y = 1.12;
 const pocket = (i: number) => ({ x: (i % TRAY.cols - (TRAY.cols - 1) / 2) * 0.0158, z: (Math.floor(i / TRAY.cols) - (TRAY.rows - 1) / 2) * 0.0165 });
 /** Serpentine scan order over the tray. */
