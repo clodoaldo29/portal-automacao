@@ -13,7 +13,7 @@ import { FONT } from '../memory-flow/config';
 import { bar, num } from '../memory-flow/ui/format';
 import { DEFAULT_PACK, bagsPerHour, chipsPerBag, createPackCell, demandBagsPerHour, type PackParams } from './cell';
 
-const page = createPage({ stage: { shadowFrustum: { left: -6, right: 6, top: 5, bottom: -5, near: 1, far: 60 } }, font: FONT, labelScale: 0.42 });
+const page = createPage({ stage: { shadowFrustum: { left: -6, right: 6, top: 5, bottom: -5, near: 1, far: 60 } }, font: FONT, labelScale: 0.42, labelNear: 1.6 });
 const { stage } = page;
 stage.renderer.toneMappingExposure = 0.88;
 const benchMin = page.num('bench');

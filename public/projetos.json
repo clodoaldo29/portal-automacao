@@ -45,5 +45,17 @@
     "cover": "capas/adata-embalagem.png",
     "url": "projetos/adata-embalagem/",
     "updatedAt": "2026-11-17"
+  },
+  {
+    "id": "adata-retrabalho",
+    "client": "Adata Technology",
+    "name": "Inspeção de ICs Retrabalhados",
+    "status": "estudo",
+    "description": "Projeto 03 do portfólio para semicondutores: inspeção dimensional automática de ICs BGA depois do retrabalho e da reposição de esferas. Um perfilômetro a laser num pórtico XY mede cada esfera (altura, diâmetro, posição) e calcula coplanaridade, esferas ausentes, pontes, deformações e desalinhamento. Os ICs fora de tolerância vão para a bandeja de descarte pelo bico de sucção, com resultado registrado por IC. Compara com a inspeção no microscópio. Estudo conceitual, com valores provisórios.",
+    "metrics": { "uph": "≈ 3.300 ICs/h", "robots": "Pórtico XY + laser 3D", "models": "BGA (FBGA 78)", "stations": "160 ICs por bandeja" },
+    "metricLabels": { "uph": "Capacidade", "robots": "Equipamento", "stations": "Bandeja" },
+    "cover": "capas/adata-retrabalho.png",
+    "url": "projetos/adata-retrabalho/",
+    "updatedAt": "2026-11-17"
   }
 ]

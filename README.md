@@ -47,6 +47,7 @@ src/
       cell.ts · main.ts             UR10e com garra de garfo, cassetes, mesa XY com câmera, AMR; painel
   projects/adata-movimentacao/      Adata 06 · movimentação com AMR (usa o motor e a planta da Memory Flow)
   projects/adata-embalagem/         Adata 05 · embalagem final (dry pack) com UR10e e verificação de etiqueta
+  projects/adata-retrabalho/        Adata 03 · inspeção 3D de ICs retrabalhados (ics.ts: medição das esferas, puro)
   portal/                           portal
 public/
   projetos.json                     lista de projetos do portal

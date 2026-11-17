@@ -28,7 +28,7 @@ test.describe('Adata 05 · embalagem final', () => {
     await page.goto('/projetos/adata-embalagem/');
     await page.click('#b-quality');
     await page.click('#b-wrong');
-    await run(page, 400);
+    await run(page, 900); // ~8% wrong labels: about 6 expected in this time
     await expect(page.locator('#k-ng')).not.toHaveText('0');
     await expect(page.locator('#k-escape')).toHaveText('0');
   });

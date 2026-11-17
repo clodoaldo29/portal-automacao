@@ -15,6 +15,8 @@ export interface PageSetup {
   font: string;
   /** Size of the floating labels (1 = about 1 m wide for a short word). */
   labelScale?: number;
+  /** Hide a label when the camera is closer than this (m): big plates would cover close-up views. */
+  labelNear?: number;
 }
 
 export interface PageRun {
@@ -117,6 +119,10 @@ export function createPage(setup: PageSetup) {
         for (let i = 0; i < n; i++) run.step(dt / n);
       }
       run.frame?.(raw);
+      if (setup.labelNear) {
+        for (const s of labels.sprites) s.userData.culled = s.position.distanceTo(stage.camera.position) < setup.labelNear;
+        labels.restore();
+      }
       if ((panelT += raw) > 0.25) { panelT = 0; run.panel(); }
       views.update(raw);
       stage.controls.update();
