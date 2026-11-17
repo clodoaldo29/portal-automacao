@@ -6,15 +6,17 @@ for (const width of [1280, 800]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto('/');
     const cards = page.locator('article.card');
-    await expect(cards).toHaveCount(2);
-    await page.locator('article.card img').first().evaluate(img => (img as HTMLImageElement).decode?.().catch(() => {}));
-    const boxes = await cards.evaluateAll(els => els.map(e => e.getBoundingClientRect()).map(r => ({ top: Math.round(r.top), h: Math.round(r.height) })));
-    const buttons = await page.locator('article.card a.open-sim').evaluateAll(els => els.map(e => Math.round(e.getBoundingClientRect().top)));
+    await expect(cards.first()).toBeVisible();
+    const rows = await cards.evaluateAll(els => els.map(e => {
+      const r = e.getBoundingClientRect(), b = e.querySelector('a.open-sim')?.getBoundingClientRect();
+      return { top: Math.round(r.top), h: Math.round(r.height), btn: b ? Math.round(b.top) : -1 };
+    }));
     if (process.env.MF_SHOTS) await page.screenshot({ path: `${process.env.MF_SHOTS}/portal-${width}.png`, fullPage: true });
-    // same row (same top): same height and the button at the same place
-    if (boxes[0].top === boxes[1].top) {
-      expect(boxes[0].h).toBe(boxes[1].h);
-      expect(buttons[0]).toBe(buttons[1]);
+    const byRow = new Map<number, typeof rows>();
+    rows.forEach(r => byRow.set(r.top, [...(byRow.get(r.top) ?? []), r]));
+    for (const row of byRow.values()) {
+      expect(new Set(row.map(r => r.h)).size, 'same height in a row').toBe(1);
+      expect(new Set(row.map(r => r.btn)).size, 'buttons aligned in a row').toBe(1);
     }
   });
 }

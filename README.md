@@ -24,7 +24,8 @@ src/
     des.ts                          eventos discretos: fila no tempo e sorteio com semente (dias em milissegundos)
     paths.ts                        rotas no piso: grafo de corredores, menor caminho, posição na rota (AGV, AMR, carrinho)
     beacons.ts · merge.ts           luzes de estado instanciadas; junção da geometria estática por material
-    ui/                             sim.css (layout das páginas), dom.ts, shot-modal.ts (diálogo do PNG)
+    ui/                             sim.css (layout das páginas), dom.ts, shot-modal.ts (diálogo do PNG),
+                                    page.ts (moldura de página: câmeras, controles, abas, laço; use nos projetos novos)
   projects/transfer-flow/           Transfer Flow 3D
     config.ts                       medidas, layout, modelos de TV, câmeras, etiquetas
     world.ts                        monta a linha, alimenta, avança no tempo, reinicia
@@ -43,6 +44,7 @@ src/
     cell/                           célula de inspeção pós-corte com IA (página projetos/memory-flow-3d/inspecao/)
       wafer.ts                      mapa de dies e defeitos do wafer (funções puras, com semente)
       cell.ts · main.ts             UR10e com garra de garfo, cassetes, mesa XY com câmera, AMR; painel
+  projects/adata-movimentacao/      Adata 06 · movimentação com AMR (usa o motor e a planta da Memory Flow)
   portal/                           portal
 public/
   projetos.json                     lista de projetos do portal

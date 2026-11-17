@@ -126,6 +126,9 @@ export interface Params {
   record: number;
   /** AMR fleet size. */
   amrs: number;
+  /** AMR travel speed (m/s) and minutes to load or unload a lot (optional: 1.0 and 0.5). */
+  amrSpeed?: number;
+  amrHandling?: number;
   /** Machine availability (share of time not stopped by failures) and mean repair time in minutes. */
   avail: number;
   mttr: number;
@@ -157,7 +160,8 @@ export function scenarioSetup(id: ScenarioId, p: Params): { fleet: FleetSpec; ai
   if (id === 'atual') {
     return { fleet: { kind: 'manual', count: p.operators, speed: 0.8, load: 2, unload: 2, record: p.record, door: 3, share: p.share, dispatch: 'fifo' }, aiInspection: false };
   }
-  return { fleet: { kind: 'amr', count: p.amrs, speed: 1.0, load: 0.5, unload: 0.5, record: 0, door: 1, share: 1, dispatch: 'starving' }, aiInspection: id === 'amr-ia' };
+  const h = p.amrHandling ?? 0.5;
+  return { fleet: { kind: 'amr', count: p.amrs, speed: p.amrSpeed ?? 1.0, load: h, unload: h, record: 0, door: 1, share: 1, dispatch: 'starving' }, aiInspection: id === 'amr-ia' };
 }
 
 /** Cycle time of a step for the scenario (overrides, then AI inspection). */

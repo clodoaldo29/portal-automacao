@@ -19,6 +19,7 @@ test.describe('portal cover', () => {
     await page.evaluate(() => {
       const mf = (window as unknown as { __mf?: { stage: { camera: { position: { set: (...a: number[]) => void } }; controls: { target: { set: (...a: number[]) => void }; update: () => void } } } }).__mf;
       if (mf) { mf.stage.camera.position.set(44, 46, 62); mf.stage.controls.target.set(-2, 0, 4); mf.stage.controls.update(); }
+      (window as unknown as { __capa?: () => void }).__capa?.(); // a page can offer its own cover camera
     });
     await page.waitForTimeout(8000);
     await page.locator('#stage canvas').screenshot({ path: `public/capas/${id}.png` });

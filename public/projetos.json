@@ -21,5 +21,17 @@
     "cover": "capas/memory-flow-3d.png",
     "url": "projetos/memory-flow-3d/",
     "updatedAt": "2026-11-17"
+  },
+  {
+    "id": "adata-movimentacao",
+    "client": "Adata Technology",
+    "name": "Movimentação Interna com AMR",
+    "status": "estudo",
+    "description": "Projeto 06 do portfólio para semicondutores: automação da movimentação de wafers e bandejas entre as etapas, nas salas limpas ISO 6 e ISO 7 e nas áreas de teste. AMRs com rotas, pontos de coleta e entrega e estações de recarga, com despacho que prioriza a máquina parada por falta de lote. Compara com a movimentação manual de hoje (espera por coleta, lead time, WIP) e dimensiona a frota. Estudo conceitual, com valores provisórios.",
+    "metrics": { "uph": "≈ 460 mov./dia", "robots": "3 AMRs", "models": "Lotes de 25 wafers", "stations": "35 operações" },
+    "metricLabels": { "uph": "Movimentações", "robots": "Frota", "models": "Carga", "stations": "Roteiro" },
+    "cover": "capas/adata-movimentacao.png",
+    "url": "projetos/adata-movimentacao/",
+    "updatedAt": "2026-11-17"
   }
 ]

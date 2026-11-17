@@ -66,7 +66,7 @@ export function buildPlant(scene: THREE.Scene, opts: PlantOptions = {}) {
   }
   const tape = new THREE.MeshBasicMaterial({ color: 0xf2c230 });
   for (const c of CORRIDORS) for (const z of [c.z0 + 0.3, c.z1 - 0.3]) flat(c.x1 - c.x0 - 0.6, 0.12, tape, (c.x0 + c.x1) / 2, z, 0.01);
-  for (const z of [33, 37, 60, 63]) flat(119.4, 0.1, tape, 60, z, 0.011);
+  for (const z of [33, 37, 60, 63]) flat(119.4, 0.1, tape, 60, z, 0.028);
   const flowMat = new THREE.MeshBasicMaterial({ color: 0xe07b1f });
   for (const l of LANES) {
     if (l.door) continue;
@@ -74,7 +74,7 @@ export function buildPlant(scene: THREE.Scene, opts: PlantOptions = {}) {
     for (let s = 0; s < len; s += 2.4) {
       const u = Math.min(len, s + 1.4), mx = (s + u) / 2 / len;
       const x = l.a.x + (l.b.x - l.a.x) * mx, z = l.a.z + (l.b.z - l.a.z) * mx;
-      const m = flat(u - s, 0.28, flowMat, x, z, 0.013);
+      const m = flat(u - s, 0.28, flowMat, x, z, 0.03);
       m.rotation.z = -Math.atan2(l.b.z - l.a.z, l.b.x - l.a.x);
     }
   }
