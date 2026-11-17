@@ -57,5 +57,17 @@
     "cover": "capas/adata-retrabalho.png",
     "url": "projetos/adata-retrabalho/",
     "updatedAt": "2026-11-17"
+  },
+  {
+    "id": "adata-substratos",
+    "client": "Adata Technology",
+    "name": "Inspeção Inteligente de Substratos",
+    "status": "estudo",
+    "description": "Projeto 02 do portfólio para semicondutores: inspeção automatizada das tiras de substrato antes da montagem. Câmera RGB para partículas, contaminação, resíduos e riscos na metalização, e cabeça multiespectral com índice de oxidação e detecção de corrosão, com a tira em movimento. As unidades fora do limite vão para o mapa X-out enviado ao MES, para o die attach pulá-las, e as tiras com X-out demais seguem para o magazine NG. Estudo conceitual, com valores provisórios.",
+    "metrics": { "uph": "≈ 560 tiras/h", "robots": "RGB + multiespectral", "models": "Tiras de 80 unidades", "stations": "100% das tiras" },
+    "metricLabels": { "uph": "Capacidade", "robots": "Câmeras", "models": "Substrato", "stations": "Cobertura" },
+    "cover": "capas/adata-substratos.png",
+    "url": "projetos/adata-substratos/",
+    "updatedAt": "2026-11-17"
   }
 ]

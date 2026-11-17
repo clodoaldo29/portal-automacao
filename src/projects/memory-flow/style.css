@@ -82,3 +82,4 @@ details.steps .cells { font-size: 13px; }
 .wafer-legend .verdict { font-size: 15px !important; font-weight: 700 !important; }
 canvas.tray-map { width: 100%; height: auto; border-radius: 6px; }
 .wafer-box canvas#ic { width: 150px; height: 200px; }
+.wafer-legend.legend-row { display: flex; flex-wrap: wrap; gap: 4px 12px !important; }

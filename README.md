@@ -48,6 +48,7 @@ src/
   projects/adata-movimentacao/      Adata 06 · movimentação com AMR (usa o motor e a planta da Memory Flow)
   projects/adata-embalagem/         Adata 05 · embalagem final (dry pack) com UR10e e verificação de etiqueta
   projects/adata-retrabalho/        Adata 03 · inspeção 3D de ICs retrabalhados (ics.ts: medição das esferas, puro)
+  projects/adata-substratos/        Adata 02 · inspeção de substratos, RGB + espectral (substrate.ts: modelo da tira, puro)
   portal/                           portal
 public/
   projetos.json                     lista de projetos do portal
