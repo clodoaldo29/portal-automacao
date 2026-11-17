@@ -8,6 +8,7 @@ const pages = {
   portal: 'index.html',
   'transfer-flow-3d': 'projetos/transfer-flow-3d/index.html',
   'memory-flow-3d': 'projetos/memory-flow-3d/index.html',
+  'memory-flow-inspecao': 'projetos/memory-flow-3d/inspecao/index.html',
 };
 
 export default defineConfig({

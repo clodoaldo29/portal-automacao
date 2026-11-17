@@ -40,6 +40,9 @@ src/
     machines.ts · plant3d.ts        modelos dos equipamentos e a planta em 3D
     actors.ts                       lotes, operadores com carrinho e AMRs
     ui/                             indicadores, comparação de cenários, parâmetros, cartão do equipamento
+    cell/                           célula de inspeção pós-corte com IA (página projetos/memory-flow-3d/inspecao/)
+      wafer.ts                      mapa de dies e defeitos do wafer (funções puras, com semente)
+      cell.ts · main.ts             UR10e com garra de garfo, cassetes, mesa XY com câmera, AMR; painel
   portal/                           portal
 public/
   projetos.json                     lista de projetos do portal
@@ -80,6 +83,10 @@ o resultado em `window.__bench`).
 expedidos, o lead time e o gargalo de referência. A Memory Flow aceita `?cenario=amr` e `?bench=14` (publica em
 `window.__mfBench`). Os tempos de ciclo são provisórios. Quando chegarem os dados do cliente, meça de novo e
 atualize as duas tabelas no mesmo commit.
+
+`tests/e2e/memory-flow-cell.spec.ts` roda a célula de inspeção por 45 minutos simulados (`?bench=45`, publica em
+`window.__cellBench`). Ele exige os wafers, os lotes e os reprovados de referência, e erro de IK do UR10e abaixo de
+5 mm, ou seja, que o robô alcance todos os pontos.
 
 ## Capa de um projeto
 

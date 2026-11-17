@@ -28,7 +28,8 @@ function makeOperator() {
   return g;
 }
 
-function makeAmr() {
+/** AMR: low body with a lidar puck and a light strip, deck at 0.37 m. */
+export function makeAmr() {
   const g = new THREE.Group();
   const body = std(0x2b3036, 0.3, 0.45), deck = std(0xd5dae0, 0.4, 0.4), led = new THREE.MeshBasicMaterial({ color: 0x38bdf8, toneMapped: false });
   g.add(at(box(0.62, 0.3, 0.92, body), 0, 0.2, 0));

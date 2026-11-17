@@ -43,6 +43,13 @@ export function createInfoCard(onClose: () => void) {
       row('Paradas', String(m.stops));
       row('Tempo de ciclo', `${num(m.step.minutes, 0)} min/lote${m.slots > 1 ? ` · ${m.slots} lotes por vez` : ''}`);
       row('Fila na área', `${m.step.queue.length} lotes`);
+      if (eq.area === 'P01C' && m.step.def.key === 'INS') {
+        const a = document.createElement('a');
+        a.href = 'inspecao/';
+        a.className = 'cell-link';
+        a.textContent = 'Abrir a célula com IA que substitui as bancadas';
+        row('Proposta', a);
+      }
     } else if (area.zone === 'fac') {
       row('Função', 'Utilidade da planta');
       row('Monitoramento', 'Frente Utilities: tendências e alertas com o histórico existente (a avaliar)');

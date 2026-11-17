@@ -30,7 +30,14 @@ export function shelfSlot(sh: Shelf, i: number): THREE.Vector3 {
 
 const STATUS_EQUIP = (e: Equip) => e.counted && !!e.access;
 
-export function buildPlant(scene: THREE.Scene) {
+export interface PlantOptions {
+  /** Leave these pieces of equipment out (e.g. where a proposed cell replaces them). */
+  exclude?: (e: Equip) => boolean;
+  /** Status caps and beacons on the machines (default on). */
+  status?: boolean;
+}
+
+export function buildPlant(scene: THREE.Scene, opts: PlantOptions = {}) {
   const M = createEquipMaterials();
   const root = new THREE.Group();
   scene.add(root);
@@ -126,7 +133,7 @@ export function buildPlant(scene: THREE.Scene) {
   }
 
   // ---- equipment ----
-  const equipList = EQUIPMENT;
+  const equipList = opts.exclude ? EQUIPMENT.filter(e => !opts.exclude!(e)) : EQUIPMENT;
   for (const e of equipList) {
     const g = buildEquip(e, M, zoneOf(e.area));
     const [X, Z] = W(e.x, e.z);
@@ -172,7 +179,7 @@ export function buildPlant(scene: THREE.Scene) {
   scene.add(pick);
 
   // ---- status: a coloured cap on each machine (seen from far) and a beacon (seen up close) ----
-  const statusEquip = equipList.filter(STATUS_EQUIP);
+  const statusEquip = opts.status === false ? [] : equipList.filter(STATUS_EQUIP);
   const capMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.88, toneMapped: false });
   const caps = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), capMat, statusEquip.length);
   caps.userData.noShadow = true;
