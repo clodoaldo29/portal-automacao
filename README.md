@@ -35,9 +35,10 @@ robots.txt                  bloqueia buscadores
 
 Status aceitos: `estudo`, `validacao`, `aprovado`, `implantacao`, `pausado`.
 
-## Configuração no Cloudflare Pages
+## Configuração no Cloudflare (Workers com arquivos estáticos)
 
-- Framework preset: **None**. Build command: vazio. Build output directory: `/`.
+- `wrangler.jsonc` define o site; `.assetsignore` lista o que não é publicado.
+- No painel: Build command vazio, Deploy command `npx wrangler deploy`.
 - Acesso de clientes: Cloudflare Zero Trust → Access → Applications, uma aplicação por caminho
   (ex.: `/projetos/transfer-flow-3d/*`) com a lista de e-mails liberados.
 
