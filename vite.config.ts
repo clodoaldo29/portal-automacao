@@ -10,6 +10,7 @@ const pages = {
   'memory-flow-3d': 'projetos/memory-flow-3d/index.html',
   'memory-flow-inspecao': 'projetos/memory-flow-3d/inspecao/index.html',
   'adata-movimentacao': 'projetos/adata-movimentacao/index.html',
+  'adata-embalagem': 'projetos/adata-embalagem/index.html',
 };
 
 export default defineConfig({

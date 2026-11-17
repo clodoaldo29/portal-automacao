@@ -21,6 +21,7 @@ src/
     andon.ts · labels.ts · views.ts torre de sinalização, etiquetas, câmeras e tour
     kpi.ts                          UPH e OEE (funções puras)
     shot.ts                         PNG em alta resolução
+    room.ts                         sala de produção em volta de uma célula (piso ESD, paredes, luminárias)
     des.ts                          eventos discretos: fila no tempo e sorteio com semente (dias em milissegundos)
     paths.ts                        rotas no piso: grafo de corredores, menor caminho, posição na rota (AGV, AMR, carrinho)
     beacons.ts · merge.ts           luzes de estado instanciadas; junção da geometria estática por material
@@ -45,6 +46,7 @@ src/
       wafer.ts                      mapa de dies e defeitos do wafer (funções puras, com semente)
       cell.ts · main.ts             UR10e com garra de garfo, cassetes, mesa XY com câmera, AMR; painel
   projects/adata-movimentacao/      Adata 06 · movimentação com AMR (usa o motor e a planta da Memory Flow)
+  projects/adata-embalagem/         Adata 05 · embalagem final (dry pack) com UR10e e verificação de etiqueta
   portal/                           portal
 public/
   projetos.json                     lista de projetos do portal

@@ -47,3 +47,37 @@ export function cameraHead(mount: THREE.Object3D, M: Materials) {
   g.add(lens);
   return lens;
 }
+
+export interface VacuumPlateSpec {
+  /** Plate size along local x and z (m). */
+  w: number;
+  d: number;
+  /** Flange → cup faces, along the tool axis (local −y). */
+  drop: number;
+  /** Cups along x and z. */
+  nx?: number;
+  nz?: number;
+}
+
+/**
+ * Flat vacuum plate for trays, bags and boxes, held under the flange (tool pointing down).
+ * Returns the grip point (centre of the cup faces): attach picked items to it.
+ */
+export function vacuumPlate(mount: THREE.Object3D, M: Materials, { w, d, drop, nx = 3, nz = 2 }: VacuumPlateSpec) {
+  const g = new THREE.Group();
+  mount.add(g);
+  g.add(at(cyl(0.045, 0.045, 0.04, M.aluDark, 20), 0, -0.02, 0));
+  g.add(at(box(0.06, drop - 0.06, 0.06, M.alu), 0, -(drop - 0.06) / 2 - 0.04, 0));
+  g.add(at(box(w, 0.015, d, M.aluDark), 0, -drop + 0.035, 0));
+  for (let i = 0; i < nx; i++) for (let k = 0; k < nz; k++) {
+    const x = nx > 1 ? -w / 2 + 0.04 + (i * (w - 0.08)) / (nx - 1) : 0, z = nz > 1 ? -d / 2 + 0.035 + (k * (d - 0.07)) / (nz - 1) : 0;
+    g.add(at(cyl(0.006, 0.006, 0.02, M.alu, 8), x, -drop + 0.018, z));
+    g.add(at(cyl(0.018, 0.022, 0.012, M.rubber, 14), x, -drop + 0.006, z));
+  }
+  g.add(at(box(0.06, 0.04, 0.05, M.blue), 0.06, -0.06, 0)); // vacuum generator
+  shadowify(g);
+  const grip = new THREE.Object3D();
+  grip.position.y = -drop;
+  g.add(grip);
+  return grip;
+}
