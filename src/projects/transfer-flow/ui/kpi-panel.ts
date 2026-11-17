@@ -2,7 +2,7 @@
 // and the state of each station.
 import { oee, pct, uph } from '../../../sim/kpi';
 import type { Transfer, World } from '../types';
-import { $ } from './dom';
+import { $ } from '../../../sim/ui/dom';
 
 export function createKpiPanel(w: World) {
   const stList = $('st-list');

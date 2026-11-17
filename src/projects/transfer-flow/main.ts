@@ -11,10 +11,10 @@ import { createStage } from '../../sim/stage';
 import { createViews } from '../../sim/views';
 import { FONT, INCHES, LABELS, SHADOW_FRUSTUM, TOUR, VIEWS, type Inch } from './config';
 import { drawInsp } from './inspection';
-import { $ } from './ui/dom';
+import { $ } from '../../sim/ui/dom';
 import { createKpiPanel } from './ui/kpi-panel';
 import { createParamsPanel } from './ui/params-panel';
-import { createShotModal } from './ui/shot-modal';
+import { createShotModal } from '../../sim/ui/shot-modal';
 import { DEFAULT_PARAMS, applyArms, createWorld, mountArms, resetLine, resetStats, step } from './world';
 
 const query = new URLSearchParams(location.search);

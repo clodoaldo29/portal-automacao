@@ -1,7 +1,7 @@
 // Parameters tab: arms on/off, work split, UPH target. Saved in the browser for the next visit.
 import type { Arms, Mode, World } from '../types';
 import { applyArms, resetLine } from '../world';
-import { $ } from './dom';
+import { $ } from '../../../sim/ui/dom';
 
 const PKEY = 'transferflow3d.params.v1';
 type Saved = { arms: Arms; mode: Mode; uph: number };

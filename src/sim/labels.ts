@@ -4,9 +4,22 @@ import { canvasTex, mk } from './kit';
 
 export interface LabelDef { lines: string[]; x: number; y: number; z: number }
 
-export function createLabels(scene: THREE.Scene, font: string) {
+export interface LabelOptions {
+  /** Size multiplier: 1 makes a short word about 1 m wide. */
+  scale?: number;
+  /** Plate colour (default navy). */
+  color?: string;
+}
+
+/**
+ * Floating labels. A sprite with `userData.culled = true` stays hidden even while the labels are switched on
+ * (used for distance culling when there are many of them).
+ */
+export function createLabels(scene: THREE.Scene, font: string, opts: LabelOptions = {}) {
   const sprites: THREE.Sprite[] = [];
+  const scale = opts.scale ?? 1;
   let visible = true;
+  const show = (l: THREE.Sprite, v: boolean) => { l.visible = v && !l.userData.culled; };
 
   function make({ lines, x, y, z }: LabelDef) {
     const fontPx = 44, pad = 24, lh = 52;
@@ -17,7 +30,7 @@ export function createLabels(scene: THREE.Scene, font: string) {
     c.height = Math.ceil(lines.length * lh + pad * 1.2);
     g.font = `600 ${fontPx}px ${font}`;
     const r = 16, W = c.width, H = c.height;
-    g.fillStyle = '#0b3a6b';
+    g.fillStyle = opts.color ?? '#0b3a6b';
     g.strokeStyle = '#ffffff';
     g.lineWidth = 6;
     g.beginPath();
@@ -32,7 +45,7 @@ export function createLabels(scene: THREE.Scene, font: string) {
     lines.forEach((l, i) => g.fillText(l, W / 2, pad * 0.6 + lh * (i + 0.5)));
     const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: canvasTex(c), depthTest: false, transparent: true }));
     sp.renderOrder = 10;
-    sp.scale.set(W / 300, H / 300, 1);
+    sp.scale.set((W / 300) * scale, (H / 300) * scale, 1);
     sp.position.set(x, y, z);
     sp.visible = visible;
     scene.add(sp);
@@ -50,10 +63,10 @@ export function createLabels(scene: THREE.Scene, font: string) {
     sprites,
     build,
     get visible() { return visible; },
-    setVisible(v: boolean) { visible = v; sprites.forEach(l => (l.visible = v)); },
+    setVisible(v: boolean) { visible = v; sprites.forEach(l => show(l, v)); },
     /** Temporarily show or hide without changing the user's choice (PNG export, reflections). */
-    showTemporarily(v: boolean) { sprites.forEach(l => (l.visible = v)); },
-    restore() { sprites.forEach(l => (l.visible = visible)); },
+    showTemporarily(v: boolean) { sprites.forEach(l => show(l, v)); },
+    restore() { sprites.forEach(l => show(l, visible)); },
   };
 }
 

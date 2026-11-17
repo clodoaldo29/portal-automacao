@@ -9,11 +9,18 @@ export interface StageOptions {
   /** Shadow camera bounds fitted to the cell (sharper shadows than covering the whole hall). */
   shadowFrustum: { left: number; right: number; top: number; bottom: number; near: number; far: number };
   fogColor?: number;
+  /** Fog start and end distances (default 45 and 120 m, sized for one cell). */
+  fog?: { near: number; far: number };
+  /** Floor and reflection size in metres (default 140 × 100). */
+  floor?: { w: number; d: number };
+  /** Camera far plane and the furthest the orbit camera may zoom out (defaults 300 and 90 m). */
+  cameraFar?: number;
+  maxDistance?: number;
 }
 
 export type Stage = ReturnType<typeof createStage>;
 
-function floorTex() {
+function floorTex(fw: number, fd: number) {
   const [c, g] = mk(512, 512);
   g.fillStyle = '#b4bac0';
   g.fillRect(0, 0, 512, 512);
@@ -30,7 +37,7 @@ function floorTex() {
   g.strokeRect(1, 1, 510, 510);
   const t = canvasTex(c);
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  t.repeat.set(140 / 6, 100 / 6);
+  t.repeat.set(fw / 6, fd / 6);
   return t;
 }
 
@@ -46,14 +53,15 @@ export function createStage(container: HTMLElement, opts: StageOptions) {
   const scene = new THREE.Scene();
   const fog = opts.fogColor ?? 0xd5dbe1;
   scene.background = new THREE.Color(fog);
-  scene.fog = new THREE.Fog(fog, 45, 120);
+  scene.fog = new THREE.Fog(fog, opts.fog?.near ?? 45, opts.fog?.far ?? 120);
+  const fw = opts.floor?.w ?? 140, fd = opts.floor?.d ?? 100;
 
-  const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 300);
+  const camera = new THREE.PerspectiveCamera(40, 1, 0.1, opts.cameraFar ?? 300);
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.maxPolarAngle = Math.PI * 0.495;
   controls.minDistance = 1;
-  controls.maxDistance = 90;
+  controls.maxDistance = opts.maxDistance ?? 90;
 
   // environment map: a procedural factory hall (overridden by a real HDRI when one is loaded)
   {
@@ -86,14 +94,14 @@ export function createStage(container: HTMLElement, opts: StageOptions) {
   sun.shadow.normalBias = 0.02;
   scene.add(sun);
 
-  const floorMat = new THREE.MeshStandardMaterial({ map: floorTex(), roughness: 0.2, metalness: 0.0, envMapIntensity: 0.9 });
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(140, 100), floorMat);
+  const floorMat = new THREE.MeshStandardMaterial({ map: floorTex(fw, fd), roughness: 0.2, metalness: 0.0, envMapIntensity: 0.9 });
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(fw, fd), floorMat);
   floor.rotation.x = -Math.PI / 2;
   floor.position.y = 0.003;
   floor.receiveShadow = true;
   floor.userData.noShadow = true;
   scene.add(floor);
-  const mirror = new Reflector(new THREE.PlaneGeometry(140, 100), { textureWidth: 1024, textureHeight: 1024, color: new THREE.Color(0x8a939c), clipBias: 0.003 });
+  const mirror = new Reflector(new THREE.PlaneGeometry(fw, fd), { textureWidth: 1024, textureHeight: 1024, color: new THREE.Color(0x8a939c), clipBias: 0.003 });
   mirror.rotation.x = -Math.PI / 2;
   mirror.userData.noShadow = true;
   scene.add(mirror);

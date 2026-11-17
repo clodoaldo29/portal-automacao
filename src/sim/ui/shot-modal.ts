@@ -1,8 +1,8 @@
 // "Gerar PNG" dialog: resolution, aspect, labels; shows the image and offers it as a download.
 import type * as THREE from 'three';
-import type { Labels } from '../../../sim/labels';
-import { renderShot } from '../../../sim/shot';
-import type { Stage } from '../../../sim/stage';
+import type { Labels } from '../labels';
+import { renderShot } from '../shot';
+import type { Stage } from '../stage';
 import { $ } from './dom';
 
 export function createShotModal(stage: Stage, labels: Labels, beforeRender: (camera: THREE.PerspectiveCamera) => void, fileName: (W: number, H: number) => string) {
