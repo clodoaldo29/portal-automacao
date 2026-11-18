@@ -22,6 +22,8 @@ const pages = {
   'adata-microscopia': 'projetos/adata-microscopia/index.html',
   'adata-npi': 'projetos/adata-npi/index.html',
   'adata-inspecao-pos-corte': 'projetos/adata-inspecao-pos-corte/index.html',
+  'smart-solder-a': 'projetos/smart-solder-a/index.html',
+  'smart-solder-b': 'projetos/smart-solder-b/index.html',
 };
 
 export default defineConfig({

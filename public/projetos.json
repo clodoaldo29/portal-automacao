@@ -105,5 +105,29 @@
     "cover": "capas/adata-inspecao-pos-corte.png",
     "url": "projetos/adata-inspecao-pos-corte/",
     "updatedAt": "2026-11-18"
+  },
+  {
+    "id": "smart-solder-a",
+    "client": "Grupo Multilaser",
+    "name": "Smart Solder AI · Arquitetura A",
+    "status": "estudo",
+    "description": "Soldagem robotizada das placas de controles remotos na linha PTH, como alternativa à Wave Solder. Arquitetura A: um braço colaborativo UR10e retira o blank do pallet, alimenta três robôs cartesianos de soldagem em rodízio, com a mesma carga para os três, e devolve o blank soldado ao pallet. Linha reta e unidirecional com retorno automático dos pallets, inserção manual de LEDs IR e molas, identificação do modelo e inspeção pré e pós-solda por visão, separação automática dos blanks NOK, UnLoader em magazines e AMR até a montagem e teste. Estudo conceitual, com valores provisórios.",
+    "metrics": { "uph": "≈ 385 placas/h", "robots": "UR10e + 3 cartesianos", "models": "Blanks de 4 a 10 PCBs", "stations": "150–350 UPH" },
+    "metricLabels": { "uph": "Capacidade", "robots": "Soldagem", "models": "Produto", "stations": "Faixa da proposta" },
+    "cover": "capas/smart-solder-a.png",
+    "url": "projetos/smart-solder-a/",
+    "updatedAt": "2026-11-18"
+  },
+  {
+    "id": "smart-solder-b",
+    "client": "Grupo Multilaser",
+    "name": "Smart Solder AI · Arquitetura B",
+    "status": "estudo",
+    "description": "Soldagem robotizada das placas de controles remotos na linha PTH, como alternativa à Wave Solder. Arquitetura B: três células de soldagem em linha, cada uma com um braço articulado UR10e e ferro de solda. Os pallets entram em lotes de três e os três robôs soldam ao mesmo tempo, um blank inteiro cada, com a mesma carga; a página compara esse lote com a divisão dos pontos em série. Linha reta e unidirecional com retorno automático dos pallets, inserção manual de LEDs IR e molas, identificação do modelo e inspeção pré e pós-solda por visão, separação automática dos blanks NOK, UnLoader em magazines e AMR até a montagem e teste. Estudo conceitual, com valores provisórios.",
+    "metrics": { "uph": "≈ 395 placas/h", "robots": "3× UR10e em paralelo", "models": "Blanks de 4 a 10 PCBs", "stations": "150–350 UPH" },
+    "metricLabels": { "uph": "Capacidade", "robots": "Soldagem", "models": "Produto", "stations": "Faixa da proposta" },
+    "cover": "capas/smart-solder-b.png",
+    "url": "projetos/smart-solder-b/",
+    "updatedAt": "2026-11-18"
   }
 ]

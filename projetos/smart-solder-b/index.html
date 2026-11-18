@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Smart Solder AI · Arquitetura B</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="/src/sim/ui/sim.css">
+<link rel="stylesheet" href="/src/projects/memory-flow/style.css">
+</head>
+<body data-arch="B">
+<div id="app">
+  <header class="bar">
+    <div class="plaque">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l7-7"/><path d="M11 13l3-3 4 4-3 3z"/><path d="M15 9l3-3"/><circle cx="19.5" cy="4.5" r="1.5"/></svg>
+      <h1>SMART SOLDER AI · B</h1>
+      <p>3 células de soldagem com<br>braços robóticos articulados</p>
+    </div>
+    <div class="dock" role="toolbar" aria-label="Controles da cena">
+      <div class="group" aria-label="Câmera">
+        <button id="v-linha" aria-pressed="true">Linha</button>
+        <button id="v-manual" aria-pressed="false">Postos manuais</button>
+        <button id="v-solda" aria-pressed="false">Soldagem</button>
+        <button id="v-inspecao" aria-pressed="false">Inspeção</button>
+        <button id="v-saida" aria-pressed="false">Saída e AMR</button>
+        <button id="v-cima" aria-pressed="false">De cima</button>
+        <button id="v-tour" aria-pressed="false">Tour</button>
+      </div>
+      <div class="group" aria-label="Produção">
+        <button id="b-nok" aria-pressed="false" title="Cerca de 8% das placas reprovadas na inspeção pós-solda; a separação automática leva os blanks ao rack NOK">Simular NOK</button>
+        <button id="b-play" aria-pressed="false">Pausar</button>
+        <button id="b-speed" aria-pressed="false">1×</button>
+      </div>
+      <div class="group" aria-label="Exibição">
+        <button id="b-labels" aria-pressed="true">Etiquetas</button>
+        <button id="b-quality" aria-pressed="false">Qualidade alta</button>
+        <button id="b-kpi" aria-pressed="true">Painel</button>
+        <button id="b-shot" aria-pressed="false">Gerar PNG</button>
+        <button id="b-other" aria-pressed="false" title="Braço robótico alimentando três robôs cartesianos">Ver arquitetura A</button>
+      </div>
+    </div>
+  </header>
+
+  <div id="stage">
+    <div class="modal" id="modal" hidden>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="shot-title">
+        <div class="row">
+          <p id="shot-title" class="shot-title">Imagem em alta resolução</p>
+          <button id="b-close">Fechar</button>
+        </div>
+        <form class="shot-opts" id="shot-form">
+          <label for="shot-res">Resolução
+            <select id="shot-res">
+              <option value="1920">Full HD · 1920 px</option>
+              <option value="2560">QHD · 2560 px</option>
+              <option value="3840" selected>4K · 3840 px</option>
+              <option value="5760">6K · 5760 px</option>
+            </select>
+          </label>
+          <label for="shot-aspect">Formato
+            <select id="shot-aspect">
+              <option value="view">Igual à tela</option>
+              <option value="1.7778">16:9</option>
+              <option value="1.3333">4:3</option>
+              <option value="1">Quadrado</option>
+            </select>
+          </label>
+          <label class="chk" for="shot-labels"><input type="checkbox" id="shot-labels" checked> Etiquetas</label>
+          <button type="submit" id="shot-go">Gerar imagem</button>
+        </form>
+        <div class="shot-frame"><img id="shot" alt="Imagem renderizada da linha Smart Solder AI"></div>
+        <div class="row">
+          <p id="shot-info" class="shot-info" role="status"></p>
+          <a id="shot-dl" class="shot-dl" hidden>Baixar PNG</a>
+        </div>
+        <p id="shot-help" class="shot-help">Para salvar: clique com o botão direito na imagem e escolha “Salvar imagem como”. No celular, toque e segure.</p>
+      </div>
+    </div>
+  </div>
+
+  <aside class="kpi open" id="kpi" aria-label="Indicadores e parâmetros da linha Smart Solder AI">
+    <div class="tabs" role="tablist">
+      <button id="tab-kpi" role="tab" aria-selected="true" aria-controls="pane-kpi">Indicadores</button>
+      <button id="tab-par" role="tab" aria-selected="false" aria-controls="pane-par">Parâmetros</button>
+    </div>
+
+    <section id="pane-kpi" role="tabpanel" aria-labelledby="tab-kpi">
+      <header><span>Linha</span><span class="live">ao vivo</span></header>
+      <div class="grid">
+        <div><b id="k-uph">—</b><span>Placas por hora (UPH)</span></div>
+        <div><b id="k-target">—</b><span>Meta (UPH)</span></div>
+        <div><b id="k-cycle">—</b><span>Um blank a cada</span></div>
+        <div><b id="k-boards">0</b><span>Placas inspecionadas</span></div>
+      </div>
+
+      <h3>Meta × capacidade</h3>
+      <table class="cells"><tbody id="cap-rows"></tbody></table>
+      <p class="note" id="cap-note"></p>
+
+      <h3>Balanceamento dos robôs</h3>
+      <table class="cells">
+        <thead><tr><th scope="col">Robô</th><th scope="col">Blanks</th><th scope="col">Ocupação</th><th scope="col">Estado</th></tr></thead>
+        <tbody id="rob-rows"></tbody>
+      </table>
+      <p class="note" id="bal-note"></p>
+
+      <table class="cmp">
+        <caption>Como dividir o trabalho entre as 3 células</caption>
+        <thead><tr><th scope="col">Estratégia</th><th scope="col">Por blank</th><th scope="col">Placas/h</th></tr></thead>
+        <tbody id="cmp-rows"></tbody>
+      </table>
+      <p class="note">Na linha reta, sem desvio, o lote de três é o mais rápido: os três robôs trabalham ao mesmo tempo, e o alinhamento e a entrada do pallet acontecem uma vez por blank. Em série, cada blank para nas três células.</p>
+
+      <h3>Qualidade</h3>
+      <div class="grid small">
+        <div><b id="q-ok">0</b><span>Placas OK</span></div>
+        <div><b id="q-nok">0</b><span>Placas NOK</span></div>
+        <div><b id="q-inc">0</b><span>Inconclusivas (revisão QA)</span></div>
+        <div><b id="q-seg">0</b><span>Blanks separados no rack NOK</span></div>
+      </div>
+
+      <h3>Postos e logística</h3>
+      <table class="cells">
+        <thead><tr><th scope="col">Posto</th><th scope="col">Ocupação</th><th scope="col">Situação</th></tr></thead>
+        <tbody id="st-rows"></tbody>
+      </table>
+
+      <h3>OEE <small>(simulado)</small></h3>
+      <div class="oee">
+        <div><b id="o-av">—</b><span>Disponibilidade</span></div>
+        <div><b id="o-pf">—</b><span>Performance</span></div>
+        <div><b id="o-q">—</b><span>Qualidade</span></div>
+        <div class="total"><b id="o-oee">—</b><span>OEE</span></div>
+      </div>
+      <p class="note">Disponibilidade: sem paradas simuladas. Performance: placas/h ÷ meta. Qualidade: placas OK ÷ inspecionadas.</p>
+    </section>
+
+    <section id="pane-par" role="tabpanel" aria-labelledby="tab-par" hidden>
+      <form id="params" class="params">
+        <p class="warn">Valores provisórios: modelos de placa, pontos de solda e tempos ainda dependem do levantamento com o Grupo Multi. A faixa da proposta é de 150 a 350 UPH.</p>
+        <fieldset>
+          <legend>Blank e solda</legend>
+          <div class="two">
+            <label>PCBs por blank<input id="p-boards" type="number" min="4" max="10" step="1" inputmode="numeric"></label>
+            <label>Pontos por PCB<input id="p-points" type="number" min="2" max="30" step="1" inputmode="numeric"></label>
+          </div>
+          <div class="two">
+            <label>Segundos por ponto<input id="p-pointS" type="number" min="1.5" max="8" step="0.1" inputmode="decimal"></label>
+            <label>Alinhamento (s)<input id="p-alignS" type="number" min="1" max="10" step="0.5" inputmode="decimal"></label>
+          </div>
+          <p class="hint">O tempo por ponto inclui ir até a junta, encostar, alimentar o fio e levantar. O alinhamento lê as marcas fiduciais do blank.</p>
+        </fieldset>
+        <fieldset>
+          <legend>Células de soldagem</legend>
+          <label class="chk" for="p-cell0"><input type="checkbox" id="p-cell0"> Célula 1</label>
+          <label class="chk" for="p-cell1"><input type="checkbox" id="p-cell1"> Célula 2</label>
+          <label class="chk" for="p-cell2"><input type="checkbox" id="p-cell2"> Célula 3</label>
+        </fieldset>
+        <fieldset>
+          <legend>Postos manuais (s por PCB)</legend>
+          <div class="two">
+            <label>LEDs IR<input id="p-ledS" type="number" min="1" max="15" step="0.5" inputmode="decimal"></label>
+            <label>Molas<input id="p-springS" type="number" min="1" max="15" step="0.5" inputmode="decimal"></label>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Meta e qualidade</legend>
+          <div class="two">
+            <label>Meta (placas/h)<input id="p-target" type="number" min="50" max="1000" step="10" inputmode="numeric"></label>
+            <label>Placas NOK (%)<input id="p-nok" type="number" min="0" max="30" step="0.5" inputmode="decimal"></label>
+          </div>
+        </fieldset>
+        <div class="actions">
+          <button type="submit" id="p-apply">Aplicar e zerar os indicadores</button>
+          <span id="p-status" role="status"></span>
+        </div>
+      </form>
+    </section>
+
+    <footer>Arraste para girar · role para zoom · botão direito move<br><br>
+      Smart Solder AI, Grupo Multi: soldagem robotizada, inspeção e movimentação autônoma de placas de controles remotos na linha PTH, em linha reta e unidirecional, com retorno automático dos pallets. Arquitetura B: três células de soldagem em linha, cada uma com um braço articulado e ferro de solda, trabalhando em paralelo com a mesma carga. UR10e com a cinemática do ROS-Industrial universal_robot e modelos 3D originais (<a href="/licencas/LICENSE-UR10e.txt">licença BSD</a>). Estudo conceitual, com valores provisórios. <a href="/">Portal</a></footer>
+  </aside>
+</div>
+<script type="module" src="/src/projects/smart-solder/main.ts"></script>
+</body>
+</html>
