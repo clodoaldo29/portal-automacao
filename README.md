@@ -25,6 +25,7 @@ src/
     des.ts                          eventos discretos: fila no tempo e sorteio com semente (dias em milissegundos)
     paths.ts                        rotas no piso: grafo de corredores, menor caminho, posição na rota (AGV, AMR, carrinho)
     beacons.ts · merge.ts           luzes de estado instanciadas; junção da geometria estática por material
+    robots/collision.ts             folga entre o braço (elos, ferramenta, carga) e os equipamentos: o robô não pode encostar
     ui/                             sim.css (layout das páginas), dom.ts, shot-modal.ts (diálogo do PNG),
                                     page.ts (moldura de página: câmeras, controles, abas, laço; use nos projetos novos)
   projects/transfer-flow/           Transfer Flow 3D
