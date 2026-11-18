@@ -40,7 +40,9 @@ stage.sun.target.position.copy(origin);
 stage.scene.add(stage.sun.target);
 const M = createMaterials();
 if (standalone) buildRoom(stage.scene, { w: 6, d: 5, x: 0.6, z: -0.2, band: 0x2f6fb0, name: 'Front-end · inspeção pós-corte', font: FONT });
-else buildPlant(stage.scene, { exclude: e => e.area === 'P01C' && (e.tag === 'INS01' || e.tag === 'INS02'), status: false });
+else {
+  buildPlant(stage.scene, { exclude: e => e.area === 'P01C' && (e.tag === 'INS01' || e.tag === 'INS02'), status: false });
+}
 const cell = createCell(stage.scene, M, origin, FONT);
 
 // ---------- labels ----------
@@ -75,7 +77,9 @@ const TOUR = {
 const dock = ['celula', 'robo', 'mesa', 'cassetes', 'planta', 'cima', 'tour'].filter(n => document.getElementById('v-' + n));
 const views = createViews(stage.camera, stage.controls, { views: VIEWS, tour: TOUR, onChange: n => dock.forEach(d => $('v-' + d).setAttribute('aria-pressed', String(d === n))) });
 dock.filter(n => n !== 'tour').forEach(n => ($('v-' + n).onclick = () => views.go(n)));
-$('v-tour').onclick = () => (views.touring ? views.go('celula') : views.startTour());
+/** The page opens on the cell (inside the plant too); "Na planta" shows it at its place. */
+const FIRST = 'celula';
+$('v-tour').onclick = () => (views.touring ? views.go(FIRST) : views.startTour());
 
 // ---------- parameters ----------
 const PKEY = 'memoryflow3d.cell.v1';
@@ -207,9 +211,9 @@ function kpi() {
 
 // ---------- start ----------
 let fitted = false;
-new ResizeObserver(() => { stage.resize(); if (!fitted) { views.go('celula', true); fitted = true; } }).observe(stageEl);
+new ResizeObserver(() => { stage.resize(); if (!fitted) { views.go(FIRST, true); fitted = true; } }).observe(stageEl);
 applyQuality();
-views.go('celula', true);
+views.go(FIRST, true);
 for (let i = 0; i < 300; i++) cell.step(1 / 30); // 10 s: the robot is already moving when the page opens
 cell.resetStats();
 

@@ -31,9 +31,10 @@ test.describe('Memory Flow 3D · inspection cell', () => {
     expect(r!.minClear, `o braço encostou em: ${r!.minClearAt}`).toBeGreaterThan(0);
   });
 
-  test('the plant links to the cell and back', async ({ page }) => {
+  test('the plant opens the cell from the projects menu, and goes back', async ({ page }) => {
     await page.goto('/projetos/memory-flow-3d/');
-    await page.click('#l-cell');
+    await page.click('#m-proj summary');
+    await page.locator('#proj-links a', { hasText: 'Inspeção pós-corte' }).click();
     await expect(page).toHaveURL(/\/projetos\/memory-flow-3d\/inspecao\/$/);
     await expect(page.locator('.plaque p')).toContainText('inspeção pós-corte');
     await page.locator('.dock a.dock-link').click();

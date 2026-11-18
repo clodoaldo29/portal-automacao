@@ -1,6 +1,8 @@
-// Project cells shown inside the Memory Flow plant, at the place where they would be installed (like the post-dicing
-// cell in P01C). The cell stays at the scene origin, so its robot kinematics do not change; the whole plant is
-// built around it, shifted so the chosen plant point lands on the origin, without the equipment the cell replaces.
+// Project cells shown inside the Memory Flow plant, at the place where they would be installed, exactly like the
+// post-dicing cell in P01C: the page opens on the cell, "Na planta" shows it at its place with the plant around, and
+// "Planta" goes back to the whole plant. The cell stays at the scene origin, so its robot kinematics do not change;
+// the whole plant is built around it, shifted so the chosen plant point lands on the origin, without the equipment
+// the cell replaces.
 //
 // A project page shows this mode when its <body> has data-in-plant="1" (pages under projetos/memory-flow-3d/<slug>/).
 import * as THREE from 'three';
@@ -65,7 +67,7 @@ export function buildPlantAround(scene: THREE.Scene, p: Placement) {
   return g;
 }
 
-/** Stage options for a cell page: in the plant the floor, fog and camera range must cover the whole hall. */
+/** Stage options for a cell page: in the plant the floor, fog and camera range must cover the hall. */
 export const plantStage = { fog: { near: 60, far: 260 }, floor: { w: 300, d: 260 }, cameraFar: 600, maxDistance: 120 };
-/** Camera views added in the plant: the whole plant, looking at the cell. */
-export const plantView = { pos: [16, 18, 26] as [number, number, number], target: [0, 0, 0] as [number, number, number] };
+/** "Na planta" view: the cell at its place with the plant around it (the same perspective as the post-dicing cell). */
+export const plantView = { pos: [14, 15, 24] as [number, number, number], target: [0, 0, 0] as [number, number, number] };

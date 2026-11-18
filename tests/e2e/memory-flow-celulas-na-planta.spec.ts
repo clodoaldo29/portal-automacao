@@ -10,21 +10,22 @@ const PAGES = [
 ];
 
 for (const p of PAGES) {
-  test(`${p.slug}: runs inside the plant, with the way back to the plant and to its own page`, async ({ page }) => {
+  test(`${p.slug}: works inside the plant like the post-dicing cell`, async ({ page }) => {
     const errors: string[] = [];
     page.on('pageerror', e => errors.push(e.message));
     page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
     await page.goto(`/projetos/memory-flow-3d/${p.slug}/`);
     await expect(page.locator('#stage canvas')).toBeVisible();
-    await expect(page.locator('#v-planta')).toBeVisible();
+    // like the post-dicing cell: a Memory Flow page, open on the cell, with "Na planta" and the way back to the plant
+    await expect(page.locator('.plaque h1')).toHaveText('MEMORY FLOW');
+    await expect(page.locator('#v-planta')).toHaveAttribute('aria-pressed', 'false');
     await expect(page.locator('.dock a.dock-link[href="../"]')).toBeVisible();
-    await expect(page.locator(`.dock a.dock-link[href="/projetos/adata-${p.slug}/"]`)).toBeVisible();
     await page.click('#b-quality');
     // the plant was built around the cell, in its area
     await expect(page.locator('body')).toHaveAttribute('data-plant-built', p.area);
     await page.evaluate(([g, s]) => { const x = (window as any)[g][s]; for (let i = 0; i < 30 * 400; i++) x.step(1 / 30); (window as any)[g].panel(); }, [p.global, p.sim]);
     await expect(page.locator(p.kpi).first()).not.toHaveText(/^(0|—)$/);
-    if (process.env.MF_SHOTS) { await page.click('#v-planta'); await page.waitForTimeout(2500); await page.screenshot({ path: `${process.env.MF_SHOTS}/np-${p.slug}.png` }); }
+    if (process.env.MF_SHOTS) { await page.click('#v-planta'); await page.waitForTimeout(3000); await page.screenshot({ path: `${process.env.MF_SHOTS}/np-${p.slug}.png` }); }
     expect(errors).toEqual([]);
   });
 }
