@@ -1,6 +1,6 @@
 // Smart Solder AI · Architecture A: one collaborative arm (UR10e) feeds three cartesian soldering robots.
 //
-// The arm stands behind the line between the three cartesians (left, back, right). At PICK it takes the blank off the
+// The three cartesians stand in a row behind the line; the arm stands on the other side and reaches over the belt. At PICK it takes the blank off the
 // pallet (the empty pallet moves on to PLACE and waits), puts it on the table of a cartesian, and later takes the
 // soldered blank back to an empty pallet at PLACE. The arm serves the cartesians in turn (round-robin), so each one
 // solders one blank in three: the same load for the three. Each cartesian aligns on the fiducials and solders every
@@ -10,24 +10,22 @@ import { at, box, cyl, shadowify, std } from '../../sim/kit';
 import type { Materials } from '../../sim/materials';
 import { armClearance, obstacleBox, orientedObstacle, type Obstacle } from '../../sim/robots/collision';
 import { vacuumPlate } from '../../sim/robots/grippers';
-import { LED, makeCobot, poseAt, solve, upgradeArm, urTrack } from '../../sim/robots/ur-arm';
+import { LED, makeCobot, solve, upgradeArm, urTrack } from '../../sim/robots/ur-arm';
 import { UR10E } from '../../sim/robots/ur-kinematics';
 import { runSeq, type Pose, type Step } from '../../sim/sequencer';
 import type { RobotStat } from './arch-b';
 import type { Blank, Pallet, SolderLine } from './line';
-import { A, LINE, PALLET, PCB, type SolderParams } from './model';
+import { A, A_ROW, LINE, PALLET, PCB, type SolderParams } from './model';
 import { cellSign, solderIron, type SolderIron } from './tools';
 
-const ROBOT = { x: 0, z: -0.72, ped: 0.72 };
-/** Cartesian robots: centre, facing (rotation about y; local +z faces the arm). */
-const MACH: { x: number; z: number; ry: number }[] = [
-  { x: -1.02, z: -0.74, ry: Math.PI / 2 },
-  { x: 0, z: -1.56, ry: 0 },
-  { x: 1.02, z: -0.74, ry: -Math.PI / 2 },
-];
+const ROBOT = { x: 0, z: A_ROW.robotZ, ped: 0.72 };
+/** Cartesian robots in a row behind the line, all facing it (local +z faces the line and the arm). */
+const MACH: { x: number; z: number; ry: number }[] = A_ROW.x.map(x => ({ x, z: A_ROW.z, ry: 0 }));
 /** Cartesian local geometry: table top, load position of the table, head plane, iron length. */
-const C = { tableY: 0.81, load: 0.2, headZ: 0, tipLen: 0.3, restY: 0.1, beamY: 0.81 + 0.58 };
-const GRIP = 0.16;
+const C = { tableY: 0.81, load: 0.15, headZ: 0, tipLen: 0.3, restY: 0.2, beamY: 0.81 + 0.58 };
+const GRIP = 0.22;
+/** Reach extension: the vacuum plate hangs this far from the flange, toward the line (−z). */
+const OFF = 0.2;
 let IK_ITERS = 10;
 export const setIkIters = (n: number) => { IK_ITERS = n; };
 
@@ -57,20 +55,20 @@ export function createArchA(scene: THREE.Scene, M: Materials, font: string, line
       if (name) { g.updateMatrixWorld(true); const p = o.getWorldPosition(new THREE.Vector3()); obstacles.push(orientedObstacle(name, p.x, p.y, p.z, w, h, d, m.ry)); }
     };
     const nm = `cartesiano ${i + 1}`;
-    add(nm, at(box(0.66, C.tableY - 0.03, 0.62, machine), 0, (C.tableY - 0.03) / 2, 0), 0.66, C.tableY - 0.03, 0.62);
+    add(nm, at(box(0.64, C.tableY - 0.03, 0.62, machine), 0, (C.tableY - 0.03) / 2, 0), 0.64, C.tableY - 0.03, 0.62);
     for (const sx of [-1, 1]) g.add(at(box(0.03, 0.02, 0.6, rail), sx * 0.15, C.tableY - 0.02, 0));
     // gantry: two columns and the beam, at the back half
-    for (const sx of [-1, 1]) add(nm, at(box(0.06, 0.62, 0.08, M.alu), sx * 0.36, C.tableY + 0.28, C.headZ - 0.09), 0.06, 0.62, 0.08);
-    add(nm, at(box(0.78, 0.09, 0.09, M.alu), 0, C.tableY + 0.58, C.headZ - 0.09), 0.78, 0.09, 0.09);
-    g.add(at(box(0.74, 0.02, 0.02, rail), 0, C.tableY + 0.6, C.headZ - 0.04));
+    for (const sx of [-1, 1]) add(nm, at(box(0.05, 0.62, 0.08, M.alu), sx * 0.3, C.tableY + 0.28, C.headZ - 0.09), 0.05, 0.62, 0.08);
+    add(nm, at(box(0.66, 0.09, 0.09, M.alu), 0, C.tableY + 0.58, C.headZ - 0.09), 0.66, 0.09, 0.09);
+    g.add(at(box(0.6, 0.02, 0.02, rail), 0, C.tableY + 0.6, C.headZ - 0.04));
     // enclosure: back and sides, roof; the front is open to the arm (light curtain)
     const pane = (w: number, h: number, x: number, y: number, z: number, ry: number) => { const p = new THREE.Mesh(new THREE.PlaneGeometry(w, h), glass); p.position.set(x, y, z); p.rotation.y = ry; p.userData.noShadow = true; g.add(p); };
-    pane(0.66, 0.75, 0, C.tableY + 0.38, -0.34, 0);
-    for (const sx of [-1, 1]) pane(0.6, 0.75, sx * 0.33, C.tableY + 0.38, -0.04, Math.PI / 2);
-    for (const sx of [-1, 1]) g.add(at(box(0.03, 0.8, 0.03, M.yellow), sx * 0.33, C.tableY + 0.4, 0.29));
-    for (const sx of [-1, 1]) { g.updateMatrixWorld(true); const p = new THREE.Vector3(sx * 0.33, C.tableY + 0.38, -0.04).applyMatrix4(g.matrixWorld); obstacles.push(orientedObstacle(nm, p.x, p.y, p.z, 0.03, 0.75, 0.6, m.ry)); }
-    { g.updateMatrixWorld(true); const p = new THREE.Vector3(0, C.tableY + 0.38, -0.34).applyMatrix4(g.matrixWorld); obstacles.push(orientedObstacle(nm, p.x, p.y, p.z, 0.66, 0.75, 0.03, m.ry)); }
-    for (const sx of [-1, 1]) { g.updateMatrixWorld(true); const p = new THREE.Vector3(sx * 0.33, C.tableY + 0.4, 0.29).applyMatrix4(g.matrixWorld); obstacles.push(orientedObstacle(nm, p.x, p.y, p.z, 0.03, 0.8, 0.03, m.ry)); }
+    pane(0.64, 0.75, 0, C.tableY + 0.38, -0.34, 0);
+    for (const sx of [-1, 1]) pane(0.6, 0.75, sx * 0.32, C.tableY + 0.38, -0.04, Math.PI / 2);
+    for (const sx of [-1, 1]) g.add(at(box(0.03, 0.8, 0.03, M.yellow), sx * 0.31, C.tableY + 0.4, 0.29));
+    for (const sx of [-1, 1]) { g.updateMatrixWorld(true); const p = new THREE.Vector3(sx * 0.32, C.tableY + 0.38, -0.04).applyMatrix4(g.matrixWorld); obstacles.push(orientedObstacle(nm, p.x, p.y, p.z, 0.03, 0.75, 0.6, m.ry)); }
+    { g.updateMatrixWorld(true); const p = new THREE.Vector3(0, C.tableY + 0.38, -0.34).applyMatrix4(g.matrixWorld); obstacles.push(orientedObstacle(nm, p.x, p.y, p.z, 0.64, 0.75, 0.03, m.ry)); }
+    for (const sx of [-1, 1]) { g.updateMatrixWorld(true); const p = new THREE.Vector3(sx * 0.31, C.tableY + 0.4, 0.29).applyMatrix4(g.matrixWorld); obstacles.push(orientedObstacle(nm, p.x, p.y, p.z, 0.03, 0.8, 0.03, m.ry)); }
     // the moving table (berço adaptável)
     const table = new THREE.Group();
     g.add(table);
@@ -94,7 +92,7 @@ export function createArchA(scene: THREE.Scene, M: Materials, font: string, line
     sign.scale.setScalar(0.6);
     sign.position.set(0, C.tableY + 0.7, C.headZ - 0.04);
     g.add(sign);
-    const andon = line.andons.make(g, 0.36, C.tableY + 0.62, C.headZ - 0.09);
+    const andon = line.andons.make(g, 0.3, C.tableY + 0.62, C.headZ - 0.09);
     shadowify(g);
     return { i, g, table, head, carriage, iron, actor: { seq: [], pose: restPose() }, state: 'empty', blank: null, heat: false, reserved: false, andon };
   });
@@ -128,21 +126,50 @@ export function createArchA(scene: THREE.Scene, M: Materials, font: string, line
     return steps;
   }
 
-  // ---------- the arm ----------
+  // ---------- the arm, on a linear track (7th axis) along the line ----------
+  // From the aisle side, the end cartesians are ~1.3 m away (the UR10e's limit): the track takes the arm in front of
+  // each one. The pose carries the base position as a 6th value, so it moves smoothly with the arm.
+  const TRACK = { x0: -0.9, x1: 0.9 };
   const arm = makeCobot(scene, M, { x: ROBOT.x, z: ROBOT.z, L1: 0.61, L2: 0.57, ped: ROBOT.ped, pedW: 0.36 });
   arm.tool.rotation.order = 'YXZ';
-  const grip = vacuumPlate(arm.mount, M, { w: 0.3, d: 0.2, drop: GRIP, nx: 3, nz: 2 });
-  const P = (x: number, y: number, z: number, yaw = 0): Pose => [...poseAt(arm, x, z, y + GRIP), 0, yaw];
-  const idle = P(0, 1.15, -0.3);
+  const ext = new THREE.Group();
+  arm.mount.add(ext);
+  const bar = at(box(0.05, 0.04, OFF + 0.05, M.alu), 0, -0.02, -OFF / 2);
+  ext.add(bar);
+  const plateMount = new THREE.Object3D();
+  plateMount.position.z = -OFF;
+  ext.add(plateMount);
+  const grip = vacuumPlate(plateMount, M, { w: 0.3, d: 0.2, drop: GRIP, nx: 3, nz: 2 });
+  shadowify(ext);
+  const baseAt = (x: number) => Math.min(TRACK.x1, Math.max(TRACK.x0, x));
+  /** Pose [φ, r, y over the shoulder, tilt, tool yaw, base x] that puts the grip over (x, z) at height y. */
+  const P = (x: number, y: number, z: number, yaw = 0, bx = baseAt(x)): Pose => {
+    const dx = x - bx, dz = z + OFF - ROBOT.z;
+    return [Math.atan2(-dz, dx), Math.hypot(dx, dz), y + GRIP - arm.shoulderY, 0, yaw, bx];
+  };
+  const idle = P(0, 1.2, ROBOT.z - 0.4, 0, 0);
   upgradeArm(scene, arm, idle, UR10E);
+  function setBase(bx: number) {
+    const ur = arm.ur!;
+    arm.root.position.x = bx;
+    ur.root.position.x = bx;
+    ur.root.updateMatrixWorld(true);
+    ur.rootM.copy(ur.root.matrixWorld);
+  }
+  const track = new THREE.Group();
+  scene.add(track);
+  track.add(at(box(TRACK.x1 - TRACK.x0 + 0.5, 0.06, 0.32, M.dark), 0, 0.03, ROBOT.z));
+  for (const s of [-1, 1]) track.add(at(box(TRACK.x1 - TRACK.x0 + 0.5, 0.025, 0.03, M.alu), 0, 0.072, ROBOT.z + s * 0.11));
+  track.add(at(box(TRACK.x1 - TRACK.x0 + 0.3, 0.05, 0.08, std(0x1b1d22, 0.2, 0.6)), 0, 0.085, ROBOT.z + 0.22)); // cable chain
+  shadowify(track);
   const actor = { seq: [] as Step[], pose: idle.slice() };
   const andonArm = new THREE.Group();
-  andonArm.position.set(0.32, 0, -0.42);
+  andonArm.position.set(0.42, 0, ROBOT.z + 0.32);
   scene.add(andonArm);
   andonArm.add(at(cyl(0.025, 0.025, 1.4, M.alu, 8), 0, 0.7, 0));
   const armAndon = line.andons.make(andonArm, 0, 1.4, 0);
-  for (const sx of [-1.6, 1.6]) { scene.add(at(box(0.05, 2.2, 0.05, M.yellow), sx, 1.1, 0.42)); obstacles.push(obstacleBox('cortina de luz', sx, 1.1, 0.42, 0.05, 2.2, 0.05)); }
-  scene.add(at(box(3.25, 0.06, 0.06, std(0xdfe3e7, 0.4, 0.4)), 0, 2.2, 0.42));
+  // light curtain around the arm, on the aisle side
+  for (const sx of [-1.25, 1.25]) { scene.add(at(box(0.05, 1.9, 0.05, M.yellow), sx, 0.95, ROBOT.z + 0.62)); obstacles.push(obstacleBox('cortina de luz', sx, 0.95, ROBOT.z + 0.62, 0.05, 1.9, 0.05)); }
 
   // line under the arm, stoppers, pallets waiting at PICK and PLACE
   obstacles.push(obstacleBox('esteira', 0, (LINE.top - 0.005) / 2, 0, 3.2, LINE.top - 0.005, LINE.beltW + 0.1));
@@ -160,9 +187,10 @@ export function createArchA(scene: THREE.Scene, M: Materials, font: string, line
     return { x: p.x, y: p.y, z: p.z, yaw: MACH[c.i].ry };
   }
   const SAFE = 1.2, TUCK = 0.42, DOWN = 0.45;
+  /** Tool pulled in close to the base, already over the track position for (x, z). */
   const tucked = (x: number, z: number, y: number, yaw: number): Pose => {
-    const dx = x - ROBOT.x, dz = z - ROBOT.z, d = Math.hypot(dx, dz) || 1;
-    return P(ROBOT.x + (dx / d) * TUCK, y, ROBOT.z + (dz / d) * TUCK, yaw);
+    const bx = baseAt(x), dx = x - bx, dz = z + OFF - ROBOT.z;
+    return [Math.atan2(-dz, dx), TUCK, y + GRIP - arm.shoulderY, 0, yaw, bx];
   };
   const near = (p: Pose): (() => Pose) => () => {
     const q = p.slice(), cur = actor.pose[0];
@@ -171,7 +199,7 @@ export function createArchA(scene: THREE.Scene, M: Materials, font: string, line
     return q;
   };
   const travel = (x: number, y: number, z: number, yaw: number): Step[] => [
-    { toFn: () => { const [phi, , yRel, , yw] = actor.pose; return [phi, TUCK, yRel, 0, yw]; }, dur: 0.5 },
+    { toFn: () => { const [phi, , yRel, , yw, bx] = actor.pose; return [phi, TUCK, yRel, 0, yw, bx]; }, dur: 0.5 },
     { toFn: near(tucked(x, z, SAFE, yaw)), dur: 0.9 },
     { toFn: near(P(x, Math.max(SAFE - 0.12, y + 0.12), z, yaw)), dur: 0.6 },
     { toFn: near(P(x, y, z, yaw)), dur: DOWN },
@@ -179,7 +207,7 @@ export function createArchA(scene: THREE.Scene, M: Materials, font: string, line
   const rise = (x: number, y: number, z: number, yaw: number): Step => ({ toFn: near(P(x, Math.max(SAFE - 0.12, y + 0.12), z, yaw)), dur: DOWN });
   // both home steps are "ready": a new job replaces them, so the arm goes straight from one job to the next
   const home = (): Step[] => [
-    { toFn: () => { const [phi, , yRel, , yw] = actor.pose; return [phi, TUCK, yRel, 0, yw]; }, dur: 0.5, ready: true },
+    { toFn: () => { const [phi, , yRel, , yw, bx] = actor.pose; return [phi, TUCK, yRel, 0, yw, bx]; }, dur: 0.5, ready: true },
     { toFn: near(idle), dur: 0.8, ready: true },
   ];
   /** Pick at PICK, load cartesian c. */
@@ -233,7 +261,8 @@ export function createArchA(scene: THREE.Scene, M: Materials, font: string, line
   }
 
   // ---------- collision ----------
-  const toolBox = new THREE.Box3(), heldBox = new THREE.Box3();
+  // separate boxes for the plate, the extension bar and the blank it holds (one box around all would be far too big)
+  const toolBox = new THREE.Box3(), barBox = new THREE.Box3(), heldBox = new THREE.Box3();
   const gripGroup = grip.parent!;
   function liveObstacles(): Obstacle[] {
     const out = obstacles.slice();
@@ -245,10 +274,13 @@ export function createArchA(scene: THREE.Scene, M: Materials, font: string, line
   }
   function check() {
     gripGroup.updateWorldMatrix(true, true);
-    toolBox.setFromObject(gripGroup);
-    const tools = [toolBox];
+    ext.updateWorldMatrix(true, true);
+    toolBox.makeEmpty();
+    for (const o of gripGroup.children) if (o !== grip) toolBox.expandByObject(o);
+    barBox.setFromObject(bar);
+    const tools = [toolBox, barBox];
     const held = grip.children.find(o => o.type === 'Group');
-    if (held) { held.updateWorldMatrix(true, true); heldBox.setFromObject(held); tools.push(heldBox); }
+    if (held) { heldBox.setFromObject(held); tools.push(heldBox); }
     const r = armClearance(arm, liveObstacles(), tools);
     if (r.min < stats.minClear) { stats.minClear = r.min; stats.minClearAt = `${r.name} (${r.part})`; }
     return r;
@@ -267,6 +299,7 @@ export function createArchA(scene: THREE.Scene, M: Materials, font: string, line
       c.iron.heat(c.heat, dt);
       c.andon.state = c.state === 'work' ? 'run' : 'wait';
     }
+    setBase(actor.pose[5]);
     if (ik) {
       solve(arm, actor.pose);
       const err = urTrack(arm, actor.pose, IK_ITERS);
@@ -279,12 +312,14 @@ export function createArchA(scene: THREE.Scene, M: Materials, font: string, line
 
   return {
     carts, arm, step, arms: [arm],
-    setIk(on: boolean) { ik = on; if (on) { solve(arm, actor.pose); urTrack(arm, actor.pose, 60); } },
+    setIk(on: boolean) { ik = on; if (on) { setBase(actor.pose[5]); solve(arm, actor.pose); urTrack(arm, actor.pose, 60); } },
     get stats() { return stats; },
     resetStats() { stats = newZone(); },
     get cobotBusy() { return actor.seq.some(s => !s.ready); },
     robotState: (i: number) => (!params.cells[i] ? 'desligado' : carts[i].state === 'work' ? 'soldando' : carts[i].state === 'done' ? 'aguardando o braço' : 'vazio'),
     clearance: check,
+    /** Tool box and arm pose (debugging). */
+    debugTool: () => { ext.updateWorldMatrix(true, true); const h = grip.children.find(o => o.type === 'Group'); const b = h ? new THREE.Box3().setFromObject(h) : new THREE.Box3().setFromObject(ext); return { min: b.min.toArray().map(v => +v.toFixed(3)), max: b.max.toArray().map(v => +v.toFixed(3)), pose: actor.pose.map(v => +v.toFixed(3)), seq: actor.seq.length }; },
   };
 }
 

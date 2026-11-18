@@ -5,8 +5,8 @@ import { expect, test } from '@playwright/test';
 // must reach every joint (IK error under 1 cm) and never touch anything (positive clearance during the whole run).
 // When the line logic or its defaults change on purpose, re-measure and update in the same commit.
 const REFERENCE = {
-  a: { minutes: 30, boards: 186, blanks: 31, perRobot: [10, 10, 11] },
-  b: { minutes: 30, boards: 198, blanks: 33, perRobot: [10, 10, 11] },
+  a: { minutes: 30, boards: 186, blanks: 31, perRobot: [11, 10, 10] },
+  b: { minutes: 30, boards: 198, blanks: 33, perRobot: [10, 10, 10] },
 };
 
 const run = (page: import('@playwright/test').Page, seconds: number) =>

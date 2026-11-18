@@ -109,7 +109,7 @@ function monitor(scene: THREE.Scene, M: Materials, x: number, y: number, z: numb
 
 export function createLine(scene: THREE.Scene, M: Materials, font: string, params: SolderParams, rng: Rng) {
   let stats = newStats();
-  buildRoom(scene, { w: 22, d: 8.4, x: 2.2, z: 0.4, band: 0x1f5fd6, name: 'Linha PTH · controles remotos', font });
+  buildRoom(scene, { w: 17.5, d: 8, x: 1.9, z: 0.4, band: 0x1f5fd6, name: 'Linha PTH · controles remotos', font });
 
   // ---------- conveyors ----------
   const mainTrack = new Track([line(LINE.x0, 0, LINE.x1, 0)], false);
@@ -270,23 +270,23 @@ export function createLine(scene: THREE.Scene, M: Materials, font: string, param
   const benchTop = std(0x7a8794, 0.2, 0.6);
   /** Parts shelf over the front of the line and a stopper on the belt. */
   function partsShelf(x: number, colors: number[]) {
-    scene.add(at(box(0.7, 0.03, 0.22, benchTop), x, 1.05, 0.42));
-    for (const s of [-1, 1]) scene.add(at(box(0.03, 0.2, 0.03, M.alu), x + s * 0.33, 0.95, 0.42));
+    scene.add(at(box(0.7, 0.03, 0.22, benchTop), x, 1.05, -0.42));
+    for (const s of [-1, 1]) scene.add(at(box(0.03, 0.2, 0.03, M.alu), x + s * 0.33, 0.95, -0.42));
     colors.forEach((c, i) => {
-      scene.add(at(box(0.16, 0.07, 0.14, std(c, 0.05, 0.6)), x - 0.2 + i * 0.2, 1.1, 0.42));
+      scene.add(at(box(0.16, 0.07, 0.14, std(c, 0.05, 0.6)), x - 0.2 + i * 0.2, 1.1, -0.42));
     });
   }
   function stopper(x: number) { scene.add(at(box(0.04, 0.03, 0.08, M.yellow), x + PALLET.l / 2 + 0.03, LINE.top + 0.015, -0.18)); }
 
   // 1 · blank + IR LEDs
-  const op1 = makeOperator(M); op1.g.position.set(ST.load, 0, 0.82); op1.g.rotation.y = Math.PI; scene.add(op1.g);
-  const op2 = makeOperator(M); op2.g.position.set(ST.spring, 0, 0.82); op2.g.rotation.y = Math.PI; scene.add(op2.g);
+  const op1 = makeOperator(M); op1.g.position.set(ST.load, 0, -0.82); scene.add(op1.g);
+  const op2 = makeOperator(M); op2.g.position.set(ST.spring, 0, -0.82); scene.add(op2.g);
   partsShelf(ST.load, [0x1f5fd6, 0x334155, 0x1f5fd6]);
   partsShelf(ST.spring, [0x94a3b8, 0x64748b, 0x94a3b8]);
   stopper(ST.load); stopper(ST.spring); stopper(ST.pre); stopper(ST.post); stopper(ST.removal);
   // blank supply magazine beside operator 1
   const supply = new THREE.Group();
-  supply.position.set(ST.load - 0.75, 0, 0.62);
+  supply.position.set(ST.load - 0.62, 0, -0.66);
   scene.add(supply);
   supply.add(at(box(0.45, 0.85, 0.4, M.cabinet), 0, 0.425, 0));
   for (let i = 0; i < 12; i++) supply.add(at(box(0.38, 0.004, 0.3, std(0x1b5e34, 0.05, 0.6)), 0, 0.9 + i * 0.022, 0));
@@ -353,7 +353,7 @@ export function createLine(scene: THREE.Scene, M: Materials, font: string, param
   drawScreen(pre, null, ''); drawScreen(post, null, '');
 
   // 6 · removal: operator takes the blank off the pallet and puts it on the blank conveyor
-  const op3 = makeOperator(M); op3.g.position.set(ST.removal + 0.5, 0, 0.82); op3.g.rotation.y = Math.PI; scene.add(op3.g);
+  const op3 = makeOperator(M); op3.g.position.set(ST.removal + 0.6, 0, -0.82); scene.add(op3.g);
 
   // ---------- blank conveyor, NOK sorter, UnLoader ----------
   const outTex = buildConveyor(scene, M, new Track([line(OUT.x0, 0, OUT.x1, 0)], false), 0.36, OUT.top);
@@ -363,19 +363,19 @@ export function createLine(scene: THREE.Scene, M: Materials, font: string, param
   sorter.add(at(box(0.42, 0.02, 0.36, M.aluDark), 0, -0.012, 0));
   for (const sz of [-1, 1]) sorter.add(at(box(0.42, 0.04, 0.02, M.alu), 0, 0.01, sz * 0.19));
   sorter.position.set(OUT.sorter, OUT.top, 0);
-  scene.add(at(box(0.5, 0.25, 0.5, std(0x5f6b7a, 0.2, 0.5)), OUT.sorter, OUT.top - 0.2, 0));
+  scene.add(at(box(0.3, 0.14, 0.42, std(0x5f6b7a, 0.2, 0.5)), OUT.sorter, OUT.top - 0.12, 0));
   const nokRack = new THREE.Group();
-  nokRack.position.set(OUT.sorter, 0, -0.68);
+  nokRack.position.set(OUT.sorter, 0, 0.62);
   scene.add(nokRack);
-  nokRack.add(at(box(0.5, 0.55, 0.42, std(0xd23b3b, 0.1, 0.5)), 0, 0.275, 0));
-  nokRack.add(at(box(0.46, 0.02, 0.38, M.dark), 0, 0.56, 0));
+  nokRack.add(at(box(0.42, 0.55, 0.38, std(0xd23b3b, 0.1, 0.5)), 0, 0.275, 0));
+  nokRack.add(at(box(0.38, 0.02, 0.34, M.dark), 0, 0.56, 0));
   const nokSign = (() => { const [c, g] = mk(256, 96); g.fillStyle = '#d23b3b'; g.fillRect(0, 0, 256, 96); g.fillStyle = '#fff'; g.font = `700 62px ${font}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('NOK', 128, 50); return canvasTex(c); })();
   const ns = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.11), new THREE.MeshBasicMaterial({ map: nokSign }));
-  ns.position.set(0, 0.4, 0.212);
+  ns.position.set(0, 0.4, 0.192);
   nokRack.add(ns);
   shadowify(nokRack);
-  const chute = at(box(0.36, 0.015, 0.4, M.aluDark), OUT.sorter, OUT.top - 0.15, -0.36);
-  chute.rotation.x = -0.55;
+  const chute = at(box(0.36, 0.015, 0.36, M.aluDark), OUT.sorter, OUT.top - 0.17, 0.34);
+  chute.rotation.x = 0.6;
   scene.add(chute);
   const nokPile: THREE.Object3D[] = [];
 
@@ -420,7 +420,7 @@ export function createLine(scene: THREE.Scene, M: Materials, font: string, param
   for (const s of [-1, 1]) { const m = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.1), new THREE.MeshBasicMaterial({ map: amrLogo })); m.position.set(s * 0.282, 0.55, 0); m.rotation.y = s * Math.PI / 2; amr.add(m); }
   shadowify(amr);
   scene.add(amr);
-  const AMR = { x: UNL.x + 0.52, dockZ: -0.22, deck: 0.76, dest: [11.6, 2.4] as [number, number], speed: 0.8 };
+  const AMR = { x: UNL.x + 0.52, dockZ: -0.22, deck: 0.76, dest: [OUT.x1 + 3.2, 2.4] as [number, number], speed: 0.8 };
   amr.position.set(AMR.x, 0, AMR.dockZ);
   let amrBack: Magazine | null = makeMagazine(); // the empty magazine it brings
   amr.attach(amrBack.g);
@@ -544,7 +544,7 @@ export function createLine(scene: THREE.Scene, M: Materials, font: string, param
     if (carry) {
       carry.t += dt; stats.removalT += dt;
       const u = Math.min(1, carry.t / 2.4), e = u * u * (3 - 2 * u);
-      carry.b.obj.position.set(carry.from.x + (OUT_IN - carry.from.x) * e, carry.from.y + (OUT.top + 0.003 - carry.from.y) * e + Math.sin(Math.PI * e) * 0.35, carry.from.z * (1 - e));
+      carry.b.obj.position.set(carry.from.x + (OUT_IN - carry.from.x) * e, carry.from.y + (OUT.top + 0.003 - carry.from.y) * e + Math.sin(Math.PI * e) * 0.5, carry.from.z * (1 - e));
       if (u >= 1) { outs.push({ b: carry.b, x: OUT_IN, state: 'ride' }); carry = null; }
     }
     swing(op3, !!carry || !!jRem, T, 2);
@@ -569,9 +569,9 @@ export function createLine(scene: THREE.Scene, M: Materials, font: string, param
       if (o.state === 'sort') {
         ot.t = (ot.t ?? 0) + dt;
         const u = Math.min(1, ot.t / 1.6);
-        sorter.position.z = -0.18 * Math.sin(Math.PI * Math.min(1, u * 1.6));
-        o.b.obj.position.set(OUT.sorter, OUT.top + 0.003 - u * (OUT.top - 0.58 - nokPile.length * 0.004), -u * 0.68);
-        o.b.obj.rotation.x = -0.5 * Math.sin(Math.PI * u);
+        sorter.position.z = 0.18 * Math.sin(Math.PI * Math.min(1, u * 1.6));
+        o.b.obj.position.set(OUT.sorter, OUT.top + 0.003 - u * (OUT.top - 0.58 - nokPile.length * 0.004), u * 0.62);
+        o.b.obj.rotation.x = 0.5 * Math.sin(Math.PI * u);
         if (u >= 1) {
           o.b.obj.rotation.x = 0;
           o.b.obj.position.y = 0.58 + nokPile.length * 0.004;

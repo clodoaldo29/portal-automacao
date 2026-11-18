@@ -17,7 +17,7 @@ import { createArchA } from './arch-a';
 import { createArchB, type RobotStat } from './arch-b';
 import { createLine, lineUph } from './line';
 import {
-  A_COBOT_S, DEFAULT_SOLDER, LIMITS, MAGAZINE, NOK_HIGH, activeCells, blankS, capacityA, ledStationS, springStationS, strategiesB, type Arch, type SolderParams,
+  A, A_COBOT_S, DEFAULT_SOLDER, LIMITS, MAGAZINE, OUT, ST, NOK_HIGH, activeCells, blankS, capacityA, ledStationS, springStationS, strategiesB, type Arch, type SolderParams,
 } from './model';
 
 const ARCH: Arch = document.body.dataset.arch === 'A' ? 'A' : 'B';
@@ -175,38 +175,39 @@ function panel() {
 
 // ---------- scene views and labels ----------
 const LABELS: LabelDef[] = [
-  { lines: ['1 · Blank no pallet + LEDs IR'], x: -6.6, y: 2.0, z: 0.4 },
-  { lines: ['2 · Inserção das molas'], x: -5.5, y: 2.0, z: 0.4 },
-  { lines: ['3 · Identificação do modelo', 'e inspeção pré-solda'], x: -4.3, y: 2.15, z: 0 },
+  { lines: ['1 · Blank no pallet + LEDs IR'], x: ST.load, y: 2.05, z: -0.6 },
+  { lines: ['2 · Inserção das molas'], x: ST.spring, y: 2.05, z: -0.6 },
+  { lines: ['3 · Identificação do modelo', 'e inspeção pré-solda'], x: ST.pre, y: 2.15, z: 0 },
   ...(ARCH === 'B'
-    ? [{ lines: ['Lote de 3 pallets'], x: -2.9, y: 1.45, z: 0 }, { lines: ['4 · Soldagem: 3 células com braço articulado'], x: 0, y: 2.65, z: -0.4 }]
-    : [{ lines: ['4 · Soldagem: braço + 3 robôs cartesianos'], x: 0, y: 2.65, z: -0.4 }, { lines: ['Retira o blank'], x: -0.85, y: 1.35, z: 0.2 }, { lines: ['Devolve soldado'], x: 0.85, y: 1.35, z: 0.2 }]),
-  { lines: ['5 · Inspeção pós-solda', 'OK · NOK · inconclusivo'], x: 3.3, y: 2.15, z: 0 },
-  { lines: ['6 · Retirada do blank'], x: 4.6, y: 2.0, z: 0.5 },
-  { lines: ['Separação automática NOK'], x: 6.5, y: 1.5, z: -0.6 },
-  { lines: ['UnLoader · magazine'], x: 8.2, y: 2.05, z: 0 },
-  { lines: ['AMR · magazines', 'para montagem e teste'], x: 8.9, y: 1.55, z: -0.3 },
+    ? [{ lines: ['Lote de 3 pallets'], x: ST.buffer - 0.5, y: 1.45, z: 0 }, { lines: ['4 · Soldagem: 3 células com braço articulado'], x: 0, y: 2.65, z: -0.4 }]
+    : [{ lines: ['4 · Soldagem: braço + 3 robôs cartesianos'], x: 0, y: 2.65, z: -0.4 }, { lines: ['Retira o blank'], x: A.pick, y: 1.3, z: 0.1 }, { lines: ['Devolve soldado'], x: A.place, y: 1.3, z: 0.1 }]),
+  { lines: ['5 · Inspeção pós-solda', 'OK · NOK · inconclusivo'], x: ST.post, y: 2.15, z: 0 },
+  { lines: ['6 · Retirada do blank'], x: ST.removal + 0.6, y: 2.05, z: -0.6 },
+  { lines: ['Separação automática NOK'], x: OUT.sorter, y: 1.4, z: 0.62 },
+  { lines: ['UnLoader · magazine'], x: OUT.x1 + 0.22, y: 2.05, z: 0 },
+  { lines: ['AMR · magazines', 'para montagem e teste'], x: OUT.x1 + 0.8, y: 1.55, z: -0.3 },
   { lines: ['Retorno automático dos pallets'], x: -1.5, y: 0.55, z: 0.55 },
 ];
 const VIEWS: Record<string, ViewDef> = {
-  linha: { pos: [1.5, 6.2, 9.8], target: [0.3, 0.8, 0] },
-  solda: ARCH === 'B' ? { pos: [0.6, 2.4, 3.2], target: [0, 1.0, -0.35] } : { pos: [0.3, 3.5, 2.5], target: [0, 0.85, -0.75] },
-  manual: { pos: [-5.0, 2.3, 3.2], target: [-5.6, 1.0, 0] },
-  inspecao: { pos: [3.9, 2.0, 2.6], target: [3.6, 1.0, 0] },
-  saida: { pos: [6.4, 2.6, 4.2], target: [7.7, 0.9, 0.3] },
-  cima: { pos: [0.6, 17, 0.62], target: [0.6, 0, 0.6] },
+  linha: { pos: [1.2, 5.8, 9.2], target: [1.0, 0.8, 0] },
+  solda: ARCH === 'B' ? { pos: [0.6, 2.4, 3.2], target: [0, 1.0, -0.35] } : { pos: [-1.6, 3.0, 3.4], target: [0, 0.9, -0.2] },
+  manual: { pos: [-3.7, 2.2, 2.9], target: [-4.4, 1.0, -0.3] },
+  inspecao: { pos: [3.6, 2.0, 2.6], target: [3.2, 1.0, -0.1] },
+  saida: { pos: [5.0, 2.5, 3.6], target: [6.1, 0.9, 0.1] },
+  cima: { pos: [1.0, 14, 0.62], target: [1.0, 0, 0.6] },
 };
 
 // warm-up: the line is already producing when the page opens (robots follow without IK while it runs)
 zone.setIk(false);
-for (let i = 0; i < 300 * 15; i++) step(1 / 15);
-zone.setIk(true);
+for (let i = 0; i < 280 * 15; i++) step(1 / 15);
+zone.setIk(true); // the last 20 s with IK, so the arms are already following their path when the measurement starts
+for (let i = 0; i < 20 * 30; i++) step(1 / 30);
 line.resetStats(); zone.resetStats();
 
 page.start({
   first: 'linha',
   views: VIEWS,
-  tour: { positions: [[-4.6, 2.6, 3.6], [-0.4, 2.6, 3.4], [3.6, 2.3, 3.0], [7.0, 2.6, 4.0], [1.5, 6, 9]], targets: [[-5.5, 1, 0], [0, 1, -0.4], [3.4, 1, 0], [7.8, 0.9, 0.2], [0.3, 0.8, 0]], seconds: 50 },
+  tour: { positions: [[-3.4, 2.6, 3.4], [-0.4, 2.6, 3.4], [3.4, 2.3, 3.0], [5.4, 2.6, 3.8], [1.2, 5.8, 9.2]], targets: [[-4.4, 1, -0.2], [0, 1, -0.4], [3.2, 1, 0], [6.2, 0.9, 0.1], [1.0, 0.8, 0]], seconds: 50 },
   labels: LABELS,
   speeds: [1, 2, 4, 8, 16],
   step,
@@ -217,7 +218,7 @@ page.start({
 
 declare global { interface Window { __ss: unknown; __ssBench?: { arch: Arch; minutes: number; boards: number; blanks: number; nokBlanks: number; perRobot: number[]; maxIkErr: number; minClear: number; minClearAt: string; ms: number } } }
 window.__ss = { line, zone, za, zb, params, stage, panel, step };
-(window as unknown as { __capa: () => void }).__capa = () => { stage.camera.position.set(-1.6, 3.4, 5.4); stage.controls.target.set(0.6, 0.95, -0.3); stage.controls.update(); };
+(window as unknown as { __capa: () => void }).__capa = () => { stage.camera.position.set(-1.4, 3.3, 5.0); stage.controls.target.set(0.6, 0.95, -0.3); stage.controls.update(); };
 if (benchMin) {
   const t0 = performance.now();
   for (let i = 0, n = Math.round(benchMin * 60 * 30); i < n; i++) step(1 / 30);
