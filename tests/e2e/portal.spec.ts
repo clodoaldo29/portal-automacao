@@ -20,3 +20,11 @@ for (const width of [1280, 800]) {
     }
   });
 }
+
+test('cards follow the order of projetos.json: the first project stays first, new ones go to the end', async ({ page }) => {
+  await page.goto('/');
+  const names = await page.locator('article.card h2').allTextContents();
+  const json = await page.evaluate(() => fetch('/projetos.json').then(r => r.json()));
+  expect(names).toEqual((json as { name: string }[]).map(p => p.name));
+  expect(names[0]).toBe('Transfer Flow 3D');
+});

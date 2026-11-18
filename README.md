@@ -132,6 +132,8 @@ Gera `public/capas/<id>.png` (1600 × 900) em qualidade alta, sem barra, painel 
 
 Status aceitos: `estudo`, `validacao`, `aprovado`, `implantacao`, `pausado`.
 
+Os cartões aparecem na ordem do `projetos.json`: acrescente o projeto novo no fim da lista.
+
 Quando os rótulos "UPH", "Robôs", "Produtos" e "Estações" não servirem, `metricLabels` troca o rótulo de cada
 métrica. Exemplo: `"metricLabels": { "uph": "Capacidade" }`.
 

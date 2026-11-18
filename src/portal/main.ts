@@ -98,11 +98,11 @@ function renderGrid() {
   const grid = $('grid');
   grid.textContent = '';
   const q = $<HTMLInputElement>('q').value.trim().toLowerCase(), cl = $<HTMLSelectElement>('f-client').value;
+  // cards keep the order of projetos.json (the order the projects were added): a new project goes to the end
   const list = projects
     .filter(p => !statusFilter || p.status === statusFilter)
     .filter(p => !cl || p.client === cl)
-    .filter(p => !q || [p.client, p.name, p.description, ...Object.values(p.metrics || {})].join(' ').toLowerCase().includes(q))
-    .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
+    .filter(p => !q || [p.client, p.name, p.description, ...Object.values(p.metrics || {})].join(' ').toLowerCase().includes(q));
   if (!list.length) {
     grid.append(el('div', { className: 'state' }, el('h2', { textContent: projects.length ? 'Nenhum projeto com esses filtros' : 'Nenhum projeto publicado ainda' })));
     return;
