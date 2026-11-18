@@ -88,3 +88,19 @@ canvas.tray-map { width: 100%; height: auto; border-radius: 6px; }
 .gallery canvas { width: 100%; height: auto; border-radius: 6px; }
 .gallery figcaption { line-height: 1.25; }
 .gallery figcaption b { font-size: 13px; font-weight: 700; line-height: 1.2; }
+
+/* dock menu with the shortcuts to every project of the portfolio */
+.dock-menu { position: relative; }
+.dock-menu summary { list-style: none; cursor: pointer; font: 600 14.5px/1 var(--font); color: var(--navy); background: var(--accent); border-radius: 7px; padding: 8px 10px; }
+.dock-menu summary::-webkit-details-marker { display: none; }
+.dock-menu summary::after { content: " ▾"; }
+.dock-menu[open] summary::after { content: " ▴"; }
+.dock-menu summary:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.dock-menu ul { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; list-style: none; margin: 0; padding: 6px; min-width: 260px;
+  background: #fff; border-radius: 10px; box-shadow: 0 10px 28px rgba(8, 24, 44, .3); display: grid; gap: 2px; }
+.dock-menu a { display: grid; grid-template-columns: 34px 1fr; gap: 2px 8px; align-items: center; padding: 7px 8px; border-radius: 7px; text-decoration: none; color: var(--navy); }
+.dock-menu a:hover, .dock-menu a:focus-visible { background: #eef2f6; outline: none; }
+.dock-menu a b { grid-row: span 2; display: grid; place-items: center; height: 28px; border-radius: 6px; color: #fff; font: 700 14px/1 var(--font); }
+.dock-menu a span { font: 600 15px/1.1 var(--font); }
+.dock-menu a small { font: 500 12px/1.2 var(--font); color: #4b6584; }
+@media (max-width: 640px) { .dock-menu ul { position: fixed; left: 16px; right: 16px; top: auto; min-width: 0; } }

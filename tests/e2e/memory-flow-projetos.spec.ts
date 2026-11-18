@@ -29,3 +29,15 @@ test.describe('Memory Flow 3D · projetos na planta', () => {
     await expect(page).toHaveURL(/\/projetos\/adata-embalagem\/$/);
   });
 });
+
+test('the "Projetos Adata" menu has a shortcut to every project', async ({ page }) => {
+  await page.goto('/projetos/memory-flow-3d/');
+  await page.click('#b-quality');
+  await page.click('#m-proj summary');
+  const links = page.locator('#proj-links a');
+  await expect(links).toHaveCount(7);
+  if (process.env.MF_SHOTS) await page.screenshot({ path: `${process.env.MF_SHOTS}/mf-menu.png` });
+  await expect(links.nth(1)).toHaveAttribute('href', '/projetos/adata-substratos/');
+  await links.nth(3).click();
+  await expect(page).toHaveURL(/\/projetos\/adata-npi\/$/);
+});
