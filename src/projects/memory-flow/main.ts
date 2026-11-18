@@ -18,6 +18,7 @@ import { DEFAULT_SPEED, FONT, SHADOW_FRUSTUM, SPEEDS, STATUS_COLOR, TAG_DISTANCE
 import { LAB_EQUIPMENT, WARMUP_DAYS, createEngine, runScenario, type Engine } from './engine';
 import { ZONES, type Zone } from './layout';
 import { buildPlant } from './plant3d';
+import { PLANT_PROJECTS, createProjectsLayer } from './projects-layer';
 import { DEFAULT_PARAMS, FAMILIES, FAMILY_INFO, SCENARIOS, type Params, type ScenarioId } from './process';
 import { createComparePanel } from './ui/compare-panel';
 import { createInfoCard } from './ui/info-card';
@@ -68,14 +69,15 @@ const buildLabels = () => {
   tagLabels.restore();
 };
 buildLabels();
-document.fonts?.load(`600 44px "Barlow Semi Condensed"`).then(buildLabels).catch(() => {});
+const projects = createProjectsLayer(stage.scene, FONT);
+document.fonts?.load(`600 44px "Barlow Semi Condensed"`).then(() => { buildLabels(); projects.rebuild(); }).catch(() => {});
 const labelsProxy = {
   get visible() { return allLabels[0].visible; },
   setVisible(v: boolean) { allLabels.forEach(l => l.setVisible(v)); },
-  showTemporarily(v: boolean) { allLabels.forEach(l => l.showTemporarily(v)); },
-  restore() { allLabels.forEach(l => l.restore()); },
+  showTemporarily(v: boolean) { allLabels.forEach(l => l.showTemporarily(v)); projects.sprites().forEach(s => (s.visible = v && projects.visible)); },
+  restore() { allLabels.forEach(l => l.restore()); projects.restore(); },
 };
-stage.hiddenInReflection.objects = () => allLabels.flatMap(l => l.sprites);
+stage.hiddenInReflection.objects = () => [...allLabels.flatMap(l => l.sprites), ...projects.sprites()];
 stage.hiddenInReflection.restore = () => labelsProxy.restore();
 stage.finalizeShadows();
 
@@ -94,6 +96,7 @@ stage.finalizeShadows();
   row('Lotes', FAMILIES.map(f => [FAMILY_INFO[f].color, FAMILY_INFO[f].name]));
   row('Máquinas', [[STATUS_COLOR.run, 'produzindo'], [STATUS_COLOR.idle, 'aguardando lote'], [STATUS_COLOR.down, 'parada'], [STATUS_COLOR.lab, 'laboratório']]);
   row('Áreas', (['iso6', 'iso7', 'proc', 'insp', 'log', 'fac'] as Zone[]).map(z => [ZONES[z].strong, ZONES[z].name.split(' / ')[0]]));
+  row('Projetos', PLANT_PROJECTS.map(p => [parseInt(p.color.slice(1), 16), p.num]));
 }
 
 // ---------- engine ----------
@@ -210,6 +213,8 @@ canvas.addEventListener('pointerup', e => {
   const r = canvas.getBoundingClientRect();
   ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
   ray.setFromCamera(ptr, stage.camera);
+  const proj = projects.pick(ray);
+  if (proj) { location.href = proj.url; return; }
   const hit = ray.intersectObject(plant.pick)[0];
   if (hit?.instanceId == null) { info.close(); return; }
   const eq = plant.equipList[hit.instanceId];
@@ -274,3 +279,16 @@ function frame() {
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
+
+// ---------- "Projetos" layer: button, hand cursor over the pins ----------
+const projBtn = document.getElementById('b-proj');
+if (projBtn) projBtn.onclick = () => { projects.setVisible(!projects.visible); projBtn.setAttribute('aria-pressed', String(projects.visible)); };
+canvas.addEventListener('pointermove', e => {
+  const r = canvas.getBoundingClientRect();
+  ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(ptr, stage.camera);
+  const p = projects.pick(ray);
+  canvas.style.cursor = p ? 'pointer' : '';
+  canvas.title = p ? `${p.num} · ${p.name}: ${p.note} Clique para abrir.` : '';
+});
+(window as unknown as { __mfProjects: unknown }).__mfProjects = projects;
