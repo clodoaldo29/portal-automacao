@@ -29,3 +29,15 @@ for (const p of PAGES) {
     expect(errors).toEqual([]);
   });
 }
+
+test('inside a project the projects menu and the way back to the plant stay in the bar', async ({ page }) => {
+  await page.goto('/projetos/memory-flow-3d/embalagem/');
+  await expect(page.locator('.dock a.dock-link[href="../"]')).toBeVisible();
+  await page.click('#m-proj summary');
+  await expect(page.locator('#proj-links a')).toHaveCount(7);
+  await expect(page.locator('#proj-links a[aria-current="page"]')).toContainText('Embalagem final');
+  await page.locator('#proj-links a', { hasText: 'Inspeção pós-corte' }).click();
+  await expect(page).toHaveURL(/\/projetos\/memory-flow-3d\/inspecao\/$/);
+  await expect(page.locator('#m-proj summary')).toBeVisible();
+  await expect(page.locator('.dock a.dock-link[href="../"]')).toBeVisible();
+});

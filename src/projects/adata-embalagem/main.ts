@@ -11,6 +11,7 @@ import { $ } from '../../sim/ui/dom';
 import { createPage } from '../../sim/ui/page';
 import { FONT } from '../memory-flow/config';
 import { PLACEMENTS, buildPlantAround, inPlant, plantStage, plantView } from '../memory-flow/in-plant';
+import { mountProjectsMenu } from '../memory-flow/projects-menu';
 /** Inside the Memory Flow plant (projetos/memory-flow-3d/embalagem/) or on its own page. */
 const IN_PLANT = inPlant();
 import { bar, num } from '../memory-flow/ui/format';
@@ -146,3 +147,4 @@ if (benchMin) {
   useUR10eMeshes([cell.arm], `${base}assets/ur10e/`).catch(err => console.warn('UR10e meshes not loaded', err));
   useHDRI(stage.renderer, stage.scene, `${base}assets/env/empty_warehouse_01_1k.hdr`).catch(err => console.warn('HDRI not loaded', err));
 }
+mountProjectsMenu(); // the projects menu, on the pages inside the plant

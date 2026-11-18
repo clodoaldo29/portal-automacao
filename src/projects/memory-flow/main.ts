@@ -19,6 +19,7 @@ import { LAB_EQUIPMENT, WARMUP_DAYS, createEngine, runScenario, type Engine } fr
 import { ZONES, type Zone } from './layout';
 import { buildPlant } from './plant3d';
 import { PLANT_PROJECTS, createProjectsLayer } from './projects-layer';
+import { mountProjectsMenu } from './projects-menu';
 import { DEFAULT_PARAMS, FAMILIES, FAMILY_INFO, SCENARIOS, type Params, type ScenarioId } from './process';
 import { createComparePanel } from './ui/compare-panel';
 import { createInfoCard } from './ui/info-card';
@@ -294,23 +295,4 @@ canvas.addEventListener('pointermove', e => {
 (window as unknown as { __mfProjects: unknown }).__mfProjects = projects;
 
 // ---------- "Projetos Adata" menu in the dock: a shortcut to every project's page ----------
-{
-  const ul = document.getElementById('proj-links'), menu = document.getElementById('m-proj') as HTMLDetailsElement | null;
-  if (ul && menu) {
-    for (const p of PLANT_PROJECTS) {
-      const a = document.createElement('a'), b = document.createElement('b'), s = document.createElement('span'), sm = document.createElement('small');
-      a.href = p.plant ?? p.url;
-      b.textContent = p.num;
-      b.style.background = p.color;
-      s.textContent = p.name;
-      sm.textContent = p.note;
-      a.append(b, s, sm);
-      const li = document.createElement('li');
-      li.appendChild(a);
-      ul.appendChild(li);
-    }
-    // close when clicking elsewhere or pressing Escape
-    document.addEventListener('click', e => { if (menu.open && !menu.contains(e.target as Node)) menu.open = false; });
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') menu.open = false; });
-  }
-}
+mountProjectsMenu();

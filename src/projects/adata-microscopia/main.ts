@@ -10,6 +10,7 @@ import { $ } from '../../sim/ui/dom';
 import { createPage } from '../../sim/ui/page';
 import { FONT } from '../memory-flow/config';
 import { PLACEMENTS, buildPlantAround, inPlant, plantStage, plantView } from '../memory-flow/in-plant';
+import { mountProjectsMenu } from '../memory-flow/projects-menu';
 /** Inside the Memory Flow plant (projetos/memory-flow-3d/microscopia/) or on its own page. */
 const IN_PLANT = inPlant();
 import { minutes, num } from '../memory-flow/ui/format';
@@ -168,3 +169,4 @@ if (benchMin) {
 } else {
   useHDRI(stage.renderer, stage.scene, `${import.meta.env.BASE_URL}assets/env/empty_warehouse_01_1k.hdr`).catch(err => console.warn('HDRI not loaded', err));
 }
+mountProjectsMenu(); // the projects menu, on the pages inside the plant

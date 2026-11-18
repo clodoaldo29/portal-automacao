@@ -104,3 +104,5 @@ canvas.tray-map { width: 100%; height: auto; border-radius: 6px; }
 .dock-menu a span { font: 600 15px/1.1 var(--font); }
 .dock-menu a small { font: 500 12px/1.2 var(--font); color: #4b6584; }
 @media (max-width: 640px) { .dock-menu ul { position: fixed; left: 16px; right: 16px; top: auto; min-width: 0; } }
+.dock-menu a[aria-current="page"] { background: #fff4d6; box-shadow: inset 3px 0 0 var(--accent); }
+.dock-menu a[aria-current="page"] span::after { content: " · aberto"; font-weight: 500; color: #4b6584; }

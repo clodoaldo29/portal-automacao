@@ -15,6 +15,7 @@ import { createShotModal } from '../../../sim/ui/shot-modal';
 import { createViews, type ViewDef } from '../../../sim/views';
 import { FONT } from '../config';
 import { W, buildPlant } from '../plant3d';
+import { mountProjectsMenu } from '../projects-menu';
 import { DEFAULT_PARAMS, INS_AI_MINUTES, STEPS } from '../process';
 import { DEFAULT_CELL_PARAMS, SLOTS, cellRates, createCell, type CellParams } from './cell';
 import { CLASSES, drawWafer } from './wafer';
@@ -256,3 +257,4 @@ function frame() {
 }
 kpi();
 requestAnimationFrame(frame);
+mountProjectsMenu(); // the projects menu, on the page inside the plant
