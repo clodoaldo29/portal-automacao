@@ -81,5 +81,17 @@
     "cover": "capas/adata-microscopia.png",
     "url": "projetos/adata-microscopia/",
     "updatedAt": "2026-11-17"
+  },
+  {
+    "id": "adata-npi",
+    "client": "Adata Technology",
+    "name": "Plataforma NPI",
+    "status": "estudo",
+    "description": "Projeto 04 do portfólio para semicondutores: protótipo de telas da plataforma de industrialização de novos produtos. Cadastro do part number, rota tirada do roteiro da planta, receitas com versões e diferença entre elas, instruções de trabalho, lote piloto e fluxo de aprovação por perfil (Engenharia, Qualidade, Produção) até a liberação no MES. Nada é liberado com receita em rascunho ou lote piloto pendente, e as máquinas só usam versões aprovadas. Protótipo sem 3D, com dados de exemplo.",
+    "metrics": { "uph": "3 a 4 semanas", "robots": "Software (MES)", "models": "Rota, receitas, instruções", "stations": "7 etapas" },
+    "metricLabels": { "uph": "Liberação", "robots": "Tipo", "models": "Cadastro", "stations": "Fluxo" },
+    "cover": "capas/adata-npi.png",
+    "url": "projetos/adata-npi/",
+    "updatedAt": "2026-11-18"
   }
 ]

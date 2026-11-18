@@ -13,6 +13,15 @@ test.describe('portal cover', () => {
   test(`cover for ${id}`, async ({ page }) => {
     test.setTimeout(300_000);
     await page.goto(`/projetos/${id}/`);
+    // pages without 3D (screen prototypes) mark the area for the cover with data-capa
+    if (await page.locator('[data-capa]').count()) {
+      await page.waitForTimeout(1000);
+      await page.evaluate(() => (window as unknown as { __capa?: () => void }).__capa?.());
+      await page.waitForTimeout(500);
+      const box = (await page.locator('[data-capa]').boundingBox())!;
+      await page.screenshot({ path: `public/capas/${id}.png`, fullPage: true, clip: { x: 0, y: box.y, width: 1600, height: 900 } });
+      return;
+    }
     await page.addStyleTag({ content: '.bar, .kpi, .legend, .info { display: none !important; } #app { grid-template-rows: 0 minmax(0, 1fr) !important; }' });
     await page.waitForTimeout(1500);
     // project-specific camera, when the page exposes one

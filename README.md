@@ -50,6 +50,7 @@ src/
   projects/adata-retrabalho/        Adata 03 · inspeção 3D de ICs retrabalhados (ics.ts: medição das esferas, puro)
   projects/adata-substratos/        Adata 02 · inspeção de substratos, RGB + espectral (substrate.ts: modelo da tira, puro)
   projects/adata-microscopia/       Adata 01 · microscopia digital: bancada de hoje × digital (model.ts: tempos e imagens, puro)
+  projects/adata-npi/               Adata 04 · plataforma NPI: protótipo de telas, sem 3D (data.ts: regras do fluxo, puro)
   portal/                           portal
 public/
   projetos.json                     lista de projetos do portal
@@ -102,7 +103,8 @@ npm run build
 CAPA=memory-flow-3d npx playwright test tests/e2e/capa.spec.ts
 ```
 
-Gera `public/capas/<id>.png` (1600 × 900) em qualidade alta, sem barra, painel e legenda.
+Gera `public/capas/<id>.png` (1600 × 900) em qualidade alta, sem barra, painel e legenda. Páginas sem 3D marcam a
+área da capa com `data-capa`; uma página pode oferecer `window.__capa()` para escolher a câmera ou a tela da capa.
 
 ## Adicionar um projeto
 
