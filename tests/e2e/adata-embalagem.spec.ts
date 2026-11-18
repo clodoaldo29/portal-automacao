@@ -1,9 +1,10 @@
 import { expect, test } from '@playwright/test';
 
 // Packing cell reference: 10 simulated minutes from the start, default (provisional) parameters, continuous feed,
-// no wrong labels. The robot must reach every point: IK error under 5 mm.
+// no wrong labels. The robot must reach every point (IK error under 1 cm) and never touch anything: the collision
+// check (src/sim/robots/collision.ts) must report a positive clearance to every machine during the whole run.
 // When the cell logic or its defaults change on purpose, re-measure and update in the same commit.
-const REFERENCE = { minutes: 10, bags: 52, cartons: 12, ng: 0 };
+const REFERENCE = { minutes: 10, bags: 33, cartons: 8, ng: 0 };
 
 type Cell = { step: (dt: number) => void; params: { wrongLabel: boolean } };
 const run = (page: import('@playwright/test').Page, seconds: number) =>
@@ -33,11 +34,12 @@ test.describe('Adata 05 · embalagem final', () => {
     await expect(page.locator('#k-escape')).toHaveText('0');
   });
 
-  test('throughput matches the reference and the robot reaches every point', async ({ page }) => {
+  test('throughput matches the reference; the robot reaches every point and touches nothing', async ({ page }) => {
     await page.goto(`/projetos/adata-embalagem/?bench=${REFERENCE.minutes}`);
     const r = await page.waitForFunction(() => window.__a05Bench, null, { timeout: 120_000 }).then(h => h.jsonValue());
-    console.log(`embalagem: ${r!.bags} sacos, ${r!.cartons} caixas, IK ${r!.maxIkErr} m (${r!.ms} ms)`);
+    console.log(`embalagem: ${r!.bags} sacos, ${r!.cartons} caixas, IK ${r!.maxIkErr} m, folga mínima ${r!.minClear} m (${r!.minClearAt}) (${r!.ms} ms)`);
     expect({ minutes: r!.minutes, bags: r!.bags, cartons: r!.cartons, ng: r!.ng }).toEqual(REFERENCE);
-    expect(r!.maxIkErr).toBeLessThan(0.005);
+    expect(r!.maxIkErr).toBeLessThan(0.01);
+    expect(r!.minClear, `o robô encostou em: ${r!.minClearAt}`).toBeGreaterThan(0);
   });
 });

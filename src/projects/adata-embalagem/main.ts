@@ -11,7 +11,7 @@ import { $ } from '../../sim/ui/dom';
 import { createPage } from '../../sim/ui/page';
 import { FONT } from '../memory-flow/config';
 import { bar, num } from '../memory-flow/ui/format';
-import { DEFAULT_PACK, bagsPerHour, chipsPerBag, createPackCell, demandBagsPerHour, type PackParams } from './cell';
+import { DEFAULT_PACK, bagsPerHour, chipsPerBag, createPackCell, demandBagsPerHour, setIkIters, type PackParams } from './cell';
 
 const page = createPage({ stage: { shadowFrustum: { left: -6, right: 6, top: 5, bottom: -5, near: 1, far: 60 } }, font: FONT, labelScale: 0.42, labelNear: 1.6 });
 const { stage } = page;
@@ -77,7 +77,7 @@ function panel() {
   $('cap-note').textContent = bph
     ? `Uma célula atende a planta com folga: na demanda, fica ocupada ${pct(dem / bph)} do tempo. O ganho não é de volume. É de conferência automática, rastreabilidade de cada saco e menos manuseio (ESD, umidade).`
     : 'A capacidade aparece depois de 2 minutos e 3 sacos.';
-  const verified = s.bags + s.ng + (cell.slots[2].phase === 'ok' || cell.slots[2].phase === 'picking' ? 1 : 0);
+  const verified = s.verified;
   $('k-scans').textContent = String(s.scans);
   $('k-verified').textContent = String(verified);
   $('k-ng').textContent = String(s.ng);
@@ -99,11 +99,13 @@ const LABELS: LabelDef[] = [
   { lines: ['Entrada · pilhas de bandejas JEDEC'], x: -2.6, y: 1.55, z: 0.1 },
   { lines: ['Leitura do lote (MES)'], x: -2.2, y: 1.85, z: 0.1 },
   { lines: ['UR10e · garra de vácuo'], x: 0, y: 2.3, z: -0.1 },
-  { lines: ['Saco barreira + dessecante'], x: -0.15, y: 1.9, z: 1.25 },
-  { lines: ['Seladora a vácuo'], x: 0.33, y: 1.65, z: 0.85 },
-  { lines: ['Etiqueta + verificação'], x: 0.81, y: 1.75, z: 1.25 },
-  { lines: ['Descarte'], x: 1.67, y: 0.85, z: 0.85 },
-  { lines: ['Caixa de expedição'], x: 0.85, y: 1.45, z: -0.65 },
+  { lines: ['Saco barreira + dessecante'], x: -0.66, y: 1.9, z: 1.15 },
+  { lines: ['Seladora a vácuo'], x: -0.18, y: 1.75, z: 1.1 },
+  { lines: ['Etiqueta + verificação'], x: 0.3, y: 1.75, z: 1.15 },
+  { lines: ['Saída · reprovados ao coletor'], x: 0.78, y: 1.25, z: 1.23 },
+  { lines: ['Formadora de caixas'], x: -0.83, y: 1.65, z: -0.65 },
+  { lines: ['Caixa de expedição'], x: 0.35, y: 1.45, z: -0.65 },
+  { lines: ['Fechadora de caixas · fita'], x: 1.87, y: 1.55, z: -0.65 },
   { lines: ['Palete'], x: 3.25, y: 1.9, z: -0.65 },
 ];
 for (let i = 0; i < 150; i++) cell.step(1 / 30); // 5 s: the line is already moving when the page opens
@@ -126,14 +128,14 @@ page.start({
   shotName: (w, h) => `adata-05-embalagem-${w}x${h}.png`,
 });
 
-declare global { interface Window { __a05: unknown; __a05Bench?: { minutes: number; bags: number; cartons: number; ng: number; maxIkErr: number; ms: number } } }
-window.__a05 = { cell, stage, panel };
+declare global { interface Window { __a05: unknown; __a05Bench?: { minutes: number; bags: number; cartons: number; ng: number; maxIkErr: number; minClear: number; minClearAt: string; ms: number } } }
+window.__a05 = { cell, stage, panel, setIkIters };
 (window as unknown as { __capa: () => void }).__capa = () => { stage.camera.position.set(2.7, 3.7, 3.3); stage.controls.target.set(0.15, 0.8, 0.05); stage.controls.update(); };
 if (benchMin) {
   const t0 = performance.now();
   for (let i = 0, n = Math.round(benchMin * 60 * 30); i < n; i++) cell.step(1 / 30);
   const s = cell.stats;
-  window.__a05Bench = { minutes: benchMin, bags: s.bags, cartons: s.cartons, ng: s.ng, maxIkErr: Math.round(s.maxIkErr * 1e4) / 1e4, ms: Math.round(performance.now() - t0) };
+  window.__a05Bench = { minutes: benchMin, bags: s.bags, cartons: s.cartons, ng: s.ng, maxIkErr: Math.round(s.maxIkErr * 1e4) / 1e4, minClear: Math.round(s.minClear * 1000) / 1000, minClearAt: s.minClearAt, ms: Math.round(performance.now() - t0) };
 } else {
   const base = import.meta.env.BASE_URL;
   useUR10eMeshes([cell.arm], `${base}assets/ur10e/`).catch(err => console.warn('UR10e meshes not loaded', err));
