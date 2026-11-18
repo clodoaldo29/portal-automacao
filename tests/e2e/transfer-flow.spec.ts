@@ -37,7 +37,8 @@ test.describe('Transfer Flow 3D', () => {
 
 test('portal lists the projects and links to the simulation', async ({ page }) => {
   await page.goto('/');
-  const card = page.locator('article.card').first();
+  // cards are sorted by update date: find this project's card by name
+  const card = page.locator('article.card', { has: page.locator('h2', { hasText: 'Transfer Flow 3D' }) });
   await expect(card.locator('h2')).toHaveText('Transfer Flow 3D');
   await expect(card.locator('a.open-sim')).toHaveAttribute('href', 'projetos/transfer-flow-3d/');
   await card.locator('a.open-sim').click();
