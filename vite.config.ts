@@ -13,6 +13,8 @@ const pages = {
   'memory-flow-substratos': 'projetos/memory-flow-3d/substratos/index.html',
   'memory-flow-retrabalho': 'projetos/memory-flow-3d/retrabalho/index.html',
   'memory-flow-embalagem': 'projetos/memory-flow-3d/embalagem/index.html',
+  'memory-flow-movimentacao': 'projetos/memory-flow-3d/movimentacao/index.html',
+  'memory-flow-npi': 'projetos/memory-flow-3d/npi/index.html',
   'adata-movimentacao': 'projetos/adata-movimentacao/index.html',
   'adata-embalagem': 'projetos/adata-embalagem/index.html',
   'adata-retrabalho': 'projetos/adata-retrabalho/index.html',

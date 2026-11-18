@@ -39,5 +39,5 @@ test('the "Projetos Adata" menu has a shortcut to every project', async ({ page 
   if (process.env.MF_SHOTS) await page.screenshot({ path: `${process.env.MF_SHOTS}/mf-menu.png` });
   await expect(links.nth(1)).toHaveAttribute('href', '/projetos/memory-flow-3d/substratos/');
   await links.nth(3).click();
-  await expect(page).toHaveURL(/\/projetos\/adata-npi\/$/);
+  await expect(page).toHaveURL(/\/projetos\/memory-flow-3d\/npi\/$/);
 });

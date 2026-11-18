@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Movimentação Interna com AMR</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="/src/sim/ui/sim.css">
+<link rel="stylesheet" href="/src/projects/memory-flow/style.css">
+</head>
+<body data-in-plant="1">
+<div id="app">
+  <header class="bar">
+    <div class="plaque">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M7 9h10M7 12h10M7 15h10M9 7v10M12 7v10M15 7v10"/></svg>
+      <h1>MEMORY FLOW</h1>
+      <p>Movimentação interna com AMR<br>proposta para as salas limpas e testes</p>
+    </div>
+    <div class="dock" role="toolbar" aria-label="Controles da cena">
+      <div class="group" aria-label="Câmera">
+        <button id="v-geral" aria-pressed="true">Visão geral</button>
+        <button id="v-limpa" aria-pressed="false">Sala limpa</button>
+        <button id="v-testes" aria-pressed="false">Testes e embalagem</button>
+        <button id="v-seguir" aria-pressed="false" title="A câmera acompanha o AMR 1">Seguir AMR</button>
+        <button id="v-cima" aria-pressed="false">De cima</button>
+        <button id="v-tour" aria-pressed="false">Tour</button>
+      </div>
+      <div class="group" aria-label="Produção">
+        <label class="model" for="scenario">Movimentação
+          <select id="scenario">
+            <option value="amr">Com AMRs</option>
+            <option value="atual">Manual (hoje)</option>
+          </select>
+        </label>
+        <button id="b-play" aria-pressed="false">Pausar</button>
+        <button id="b-speed" aria-pressed="false">30×</button>
+      </div>
+      <div class="group" aria-label="Exibição">
+        <button id="b-routes" aria-pressed="true">Rotas</button>
+        <button id="b-labels" aria-pressed="true">Etiquetas</button>
+        <button id="b-quality" aria-pressed="false">Qualidade alta</button>
+        <button id="b-kpi" aria-pressed="true">Painel</button>
+        <button id="b-shot" aria-pressed="false">Gerar PNG</button>
+        <a class="dock-link" href="../" title="Voltar à planta completa">Planta</a>
+        <details class="dock-menu" id="m-proj">
+          <summary title="Atalhos para os projetos do portfólio, dentro da planta">Projetos Adata</summary>
+          <ul id="proj-links" aria-label="Projetos do portfólio Adata Technology"></ul>
+        </details>
+      </div>
+    </div>
+  </header>
+
+  <div id="stage">
+    <div class="legend" aria-label="Legenda">
+      <div class="row"><span>Rotas</span><span><i style="background:#22d3ee"></i>rota dos AMRs</span><span><i style="background:#0e7490"></i>ponto de coleta e entrega</span><span><i style="background:#22c55e"></i>estação de recarga</span></div>
+      <div class="row"><span>Lotes</span><span><i style="background:#2f7fd8"></i>DDR4</span><span><i style="background:#14b8a6"></i>DDR5</span><span><i style="background:#f59e0b"></i>NAND</span><span><i style="background:#e0527a"></i>eMMC/UFS</span><span><i style="background:#8b5cf6"></i>MCP</span></div>
+    </div>
+    <div class="modal" id="modal" hidden>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="shot-title">
+        <div class="row">
+          <p id="shot-title" class="shot-title">Imagem em alta resolução</p>
+          <button id="b-close">Fechar</button>
+        </div>
+        <form class="shot-opts" id="shot-form">
+          <label for="shot-res">Resolução
+            <select id="shot-res">
+              <option value="1920">Full HD · 1920 px</option>
+              <option value="2560">QHD · 2560 px</option>
+              <option value="3840" selected>4K · 3840 px</option>
+              <option value="5760">6K · 5760 px</option>
+            </select>
+          </label>
+          <label for="shot-aspect">Formato
+            <select id="shot-aspect">
+              <option value="view">Igual à tela</option>
+              <option value="1.7778">16:9</option>
+              <option value="1.3333">4:3</option>
+              <option value="1">Quadrado</option>
+            </select>
+          </label>
+          <label class="chk" for="shot-labels"><input type="checkbox" id="shot-labels" checked> Etiquetas</label>
+          <button type="submit" id="shot-go">Gerar imagem</button>
+        </form>
+        <div class="shot-frame"><img id="shot" alt="Imagem renderizada da movimentação com AMR"></div>
+        <div class="row">
+          <p id="shot-info" class="shot-info" role="status"></p>
+          <a id="shot-dl" class="shot-dl" hidden>Baixar PNG</a>
+        </div>
+        <p id="shot-help" class="shot-help">Para salvar: clique com o botão direito na imagem e escolha “Salvar imagem como”. No celular, toque e segure.</p>
+      </div>
+    </div>
+  </div>
+
+  <aside class="kpi open" id="kpi" aria-label="Indicadores, dimensionamento e parâmetros da frota">
+    <div class="tabs three" role="tablist">
+      <button id="tab-kpi" role="tab" aria-selected="true" aria-controls="pane-kpi">Indicadores</button>
+      <button id="tab-dim" role="tab" aria-selected="false" aria-controls="pane-dim">Dimensionar</button>
+      <button id="tab-par" role="tab" aria-selected="false" aria-controls="pane-par">Parâmetros</button>
+    </div>
+
+    <section id="pane-kpi" role="tabpanel" aria-labelledby="tab-kpi">
+      <header><span id="k-clock">Planta</span><span class="live">ao vivo</span></header>
+      <p class="scen" id="k-scen"></p>
+      <div class="grid">
+        <div><b id="k-moves">—</b><span>Movimentações por dia</span></div>
+        <div><b id="k-wait">—</b><span>Espera média por coleta</span></div>
+        <div><b id="k-occ">—</b><span>Ocupação da frota</span></div>
+        <div><b id="k-km">—</b><span>Quilômetros por dia</span></div>
+      </div>
+      <div class="grid small">
+        <div><b id="k-lots">—</b><span>Lotes expedidos por dia</span></div>
+        <div><b id="k-lead">—</b><span>Lead time médio</span></div>
+        <div><b id="k-wip">—</b><span>WIP médio (lotes)</span></div>
+        <div><b id="k-pend">—</b><span>Pedidos aguardando agora</span></div>
+      </div>
+
+      <h3 id="fleet-title">Frota</h3>
+      <table class="cells">
+        <thead><tr><th scope="col">Veículo</th><th scope="col">Viagens</th><th scope="col">Ocupação</th></tr></thead>
+        <tbody id="fleet-rows"></tbody>
+      </table>
+
+      <h3>Manual × AMR</h3>
+      <table class="cmp" id="cmp"></table>
+      <p class="note">Mesmos parâmetros e mesma sequência de lotes: 7 dias de aquecimento e 14 dias medidos. Os AMRs registram cada movimentação no MES. No manual, cada movimentação inclui checklist em papel e lançamento no sistema.</p>
+    </section>
+
+    <section id="pane-dim" role="tabpanel" aria-labelledby="tab-dim" hidden>
+      <p class="note">Quantos AMRs a planta precisa? A simulação roda de 1 a 6 AMRs, na liberação atual e com 33% a mais. Recomendado: a menor frota que expede tudo o que foi liberado, com espera média abaixo de 5 min e ocupação abaixo de 70% (sobra para recarga e picos).</p>
+      <button type="button" id="d-run" class="btn">Calcular</button>
+      <div id="d-out" role="status"></div>
+    </section>
+
+    <section id="pane-par" role="tabpanel" aria-labelledby="tab-par" hidden>
+      <form id="params" class="params">
+        <p class="warn">Valores provisórios: velocidade em sala limpa, tempos de carga e descarga e a liberação de lotes precisam dos dados da Adata Technology e do fornecedor dos AMRs.</p>
+        <fieldset>
+          <legend>Produção</legend>
+          <label for="p-release">Lotes liberados por dia</label>
+          <input id="p-release" type="number" min="1" max="40" step="0.5" inputmode="decimal">
+        </fieldset>
+        <fieldset>
+          <legend>AMRs</legend>
+          <div class="two">
+            <label>Quantidade<input id="p-amrs" type="number" min="1" max="20" step="1" inputmode="numeric"></label>
+            <label>Velocidade (m/s)<input id="p-speed" type="number" min="0.3" max="2" step="0.1" inputmode="decimal"></label>
+          </div>
+          <label for="p-handling">Carga ou descarga de um lote (s)</label>
+          <input id="p-handling" type="number" min="5" max="300" step="5" inputmode="numeric">
+          <p class="hint">Despacho coordenado: o lote mais antigo primeiro, com prioridade para a máquina parada por falta de lote.</p>
+        </fieldset>
+        <fieldset>
+          <legend>Manual (hoje)</legend>
+          <div class="two">
+            <label>Operadores<input id="p-ops" type="number" min="1" max="40" step="1" inputmode="numeric"></label>
+            <label>Dedicação (%)<input id="p-share" type="number" min="10" max="100" step="5" inputmode="numeric"></label>
+          </div>
+          <label for="p-record">Registro por movimentação (min)</label>
+          <input id="p-record" type="number" min="0" max="30" step="0.5" inputmode="decimal">
+        </fieldset>
+        <div class="actions">
+          <button type="submit" id="p-apply">Aplicar e reiniciar</button>
+          <button type="button" id="p-reset" class="link">Restaurar valores padrão</button>
+          <span id="p-status" role="status"></span>
+        </div>
+      </form>
+    </section>
+
+    <footer>Arraste para girar · role para zoom · botão direito move<br><br>
+      Projeto 06 do portfólio Adata Technology: movimentação automatizada de wafers e bandejas entre as etapas, com menos manuseio, menos risco de contaminação e de ESD, e menos parada por falta de abastecimento. Layout da Planta Baixa Rev. C (estudo conceitual). Parceria Conecthus + Lade. <a href="../">Voltar à planta</a> · <a href="/">Portal</a></footer>
+  </aside>
+</div>
+<script type="module" src="/src/projects/adata-movimentacao/main.ts"></script>
+</body>
+</html>

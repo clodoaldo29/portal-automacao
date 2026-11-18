@@ -41,3 +41,19 @@ test('inside a project the projects menu and the way back to the plant stay in t
   await expect(page.locator('#m-proj summary')).toBeVisible();
   await expect(page.locator('.dock a.dock-link[href="../"]')).toBeVisible();
 });
+
+for (const [slug, current] of [['movimentacao', 'Movimentação com AMR'], ['npi', 'Plataforma NPI']]) {
+  test(`${slug}: same pattern as the other projects (Memory Flow bar, Planta, projects menu)`, async ({ page }) => {
+    const errors: string[] = [];
+    page.on('pageerror', e => errors.push(e.message));
+    await page.goto(`/projetos/memory-flow-3d/${slug}/`);
+    await expect(page.locator('.plaque h1')).toHaveText('MEMORY FLOW');
+    await expect(page.locator('a.dock-link[href="../"]')).toBeVisible();
+    await page.click('#m-proj summary');
+    await expect(page.locator('#proj-links a')).toHaveCount(7);
+    await expect(page.locator('#proj-links a[aria-current="page"]')).toContainText(current);
+    await page.locator('a.dock-link[href="../"]').click({ force: true });
+    await expect(page).toHaveURL(/\/projetos\/memory-flow-3d\/$/);
+    expect(errors).toEqual([]);
+  });
+}

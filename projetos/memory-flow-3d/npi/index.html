@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Plataforma NPI</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="/src/projects/adata-npi/npi.css">
+</head>
+<body data-in-plant="1">
+<header class="bar">
+  <div class="plaque">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M7 9h10M7 12h10M7 15h10M9 7v10M12 7v10M15 7v10"/></svg>
+    <h1>MEMORY FLOW</h1>
+    <p>Plataforma NPI<br>proposta para a engenharia (Q02)</p>
+  </div>
+  <div class="bar-right">
+    <label class="role" for="role">Perfil
+      <select id="role">
+        <option value="eng">Engenharia</option>
+        <option value="qual">Qualidade</option>
+        <option value="prod">Produção</option>
+      </select>
+    </label>
+    <button id="reset" class="ghost" type="button">Restaurar exemplo</button>
+    <a class="dock-link" href="../" title="Voltar à planta completa">Planta</a>
+    <details class="dock-menu" id="m-proj">
+      <summary title="Atalhos para os projetos do portfólio, dentro da planta">Projetos Adata</summary>
+      <ul id="proj-links" aria-label="Projetos do portfólio Adata Technology"></ul>
+    </details>
+  </div>
+</header>
+
+<div class="layout" data-capa>
+  <nav class="products" aria-label="Produtos">
+    <h2>Produtos</h2>
+    <ul id="products"></ul>
+    <p class="hint">Dados de exemplo. Part numbers, parâmetros e pessoas são ilustrativos.</p>
+  </nav>
+
+  <main class="main">
+    <section class="head">
+      <div>
+        <p class="pn" id="p-pn"></p>
+        <h2 id="p-name"></h2>
+        <p class="meta" id="p-meta"></p>
+      </div>
+      <ol class="stepper" id="stepper" aria-label="Etapas da industrialização"></ol>
+    </section>
+
+    <div class="tabs" role="tablist">
+      <button role="tab" id="t-rota" aria-controls="v-rota" aria-selected="true">Rota</button>
+      <button role="tab" id="t-receitas" aria-controls="v-receitas" aria-selected="false">Receitas</button>
+      <button role="tab" id="t-instrucoes" aria-controls="v-instrucoes" aria-selected="false">Instruções</button>
+      <button role="tab" id="t-piloto" aria-controls="v-piloto" aria-selected="false">Lote piloto</button>
+      <button role="tab" id="t-historico" aria-controls="v-historico" aria-selected="false">Histórico</button>
+    </div>
+
+    <section id="v-rota" role="tabpanel" aria-labelledby="t-rota" class="pane"></section>
+    <section id="v-receitas" role="tabpanel" aria-labelledby="t-receitas" class="pane" hidden></section>
+    <section id="v-instrucoes" role="tabpanel" aria-labelledby="t-instrucoes" class="pane" hidden></section>
+    <section id="v-piloto" role="tabpanel" aria-labelledby="t-piloto" class="pane" hidden></section>
+    <section id="v-historico" role="tabpanel" aria-labelledby="t-historico" class="pane" hidden></section>
+  </main>
+
+  <aside class="side" aria-label="Liberação e comparação">
+    <section class="card">
+      <h3>Liberação no MES</h3>
+      <div id="release"></div>
+    </section>
+    <section class="card">
+      <h3>Hoje × plataforma</h3>
+      <table class="cmp" id="cmp"><thead><tr><th scope="col"></th><th scope="col">Hoje</th><th scope="col">Plataforma</th></tr></thead><tbody></tbody></table>
+      <p class="hint">Estimativas provisórias, para validar com a engenharia e a Qualidade da Adata Technology.</p>
+    </section>
+  </aside>
+</div>
+
+<p class="foot">Projeto 04 do portfólio Adata Technology: uma plataforma para estruturar a introdução de novos produtos, com rota, receitas e instruções versionadas, lote piloto e aprovação antes da liberação no MES. Protótipo de telas, sem 3D: o ganho está no fluxo de informação. As mudanças ficam salvas só neste navegador. Parceria Conecthus + Lade. <a href="../">Voltar à planta</a> · <a href="/">Portal</a></p>
+<script type="module" src="/src/projects/adata-npi/main.ts"></script>
+</body>
+</html>

@@ -1,6 +1,7 @@
 // "Projetos Adata" menu in the dock (<details id="m-proj"> with <ul id="proj-links">): a shortcut to every project
 // of the portfolio, inside the plant when it has a cell there. Used by the plant page and by every project page
 // inside the plant, so the menu stays available while a project is open; the current one is marked.
+import './projects-menu.css';
 import { PLANT_PROJECTS } from './projects-layer';
 
 export function mountProjectsMenu() {

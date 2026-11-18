@@ -263,3 +263,7 @@ window.__a04 = { get products() { return products; }, recipe: (): Recipe => P().
   render();
   document.getElementById('t-receitas')!.click();
 };
+
+// the projects menu and the way back, on the page inside the plant (projetos/memory-flow-3d/...)
+import { mountProjectsMenu } from '../memory-flow/projects-menu';
+mountProjectsMenu();

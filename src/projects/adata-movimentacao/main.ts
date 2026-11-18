@@ -295,3 +295,7 @@ if (benchDays) {
 
 /** Cover camera for the portal card (tests/e2e/capa.spec.ts): the ISO 6 corridor with the routes. */
 (window as unknown as { __capa: () => void }).__capa = () => { stage.camera.position.set(-2, 20, 40); stage.controls.target.set(-18, 0, 15); stage.controls.update(); };
+
+// the projects menu and the way back, on the page inside the plant (projetos/memory-flow-3d/...)
+import { mountProjectsMenu } from '../memory-flow/projects-menu';
+mountProjectsMenu();
