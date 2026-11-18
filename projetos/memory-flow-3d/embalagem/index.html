@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Embalagem Final Automatizada</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="/src/sim/ui/sim.css">
+<link rel="stylesheet" href="/src/projects/memory-flow/style.css">
+</head>
+<body data-in-plant="1">
+<div id="app">
+  <header class="bar">
+    <div class="plaque">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>
+      <h1>DRY PACK · 05</h1>
+      <p>Embalagem final automatizada<br>e rastreabilidade de produtos</p>
+    </div>
+    <div class="dock" role="toolbar" aria-label="Controles da cena">
+      <div class="group" aria-label="Câmera">
+        <button id="v-celula" aria-pressed="true">Célula</button>
+        <button id="v-entrada" aria-pressed="false">Entrada</button>
+        <button id="v-linha" aria-pressed="false">Selagem e etiqueta</button>
+        <button id="v-caixa" aria-pressed="false">Caixa e palete</button>
+        <button id="v-planta" aria-pressed="false">Na planta</button>
+        <button id="v-cima" aria-pressed="false">De cima</button>
+        <button id="v-tour" aria-pressed="false">Tour</button>
+      </div>
+      <div class="group" aria-label="Produção">
+        <button id="b-wrong" aria-pressed="false" title="Mistura na fila de impressão: parte das etiquetas não corresponde ao lote; a verificação separa esses sacos">Simular etiqueta trocada</button>
+        <button id="b-play" aria-pressed="false">Pausar</button>
+        <button id="b-speed" aria-pressed="false">1×</button>
+      </div>
+      <div class="group" aria-label="Exibição">
+        <button id="b-labels" aria-pressed="true">Etiquetas</button>
+        <button id="b-quality" aria-pressed="false">Qualidade alta</button>
+        <button id="b-kpi" aria-pressed="true">Painel</button>
+        <button id="b-shot" aria-pressed="false">Gerar PNG</button>
+        <a class="dock-link" href="../" title="Voltar à planta completa">Planta</a>
+        <a class="dock-link" href="/projetos/adata-embalagem/" title="Página própria do projeto, sem a planta">Projeto</a>
+      </div>
+    </div>
+  </header>
+
+  <div id="stage">
+    <div class="modal" id="modal" hidden>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="shot-title">
+        <div class="row">
+          <p id="shot-title" class="shot-title">Imagem em alta resolução</p>
+          <button id="b-close">Fechar</button>
+        </div>
+        <form class="shot-opts" id="shot-form">
+          <label for="shot-res">Resolução
+            <select id="shot-res">
+              <option value="1920">Full HD · 1920 px</option>
+              <option value="2560">QHD · 2560 px</option>
+              <option value="3840" selected>4K · 3840 px</option>
+              <option value="5760">6K · 5760 px</option>
+            </select>
+          </label>
+          <label for="shot-aspect">Formato
+            <select id="shot-aspect">
+              <option value="view">Igual à tela</option>
+              <option value="1.7778">16:9</option>
+              <option value="1.3333">4:3</option>
+              <option value="1">Quadrado</option>
+            </select>
+          </label>
+          <label class="chk" for="shot-labels"><input type="checkbox" id="shot-labels" checked> Etiquetas</label>
+          <button type="submit" id="shot-go">Gerar imagem</button>
+        </form>
+        <div class="shot-frame"><img id="shot" alt="Imagem renderizada da célula de embalagem"></div>
+        <div class="row">
+          <p id="shot-info" class="shot-info" role="status"></p>
+          <a id="shot-dl" class="shot-dl" hidden>Baixar PNG</a>
+        </div>
+        <p id="shot-help" class="shot-help">Para salvar: clique com o botão direito na imagem e escolha “Salvar imagem como”. No celular, toque e segure.</p>
+      </div>
+    </div>
+  </div>
+
+  <aside class="kpi open" id="kpi" aria-label="Indicadores e parâmetros da célula de embalagem">
+    <div class="tabs" role="tablist">
+      <button id="tab-kpi" role="tab" aria-selected="true" aria-controls="pane-kpi">Indicadores</button>
+      <button id="tab-par" role="tab" aria-selected="false" aria-controls="pane-par">Parâmetros</button>
+    </div>
+
+    <section id="pane-kpi" role="tabpanel" aria-labelledby="tab-kpi">
+      <header><span>Célula</span><span class="live">ao vivo</span></header>
+      <div class="grid">
+        <div><b id="k-bph">—</b><span>Sacos por hora</span></div>
+        <div><b id="k-cycle">—</b><span>Ciclo por saco</span></div>
+        <div><b id="k-chips">—</b><span>Chips por hora</span></div>
+        <div><b id="k-bags">0</b><span>Sacos embalados</span></div>
+      </div>
+
+      <h3>Capacidade × demanda</h3>
+      <table class="cells"><tbody id="cap-rows"></tbody></table>
+      <p class="note" id="cap-note"></p>
+
+      <h3>Rastreabilidade</h3>
+      <div class="grid small">
+        <div><b id="k-scans">0</b><span>Pilhas lidas e conferidas no MES</span></div>
+        <div><b id="k-verified">0</b><span>Etiquetas verificadas</span></div>
+        <div><b id="k-ng">0</b><span>Sacos separados (etiqueta ≠ lote)</span></div>
+        <div><b id="k-escape">0</b><span>Etiquetas erradas que chegam ao cliente</span></div>
+      </div>
+      <p class="note" id="trace-note"></p>
+
+      <h3>Ocupação</h3>
+      <table class="cells">
+        <thead><tr><th scope="col">Recurso</th><th scope="col">Ocupação</th><th scope="col">Estado</th></tr></thead>
+        <tbody id="use-rows"></tbody>
+      </table>
+
+      <h3>OEE <small>(simulado)</small></h3>
+      <div class="oee">
+        <div><b id="o-av">—</b><span>Disponibilidade</span></div>
+        <div><b id="o-pf">—</b><span>Performance</span></div>
+        <div><b id="o-q">—</b><span>Qualidade</span></div>
+        <div class="total"><b id="o-oee">—</b><span>OEE</span></div>
+      </div>
+      <p class="note">Disponibilidade: tempo fora da troca de caixa. Performance: sacos/h ÷ meta. Qualidade: sacos aprovados na verificação ÷ verificados.</p>
+    </section>
+
+    <section id="pane-par" role="tabpanel" aria-labelledby="tab-par" hidden>
+      <form id="params" class="params">
+        <p class="warn">Valores provisórios: tempos de selagem e etiqueta, bandejas por pilha, chips por bandeja e sacos por caixa precisam do procedimento de dry pack da Adata Technology.</p>
+        <fieldset>
+          <legend>Ritmo</legend>
+          <label for="p-mode">Chegada de pilhas</label>
+          <select id="p-mode">
+            <option value="continuo">Contínua (teste de capacidade)</option>
+            <option value="demanda">Na demanda da planta</option>
+          </select>
+          <label for="p-demand">Demanda da planta (milhões de chips por mês)</label>
+          <input id="p-demand" type="number" min="0.5" max="50" step="0.5" inputmode="decimal">
+        </fieldset>
+        <fieldset>
+          <legend>Tempos (s)</legend>
+          <div class="two">
+            <label>Selagem a vácuo<input id="p-seal" type="number" min="3" max="60" step="1" inputmode="numeric"></label>
+            <label>Etiqueta<input id="p-label" type="number" min="2" max="60" step="1" inputmode="numeric"></label>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Embalagem</legend>
+          <div class="two">
+            <label>Bandejas por pilha<input id="p-trays" type="number" min="1" max="20" step="1" inputmode="numeric"></label>
+            <label>Chips por bandeja<input id="p-chips" type="number" min="10" max="1000" step="1" inputmode="numeric"></label>
+          </div>
+          <div class="two">
+            <label>Sacos por caixa<input id="p-carton" type="number" min="1" max="4" step="1" inputmode="numeric"></label>
+            <label>Meta (sacos/h)<input id="p-target" type="number" min="1" max="1000" step="1" inputmode="numeric"></label>
+          </div>
+          <p class="hint">A pilha é de bandejas cheias mais uma bandeja de tampa.</p>
+        </fieldset>
+        <div class="actions">
+          <button type="submit" id="p-apply">Aplicar e zerar os indicadores</button>
+          <span id="p-status" role="status"></span>
+        </div>
+      </form>
+    </section>
+
+    <footer>Arraste para girar · role para zoom · botão direito move<br><br>Na planta Memory Flow: L05 · no lugar das embaladoras, da serialização e da conferência. 
+      Projeto 05 do portfólio Adata Technology: embalagem final de circuitos integrados com conferência automática por código de barras, embalagem protetiva (barreira à umidade, dessecante, selagem, ESD) e rastreabilidade de cada saco. UR10e com a cinemática do ROS-Industrial universal_robot e modelos 3D originais (<a href="/licencas/LICENSE-UR10e.txt">licença BSD</a>). Estudo conceitual. Parceria Conecthus + Lade. <a href="../">Voltar à planta</a> · <a href="/">Portal</a></footer>
+  </aside>
+</div>
+<script type="module" src="/src/projects/adata-embalagem/main.ts"></script>
+</body>
+</html>

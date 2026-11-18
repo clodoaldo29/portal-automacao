@@ -214,7 +214,7 @@ canvas.addEventListener('pointerup', e => {
   ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
   ray.setFromCamera(ptr, stage.camera);
   const proj = projects.pick(ray);
-  if (proj) { location.href = proj.url; return; }
+  if (proj) { location.href = proj.plant ?? proj.url; return; }
   const hit = ray.intersectObject(plant.pick)[0];
   if (hit?.instanceId == null) { info.close(); return; }
   const eq = plant.equipList[hit.instanceId];
@@ -299,7 +299,7 @@ canvas.addEventListener('pointermove', e => {
   if (ul && menu) {
     for (const p of PLANT_PROJECTS) {
       const a = document.createElement('a'), b = document.createElement('b'), s = document.createElement('span'), sm = document.createElement('small');
-      a.href = p.url;
+      a.href = p.plant ?? p.url;
       b.textContent = p.num;
       b.style.background = p.color;
       s.textContent = p.name;

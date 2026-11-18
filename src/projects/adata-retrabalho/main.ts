@@ -10,18 +10,22 @@ import { useHDRI } from '../../sim/robots/ur-arm';
 import { $ } from '../../sim/ui/dom';
 import { createPage } from '../../sim/ui/page';
 import { FONT } from '../memory-flow/config';
+import { PLACEMENTS, buildPlantAround, inPlant, plantStage, plantView } from '../memory-flow/in-plant';
+/** Inside the Memory Flow plant (projetos/memory-flow-3d/retrabalho/) or on its own page. */
+const IN_PLANT = inPlant();
 import { num } from '../memory-flow/ui/format';
 import { DEFAULT_REWORK, PER_TRAY, createReworkCell, icsPerHour } from './cell';
 import { DEFECTS, drawIc } from './ics';
 
-const page = createPage({ stage: { shadowFrustum: { left: -3, right: 3, top: 3, bottom: -3, near: 1, far: 60 } }, font: FONT, labelScale: 0.3, labelNear: 0.9 });
+const page = createPage({ stage: { shadowFrustum: { left: -3, right: 3, top: 3, bottom: -3, near: 1, far: 60 }, ...(IN_PLANT ? plantStage : {}) }, font: FONT, labelScale: 0.3, labelNear: 0.9 });
 const { stage } = page;
 stage.renderer.toneMappingExposure = 0.9;
 stage.camera.near = 0.02;
 stage.camera.updateProjectionMatrix();
 stage.controls.minDistance = 0.12;
 const benchMin = page.num('bench');
-buildRoom(stage.scene, { w: 6, d: 5, band: 0x8e5bb5, name: 'Qualidade · inspeção 3D', font: FONT });
+if (IN_PLANT) buildPlantAround(stage.scene, PLACEMENTS.retrabalho);
+else buildRoom(stage.scene, { w: 6, d: 5, band: 0x8e5bb5, name: 'Qualidade · inspeção 3D', font: FONT });
 const M = createMaterials();
 const cell = createReworkCell(stage.scene, M, FONT);
 
@@ -132,6 +136,7 @@ page.start({
     sensor: { pos: [0.18, 1.12, 0.32], target: [0, 0.95, 0] },
     bandeja: { pos: [0.02, 1.45, 0.25], target: [0, 0.94, 0.0] },
     descarte: { pos: [0.55, 1.3, 0.9], target: [0.2, 0.95, 0.36] },
+    ...(IN_PLANT ? { planta: plantView } : {}),
     cima: { pos: [0, 3.2, 0.01], target: [0, 0.9, 0] },
   },
   tour: { positions: [[1.6, 1.9, 2.0], [0.4, 1.3, 0.6], [-1.4, 1.6, 1.2], [-1.2, 1.8, -1.4], [1.3, 1.6, -1.2]], targets: [[0, 1, 0], [0, 0.96, 0], [-0.4, 1, 0], [0, 1, 0], [0.4, 1, 0]], seconds: 40 },

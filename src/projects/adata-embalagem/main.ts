@@ -10,14 +10,18 @@ import { useHDRI, useUR10eMeshes } from '../../sim/robots/ur-arm';
 import { $ } from '../../sim/ui/dom';
 import { createPage } from '../../sim/ui/page';
 import { FONT } from '../memory-flow/config';
+import { PLACEMENTS, buildPlantAround, inPlant, plantStage, plantView } from '../memory-flow/in-plant';
+/** Inside the Memory Flow plant (projetos/memory-flow-3d/embalagem/) or on its own page. */
+const IN_PLANT = inPlant();
 import { bar, num } from '../memory-flow/ui/format';
 import { DEFAULT_PACK, bagsPerHour, chipsPerBag, createPackCell, demandBagsPerHour, setIkIters, type PackParams } from './cell';
 
-const page = createPage({ stage: { shadowFrustum: { left: -6, right: 6, top: 5, bottom: -5, near: 1, far: 60 } }, font: FONT, labelScale: 0.42, labelNear: 1.6 });
+const page = createPage({ stage: { shadowFrustum: { left: -6, right: 6, top: 5, bottom: -5, near: 1, far: 60 }, ...(IN_PLANT ? plantStage : {}) }, font: FONT, labelScale: 0.42, labelNear: 1.6 });
 const { stage } = page;
 stage.renderer.toneMappingExposure = 0.88;
 const benchMin = page.num('bench');
-const room = buildRoom(stage.scene, { w: 10, d: 7.6, x: 0.2, z: 0.1, band: 0x5f6b7a, name: 'Embalagem final · dry pack', font: FONT });
+const room = IN_PLANT ? null : buildRoom(stage.scene, { w: 10, d: 7.6, x: 0.2, z: 0.1, band: 0x5f6b7a, name: 'Embalagem final · dry pack', font: FONT });
+if (IN_PLANT) buildPlantAround(stage.scene, PLACEMENTS.embalagem);
 const M = createMaterials();
 const cell = createPackCell(stage.scene, M, FONT);
 
@@ -117,13 +121,14 @@ page.start({
     entrada: { pos: [-3.8, 1.9, 2.0], target: [-1.9, 0.9, 0.1] },
     linha: { pos: [0.6, 1.8, 2.5], target: [0.4, 1.0, 0.85] },
     caixa: { pos: [3.4, 2.1, -2.6], target: [1.6, 0.8, -0.65] },
+    ...(IN_PLANT ? { planta: plantView } : {}),
     cima: { pos: [0.3, 9, 0.31], target: [0.3, 0, 0.3] },
   },
   tour: { positions: [[3.6, 2.6, 4.2], [-3.8, 2, 2.2], [-2.6, 2.3, -2.6], [3.6, 2.2, -2.8], [1.4, 1.9, 2.8]], targets: [[0, 0.9, 0.2], [-1.6, 0.9, 0.1], [0, 1, 0], [1.8, 0.8, -0.6], [0.4, 1, 0.8]], seconds: 45 },
   labels: LABELS,
   speeds: [1, 2, 4, 8],
   step: dt => cell.step(dt),
-  frame: () => { cell.andons.update(performance.now() / 1000); room.ceiling.visible = stage.camera.position.y < room.h - 0.1; },
+  frame: () => { cell.andons.update(performance.now() / 1000); if (room) room.ceiling.visible = stage.camera.position.y < room.h - 0.1; },
   panel,
   shotName: (w, h) => `adata-05-embalagem-${w}x${h}.png`,
 });

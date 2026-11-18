@@ -9,18 +9,22 @@ import { useHDRI } from '../../sim/robots/ur-arm';
 import { $ } from '../../sim/ui/dom';
 import { createPage } from '../../sim/ui/page';
 import { FONT } from '../memory-flow/config';
+import { PLACEMENTS, buildPlantAround, inPlant, plantStage, plantView } from '../memory-flow/in-plant';
+/** Inside the Memory Flow plant (projetos/memory-flow-3d/microscopia/) or on its own page. */
+const IN_PLANT = inPlant();
 import { minutes, num } from '../memory-flow/ui/format';
 import { DEFAULT_MICRO, DEFECT_CLASSES, drawMicroscope, lotTime } from './model';
 import { PHASE_TEXT, createStations, type BenchStats } from './stations';
 
-const page = createPage({ stage: { shadowFrustum: { left: -3.5, right: 3.5, top: 3, bottom: -3, near: 1, far: 60 } }, font: FONT, labelScale: 0.4, labelNear: 1.2 });
+const page = createPage({ stage: { shadowFrustum: { left: -3.5, right: 3.5, top: 3, bottom: -3, near: 1, far: 60 }, ...(IN_PLANT ? plantStage : {}) }, font: FONT, labelScale: 0.4, labelNear: 1.2 });
 const { stage } = page;
 stage.renderer.toneMappingExposure = 0.9;
 stage.camera.near = 0.05;
 stage.camera.updateProjectionMatrix();
 stage.controls.minDistance = 0.3;
 const benchMin = page.num('bench');
-buildRoom(stage.scene, { w: 7, d: 5, band: 0x8e5bb5, name: 'Qualidade · microscopia', font: FONT });
+if (IN_PLANT) buildPlantAround(stage.scene, PLACEMENTS.microscopia);
+else buildRoom(stage.scene, { w: 7, d: 5, band: 0x8e5bb5, name: 'Qualidade · microscopia', font: FONT });
 const M = createMaterials();
 const st = createStations(stage.scene, M, FONT);
 
@@ -139,6 +143,7 @@ page.start({
     hoje: { pos: [-0.3, 1.75, 1.7], target: [-1.1, 1.05, 0] },
     digital: { pos: [1.9, 1.75, 1.7], target: [1.1, 1.05, 0] },
     monitor: { pos: [0.95, 1.5, 0.75], target: [0.68, 1.36, -0.22] },
+    ...(IN_PLANT ? { planta: plantView } : {}),
     cima: { pos: [0, 5, 0.01], target: [0, 0.9, 0] },
   },
   tour: { positions: [[0, 2.3, 3.5], [-2.4, 1.8, 1.4], [-0.2, 1.6, 1.4], [2.4, 1.8, 1.4], [1.0, 1.55, 0.9]], targets: [[0, 1, 0], [-1.1, 1, 0], [-1.1, 1.1, 0], [1.1, 1, 0], [0.68, 1.36, -0.22]], seconds: 40 },

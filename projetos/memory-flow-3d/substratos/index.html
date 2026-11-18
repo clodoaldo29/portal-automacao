@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Inspeção de Substratos</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="/src/sim/ui/sim.css">
+<link rel="stylesheet" href="/src/projects/memory-flow/style.css">
+</head>
+<body data-in-plant="1">
+<div id="app">
+  <header class="bar">
+    <div class="plaque">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="10" rx="1"/><path d="M6 7v10M10 7v10M14 7v10M18 7v10"/></svg>
+      <h1>SUBSTRATO · 02</h1>
+      <p>Inspeção inteligente de substratos<br>por visão computacional</p>
+    </div>
+    <div class="dock" role="toolbar" aria-label="Controles da cena">
+      <div class="group" aria-label="Câmera">
+        <button id="v-maquina" aria-pressed="true">Máquina</button>
+        <button id="v-cameras" aria-pressed="false">Câmeras</button>
+        <button id="v-entrada" aria-pressed="false">Magazine de entrada</button>
+        <button id="v-saida" aria-pressed="false">Saída e NG</button>
+        <button id="v-planta" aria-pressed="false">Na planta</button>
+        <button id="v-cima" aria-pressed="false">De cima</button>
+        <button id="v-tour" aria-pressed="false">Tour</button>
+      </div>
+      <div class="group" aria-label="Produção">
+        <button id="b-ox" aria-pressed="false" title="Lote de substrato armazenado com umidade: índice de oxidação alto">Simular lote oxidado</button>
+        <button id="b-play" aria-pressed="false">Pausar</button>
+        <button id="b-speed" aria-pressed="false">1×</button>
+      </div>
+      <div class="group" aria-label="Exibição">
+        <button id="b-labels" aria-pressed="true">Etiquetas</button>
+        <button id="b-quality" aria-pressed="false">Qualidade alta</button>
+        <button id="b-kpi" aria-pressed="true">Painel</button>
+        <button id="b-shot" aria-pressed="false">Gerar PNG</button>
+        <a class="dock-link" href="../" title="Voltar à planta completa">Planta</a>
+        <a class="dock-link" href="/projetos/adata-substratos/" title="Página própria do projeto, sem a planta">Projeto</a>
+      </div>
+    </div>
+  </header>
+
+  <div id="stage">
+    <div class="modal" id="modal" hidden>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="shot-title">
+        <div class="row">
+          <p id="shot-title" class="shot-title">Imagem em alta resolução</p>
+          <button id="b-close">Fechar</button>
+        </div>
+        <form class="shot-opts" id="shot-form">
+          <label for="shot-res">Resolução
+            <select id="shot-res">
+              <option value="1920">Full HD · 1920 px</option>
+              <option value="2560">QHD · 2560 px</option>
+              <option value="3840" selected>4K · 3840 px</option>
+              <option value="5760">6K · 5760 px</option>
+            </select>
+          </label>
+          <label for="shot-aspect">Formato
+            <select id="shot-aspect">
+              <option value="view">Igual à tela</option>
+              <option value="1.7778">16:9</option>
+              <option value="1.3333">4:3</option>
+              <option value="1">Quadrado</option>
+            </select>
+          </label>
+          <label class="chk" for="shot-labels"><input type="checkbox" id="shot-labels" checked> Etiquetas</label>
+          <button type="submit" id="shot-go">Gerar imagem</button>
+        </form>
+        <div class="shot-frame"><img id="shot" alt="Imagem renderizada da inspeção de substratos"></div>
+        <div class="row">
+          <p id="shot-info" class="shot-info" role="status"></p>
+          <a id="shot-dl" class="shot-dl" hidden>Baixar PNG</a>
+        </div>
+        <p id="shot-help" class="shot-help">Para salvar: clique com o botão direito na imagem e escolha “Salvar imagem como”. No celular, toque e segure.</p>
+      </div>
+    </div>
+  </div>
+
+  <aside class="kpi open" id="kpi" aria-label="Indicadores e parâmetros da inspeção de substratos">
+    <div class="tabs" role="tablist">
+      <button id="tab-kpi" role="tab" aria-selected="true" aria-controls="pane-kpi">Indicadores</button>
+      <button id="tab-par" role="tab" aria-selected="false" aria-controls="pane-par">Parâmetros</button>
+    </div>
+
+    <section id="pane-kpi" role="tabpanel" aria-labelledby="tab-kpi">
+      <header><span>Máquina</span><span class="live">ao vivo</span></header>
+      <div class="grid">
+        <div><b id="k-sph">—</b><span>Tiras por hora</span></div>
+        <div><b id="k-uph">—</b><span>Unidades por hora</span></div>
+        <div><b id="k-strips">0</b><span>Tiras inspecionadas</span></div>
+        <div><b id="k-ng">0</b><span>Tiras no magazine NG</span></div>
+      </div>
+
+      <h3>Tira em inspeção</h3>
+      <canvas id="c-rgb" class="tray-map" width="480" height="148" aria-label="Tira vista pela câmera RGB, com as unidades X-out"></canvas>
+      <canvas id="c-spec" class="tray-map" width="480" height="148" aria-label="Mapa espectral do índice de oxidação"></canvas>
+      <p class="note" id="strip-note"></p>
+      <ul class="wafer-legend legend-row" id="cls-legend"></ul>
+
+      <h3>Defeitos por unidade <small>(desde o início)</small></h3>
+      <table class="cells">
+        <thead><tr><th scope="col">Classe</th><th scope="col">Unidades</th><th scope="col">%</th></tr></thead>
+        <tbody id="def-rows"></tbody>
+      </table>
+      <div class="grid small">
+        <div><b id="k-ox">—</b><span>Índice de oxidação médio</span></div>
+        <div><b id="k-xout">—</b><span>Unidades X-out (pulam o die attach)</span></div>
+      </div>
+
+      <h3>Capacidade × demanda</h3>
+      <table class="cells"><tbody id="cap-rows"></tbody></table>
+      <p class="note" id="cap-note"></p>
+
+      <h3>OEE <small>(simulado)</small></h3>
+      <div class="oee">
+        <div><b id="o-av">—</b><span>Disponibilidade</span></div>
+        <div><b id="o-pf">—</b><span>Performance</span></div>
+        <div><b id="o-q">—</b><span>Qualidade</span></div>
+        <div class="total"><b id="o-oee">—</b><span>OEE</span></div>
+      </div>
+      <p class="note">Disponibilidade: a simulação não tem paradas. Performance: tiras/h ÷ meta. Qualidade: unidades sem defeito ÷ unidades inspecionadas (mede o substrato que chega, não a máquina).</p>
+    </section>
+
+    <section id="pane-par" role="tabpanel" aria-labelledby="tab-par" hidden>
+      <form id="params" class="params">
+        <p class="warn">Valores provisórios: formato da tira, taxas de defeito, escala do índice de oxidação e limites precisam da especificação do substrato, dos dados do fornecedor e do histórico de inspeção de entrada da Adata Technology.</p>
+        <fieldset>
+          <legend>Limites</legend>
+          <div class="two">
+            <label>Índice de oxidação máx.<input id="p-ox" type="number" min="0.1" max="0.9" step="0.05" inputmode="decimal"></label>
+            <label>X-out máx. por tira (%)<input id="p-xout" type="number" min="1" max="50" step="1" inputmode="numeric"></label>
+          </div>
+          <p class="hint">Acima do índice, a unidade vira X-out por oxidação. Acima do X-out máximo, a tira inteira vai para o magazine NG.</p>
+        </fieldset>
+        <fieldset>
+          <legend>Máquina</legend>
+          <div class="two">
+            <label>Velocidade (mm/s)<input id="p-speed" type="number" min="10" max="200" step="5" inputmode="numeric"></label>
+            <label>Meta (tiras/h)<input id="p-target" type="number" min="10" max="3000" step="10" inputmode="numeric"></label>
+          </div>
+        </fieldset>
+        <div class="actions">
+          <button type="submit" id="p-apply">Aplicar e zerar os indicadores</button>
+          <span id="p-status" role="status"></span>
+        </div>
+      </form>
+    </section>
+
+    <footer>Arraste para girar · role para zoom · botão direito move<br><br>Na planta Memory Flow: P01D · entrada do substrato na montagem. 
+      Projeto 02 do portfólio Adata Technology: inspeção automatizada dos substratos usados no encapsulamento, com detecção de contaminações, partículas, resíduos e alterações nas regiões metalizadas, técnica espectral para indícios de oxidação e corrosão, e rastreabilidade das inspeções antes da montagem. Estudo conceitual. Parceria Conecthus + Lade. <a href="../">Voltar à planta</a> · <a href="/">Portal</a></footer>
+  </aside>
+</div>
+<script type="module" src="/src/projects/adata-substratos/main.ts"></script>
+</body>
+</html>

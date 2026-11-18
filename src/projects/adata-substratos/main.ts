@@ -10,18 +10,22 @@ import { useHDRI } from '../../sim/robots/ur-arm';
 import { $ } from '../../sim/ui/dom';
 import { createPage } from '../../sim/ui/page';
 import { FONT } from '../memory-flow/config';
+import { PLACEMENTS, buildPlantAround, inPlant, plantStage, plantView } from '../memory-flow/in-plant';
+/** Inside the Memory Flow plant (projetos/memory-flow-3d/substratos/) or on its own page. */
+const IN_PLANT = inPlant();
 import { num } from '../memory-flow/ui/format';
 import { DEFAULT_SUBSTRATE, createSubstrateCell, stripsPerHour } from './cell';
 import { UNITS, UNIT_CLASSES, drawStrip, oxColor } from './substrate';
 
-const page = createPage({ stage: { shadowFrustum: { left: -3, right: 3, top: 3, bottom: -3, near: 1, far: 60 } }, font: FONT, labelScale: 0.32, labelNear: 1.0 });
+const page = createPage({ stage: { shadowFrustum: { left: -3, right: 3, top: 3, bottom: -3, near: 1, far: 60 }, ...(IN_PLANT ? plantStage : {}) }, font: FONT, labelScale: 0.32, labelNear: 1.0 });
 const { stage } = page;
 stage.renderer.toneMappingExposure = 0.9;
 stage.camera.near = 0.03;
 stage.camera.updateProjectionMatrix();
 stage.controls.minDistance = 0.2;
 const benchMin = page.num('bench');
-buildRoom(stage.scene, { w: 6.5, d: 5, band: 0x2f6fb0, name: 'Front-end · entrada de substratos', font: FONT });
+if (IN_PLANT) buildPlantAround(stage.scene, PLACEMENTS.substratos);
+else buildRoom(stage.scene, { w: 6.5, d: 5, band: 0x2f6fb0, name: 'Front-end · entrada de substratos', font: FONT });
 const M = createMaterials();
 const cell = createSubstrateCell(stage.scene, M, FONT);
 
@@ -125,6 +129,7 @@ page.start({
     cameras: { pos: [0.15, 1.2, 0.55], target: [0.1, 0.97, 0] },
     entrada: { pos: [-1.6, 1.4, 0.8], target: [-1.1, 1.0, 0] },
     saida: { pos: [1.7, 1.4, 0.9], target: [1.15, 1.0, 0.1] },
+    ...(IN_PLANT ? { planta: plantView } : {}),
     cima: { pos: [0, 3.4, 0.01], target: [0, 0.95, 0] },
   },
   tour: { positions: [[1.3, 1.8, 2.0], [-1.7, 1.5, 0.9], [0.2, 1.25, 0.6], [1.8, 1.5, 0.9], [0.4, 2.0, -1.6]], targets: [[0, 1, 0], [-1.1, 1, 0], [0.1, 0.97, 0], [1.2, 1, 0.1], [0, 1, 0]], seconds: 40 },

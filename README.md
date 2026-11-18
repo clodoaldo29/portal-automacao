@@ -42,6 +42,8 @@ src/
     engine.ts                       fluxo de lotes por eventos discretos: filas, falhas, frota, indicadores
     machines.ts · plant3d.ts        modelos dos equipamentos e a planta em 3D
     projects-layer.ts               camada Projetos: onde atua cada projeto do portfólio, com link para a página dele
+    in-plant.ts                     células dos projetos dentro da planta (projetos/memory-flow-3d/<projeto>/,
+                                    body data-in-plant="1"): posição, área ocupada e o que a célula substitui
     actors.ts                       lotes, operadores com carrinho e AMRs
     ui/                             indicadores, comparação de cenários, parâmetros, cartão do equipamento
     cell/                           célula de inspeção pós-corte com IA: na planta (projetos/memory-flow-3d/inspecao/)

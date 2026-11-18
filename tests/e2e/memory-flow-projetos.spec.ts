@@ -16,7 +16,7 @@ test.describe('Memory Flow 3D · projetos na planta', () => {
   test('clicking the pin of a project opens its page', async ({ page }) => {
     await page.goto('/projetos/memory-flow-3d/');
     await page.click('#b-quality');
-    // look at the packing area (L05, project 05) and click its pin label where it shows on the screen
+    // look at the packing area (L05, project 05) and click its pin: it opens the packing cell inside this plant
     const pt = await page.evaluate(() => {
       const s = (window as any).__mf.stage, sprite = (window as any).__mfProjects.sprites()[4];
       s.camera.position.set(-30, 30, 2); s.controls.target.set(-30, 0, -10); s.controls.update();
@@ -26,7 +26,7 @@ test.describe('Memory Flow 3D · projetos na planta', () => {
     });
     await page.waitForTimeout(500);
     await page.mouse.click(pt.x, pt.y);
-    await expect(page).toHaveURL(/\/projetos\/adata-embalagem\/$/);
+    await expect(page).toHaveURL(/\/projetos\/memory-flow-3d\/embalagem\/$/);
   });
 });
 
@@ -37,7 +37,7 @@ test('the "Projetos Adata" menu has a shortcut to every project', async ({ page 
   const links = page.locator('#proj-links a');
   await expect(links).toHaveCount(7);
   if (process.env.MF_SHOTS) await page.screenshot({ path: `${process.env.MF_SHOTS}/mf-menu.png` });
-  await expect(links.nth(1)).toHaveAttribute('href', '/projetos/adata-substratos/');
+  await expect(links.nth(1)).toHaveAttribute('href', '/projetos/memory-flow-3d/substratos/');
   await links.nth(3).click();
   await expect(page).toHaveURL(/\/projetos\/adata-npi\/$/);
 });
