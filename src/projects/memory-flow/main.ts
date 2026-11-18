@@ -292,3 +292,25 @@ canvas.addEventListener('pointermove', e => {
   canvas.title = p ? `${p.num} · ${p.name}: ${p.note} Clique para abrir.` : '';
 });
 (window as unknown as { __mfProjects: unknown }).__mfProjects = projects;
+
+// ---------- "Projetos Adata" menu in the dock: a shortcut to every project's page ----------
+{
+  const ul = document.getElementById('proj-links'), menu = document.getElementById('m-proj') as HTMLDetailsElement | null;
+  if (ul && menu) {
+    for (const p of PLANT_PROJECTS) {
+      const a = document.createElement('a'), b = document.createElement('b'), s = document.createElement('span'), sm = document.createElement('small');
+      a.href = p.url;
+      b.textContent = p.num;
+      b.style.background = p.color;
+      s.textContent = p.name;
+      sm.textContent = p.note;
+      a.append(b, s, sm);
+      const li = document.createElement('li');
+      li.appendChild(a);
+      ul.appendChild(li);
+    }
+    // close when clicking elsewhere or pressing Escape
+    document.addEventListener('click', e => { if (menu.open && !menu.contains(e.target as Node)) menu.open = false; });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') menu.open = false; });
+  }
+}
