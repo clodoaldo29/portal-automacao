@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Microscopia Digital</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="/src/sim/ui/sim.css">
+<link rel="stylesheet" href="/src/projects/memory-flow/style.css">
+</head>
+<body>
+<div id="app">
+  <header class="bar">
+    <div class="plaque">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M6 21h12M9 18h6M12 18v-4M8 4l4-2 2 4-4 2zM10 8l2 6M12 14a4 4 0 0 0 4-4"/></svg>
+      <h1>MICROSCOPIA · 01</h1>
+      <p>Modernização e rastreabilidade digital<br>das estações de microscopia</p>
+    </div>
+    <div class="dock" role="toolbar" aria-label="Controles da cena">
+      <div class="group" aria-label="Câmera">
+        <button id="v-geral" aria-pressed="true">Bancadas</button>
+        <button id="v-hoje" aria-pressed="false">Hoje</button>
+        <button id="v-digital" aria-pressed="false">Digital</button>
+        <button id="v-monitor" aria-pressed="false">Monitor</button>
+        <button id="v-cima" aria-pressed="false">De cima</button>
+        <button id="v-tour" aria-pressed="false">Tour</button>
+      </div>
+      <div class="group" aria-label="Produção">
+        <button id="b-problem" aria-pressed="false" title="Lote com três vezes mais defeitos: o registro em papel pesa mais">Simular lote problemático</button>
+        <button id="b-play" aria-pressed="false">Pausar</button>
+        <button id="b-speed" aria-pressed="false">1×</button>
+      </div>
+      <div class="group" aria-label="Exibição">
+        <button id="b-labels" aria-pressed="true">Etiquetas</button>
+        <button id="b-quality" aria-pressed="false">Qualidade alta</button>
+        <button id="b-kpi" aria-pressed="true">Painel</button>
+        <button id="b-shot" aria-pressed="false">Gerar PNG</button>
+      </div>
+    </div>
+  </header>
+
+  <div id="stage">
+    <div class="modal" id="modal" hidden>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="shot-title">
+        <div class="row">
+          <p id="shot-title" class="shot-title">Imagem em alta resolução</p>
+          <button id="b-close">Fechar</button>
+        </div>
+        <form class="shot-opts" id="shot-form">
+          <label for="shot-res">Resolução
+            <select id="shot-res">
+              <option value="1920">Full HD · 1920 px</option>
+              <option value="2560">QHD · 2560 px</option>
+              <option value="3840" selected>4K · 3840 px</option>
+              <option value="5760">6K · 5760 px</option>
+            </select>
+          </label>
+          <label for="shot-aspect">Formato
+            <select id="shot-aspect">
+              <option value="view">Igual à tela</option>
+              <option value="1.7778">16:9</option>
+              <option value="1.3333">4:3</option>
+              <option value="1">Quadrado</option>
+            </select>
+          </label>
+          <label class="chk" for="shot-labels"><input type="checkbox" id="shot-labels" checked> Etiquetas</label>
+          <button type="submit" id="shot-go">Gerar imagem</button>
+        </form>
+        <div class="shot-frame"><img id="shot" alt="Imagem renderizada das bancadas de microscopia"></div>
+        <div class="row">
+          <p id="shot-info" class="shot-info" role="status"></p>
+          <a id="shot-dl" class="shot-dl" hidden>Baixar PNG</a>
+        </div>
+        <p id="shot-help" class="shot-help">Para salvar: clique com o botão direito na imagem e escolha “Salvar imagem como”. No celular, toque e segure.</p>
+      </div>
+    </div>
+  </div>
+
+  <aside class="kpi open" id="kpi" aria-label="Indicadores e parâmetros das bancadas de microscopia">
+    <div class="tabs" role="tablist">
+      <button id="tab-kpi" role="tab" aria-selected="true" aria-controls="pane-kpi">Indicadores</button>
+      <button id="tab-par" role="tab" aria-selected="false" aria-controls="pane-par">Parâmetros</button>
+    </div>
+
+    <section id="pane-kpi" role="tabpanel" aria-labelledby="tab-kpi">
+      <header><span>Hoje × Digital</span><span class="live">ao vivo</span></header>
+      <table class="cmp" id="cmp"></table>
+      <p class="note" id="cmp-note"></p>
+
+      <h3>Agora</h3>
+      <ul id="st-list"></ul>
+
+      <h3>Imagens capturadas</h3>
+      <div class="gallery" id="gallery"></div>
+
+      <h3>Banco de imagens por classe</h3>
+      <table class="cells">
+        <thead><tr><th scope="col">Classe</th><th scope="col">Imagens</th></tr></thead>
+        <tbody id="bank-rows"></tbody>
+      </table>
+      <p class="note">Cada imagem guarda lote, amostra, etapa, classe e horário. Com o tempo, o banco vira a base rotulada para treinar a inspeção automática por IA (projetos de visão computacional).</p>
+    </section>
+
+    <section id="pane-par" role="tabpanel" aria-labelledby="tab-par" hidden>
+      <form id="params" class="params">
+        <p class="warn">Valores provisórios: os tempos precisam de uma cronoanálise nas bancadas da Adata Technology.</p>
+        <fieldset>
+          <legend>Lote</legend>
+          <div class="two">
+            <label>Amostras por lote<input id="p-samples" type="number" min="1" max="40" step="1" inputmode="numeric"></label>
+            <label>Amostras com defeito (%)<input id="p-rate" type="number" min="0" max="80" step="1" inputmode="numeric"></label>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Hoje (s)</legend>
+          <div class="two">
+            <label>Inspeção por amostra<input id="p-inspect" type="number" min="1" max="300" step="1" inputmode="numeric"></label>
+            <label>Cabeçalho da ficha<input id="p-header" type="number" min="0" max="600" step="5" inputmode="numeric"></label>
+          </div>
+          <div class="two">
+            <label>Anotar um defeito<input id="p-write" type="number" min="0" max="300" step="5" inputmode="numeric"></label>
+            <label>Digitar a ficha no sistema<input id="p-type" type="number" min="0" max="1200" step="10" inputmode="numeric"></label>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Digital (s)</legend>
+          <div class="two">
+            <label>Inspeção por amostra<input id="p-inspect-d" type="number" min="1" max="300" step="1" inputmode="numeric"></label>
+            <label>Capturar e marcar a classe<input id="p-tag" type="number" min="1" max="120" step="1" inputmode="numeric"></label>
+          </div>
+        </fieldset>
+        <div class="actions">
+          <button type="submit" id="p-apply">Aplicar e zerar os indicadores</button>
+          <span id="p-status" role="status"></span>
+        </div>
+      </form>
+    </section>
+
+    <footer>Arraste para girar · role para zoom · botão direito move<br><br>
+      Projeto 01 do portfólio Adata Technology: modernização dos microscópios existentes com câmera digital e monitor, ergonomia, captura e armazenamento das imagens de defeitos, rastreabilidade por lote, amostra e etapa, e base histórica de imagens para Qualidade e para futuras aplicações de visão computacional e IA. Estudo conceitual. Parceria Conecthus + Lade. <a href="/">Portal</a></footer>
+  </aside>
+</div>
+<script type="module" src="/src/projects/adata-microscopia/main.ts"></script>
+</body>
+</html>

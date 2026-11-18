@@ -7,7 +7,7 @@ const REFERENCE = { minutes: 10, strips: 94, ng: 0, xouts: 188 };
 
 type Cell = { step: (dt: number) => void; stats: { strips: number; ng: number } };
 const run = (page: import('@playwright/test').Page, seconds: number) =>
-  page.evaluate(s => { const c = (window as unknown as { __a02: { cell: Cell } }).__a02.cell; for (let i = 0; i < 30 * s; i++) c.step(1 / 30); }, seconds);
+  page.evaluate(s => { const c = (window as unknown as { __a02: { cell: Cell } }).__a02.cell; for (let i = 0; i < 30 * s; i++) c.step(1 / 30); (window as unknown as { __a02: { panel: () => void } }).__a02.panel(); }, seconds);
 
 test.describe('Adata 02 · substratos', () => {
   test('opens without errors and inspects strips', async ({ page }) => {

@@ -7,7 +7,7 @@ const REFERENCE = { minutes: 10, bags: 52, cartons: 12, ng: 0 };
 
 type Cell = { step: (dt: number) => void; params: { wrongLabel: boolean } };
 const run = (page: import('@playwright/test').Page, seconds: number) =>
-  page.evaluate(s => { const c = (window as unknown as { __a05: { cell: Cell } }).__a05.cell; for (let i = 0; i < 30 * s; i++) c.step(1 / 30); }, seconds);
+  page.evaluate(s => { const c = (window as unknown as { __a05: { cell: Cell } }).__a05.cell; for (let i = 0; i < 30 * s; i++) c.step(1 / 30); (window as unknown as { __a05: { panel: () => void } }).__a05.panel(); }, seconds);
 
 test.describe('Adata 05 · embalagem final', () => {
   test('opens without errors and packs bags', async ({ page }) => {

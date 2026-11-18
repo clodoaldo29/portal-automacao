@@ -7,7 +7,7 @@ const REFERENCE = { minutes: 10, ics: 552, rejected: 22, trays: 3 };
 
 type Cell = { step: (dt: number) => void };
 const run = (page: import('@playwright/test').Page, seconds: number) =>
-  page.evaluate(s => { const c = (window as unknown as { __a03: { cell: Cell } }).__a03.cell; for (let i = 0; i < 30 * s; i++) c.step(1 / 30); }, seconds);
+  page.evaluate(s => { const c = (window as unknown as { __a03: { cell: Cell } }).__a03.cell; for (let i = 0; i < 30 * s; i++) c.step(1 / 30); (window as unknown as { __a03: { panel: () => void } }).__a03.panel(); }, seconds);
 
 test.describe('Adata 03 · ICs retrabalhados', () => {
   test('opens without errors, measures packages and maps the tray', async ({ page }) => {

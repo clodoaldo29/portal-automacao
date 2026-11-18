@@ -69,5 +69,17 @@
     "cover": "capas/adata-substratos.png",
     "url": "projetos/adata-substratos/",
     "updatedAt": "2026-11-17"
+  },
+  {
+    "id": "adata-microscopia",
+    "client": "Adata Technology",
+    "name": "Microscopia Digital",
+    "status": "estudo",
+    "description": "Projeto 01 do portfólio para semicondutores: modernização das estações de microscopia com câmera no tubo trinocular e monitor, para ergonomia e rastreabilidade. Duas bancadas lado a lado inspecionam os mesmos lotes: hoje, com oculares e ficha em papel digitada depois; e a digital, com leitura do lote, captura da imagem pelo pedal e classe do defeito registradas no MES. Compara tempo de registro, postura, rastreabilidade e monta o banco de imagens por classe para futuras aplicações de IA. Estudo conceitual, com valores provisórios.",
+    "metrics": { "uph": "≈ 2× lotes/h", "robots": "Câmera + monitor", "models": "Front-end, back-end, Qualidade", "stations": "100% com imagem" },
+    "metricLabels": { "uph": "Ganho", "robots": "Retrofit", "models": "Áreas", "stations": "Rastreabilidade" },
+    "cover": "capas/adata-microscopia.png",
+    "url": "projetos/adata-microscopia/",
+    "updatedAt": "2026-11-17"
   }
 ]

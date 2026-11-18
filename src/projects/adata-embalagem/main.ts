@@ -127,7 +127,7 @@ page.start({
 });
 
 declare global { interface Window { __a05: unknown; __a05Bench?: { minutes: number; bags: number; cartons: number; ng: number; maxIkErr: number; ms: number } } }
-window.__a05 = { cell, stage };
+window.__a05 = { cell, stage, panel };
 (window as unknown as { __capa: () => void }).__capa = () => { stage.camera.position.set(2.7, 3.7, 3.3); stage.controls.target.set(0.15, 0.8, 0.05); stage.controls.update(); };
 if (benchMin) {
   const t0 = performance.now();

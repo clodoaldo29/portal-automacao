@@ -13,6 +13,7 @@ const pages = {
   'adata-embalagem': 'projetos/adata-embalagem/index.html',
   'adata-retrabalho': 'projetos/adata-retrabalho/index.html',
   'adata-substratos': 'projetos/adata-substratos/index.html',
+  'adata-microscopia': 'projetos/adata-microscopia/index.html',
 };
 
 export default defineConfig({

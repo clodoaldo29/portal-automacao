@@ -144,7 +144,7 @@ page.start({
 });
 
 declare global { interface Window { __a03: unknown; __a03Bench?: { minutes: number; ics: number; rejected: number; trays: number; ms: number } } }
-window.__a03 = { cell, stage };
+window.__a03 = { cell, stage, panel };
 (window as unknown as { __capa: () => void }).__capa = () => {
   for (let i = 0; i < 30 * 90; i++) cell.step(1 / 30); // most of the tray already classified
   stage.camera.position.set(1.15, 1.85, 1.5); stage.controls.target.set(0.05, 0.98, 0); stage.controls.update();

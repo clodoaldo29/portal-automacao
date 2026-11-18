@@ -137,7 +137,7 @@ page.start({
 });
 
 declare global { interface Window { __a02: unknown; __a02Bench?: { minutes: number; strips: number; ng: number; xouts: number; ms: number } } }
-window.__a02 = { cell, stage };
+window.__a02 = { cell, stage, panel };
 (window as unknown as { __capa: () => void }).__capa = () => {
   for (let i = 0; i < 30 * 30; i++) cell.step(1 / 30); // a few strips on the rails
   stage.camera.position.set(1.55, 2.1, 1.85); stage.controls.target.set(0.25, 0.98, 0); stage.controls.update();
