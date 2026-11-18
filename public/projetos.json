@@ -93,5 +93,17 @@
     "cover": "capas/adata-npi.png",
     "url": "projetos/adata-npi/",
     "updatedAt": "2026-11-18"
+  },
+  {
+    "id": "adata-inspecao-pos-corte",
+    "client": "Adata Technology",
+    "name": "Inspeção Pós-Corte com IA",
+    "status": "estudo",
+    "description": "Célula automática para a frente Visão: detectar trincas e lascamentos depois do corte do wafer. Um UR10e com garra de garfo retira os frames de wafers de 300 mm do cassete, a mesa XY varre cada wafer sob a câmera e a IA classifica cada die (trinca, lascamento, contaminação, risco), com os casos de baixa confiança para revisão humana. Ao fim do lote de 25, um AMR troca os cassetes. Compara com as bancadas manuais. Estudo conceitual, com valores provisórios.",
+    "metrics": { "uph": "≈ 38 wafers/h", "robots": "1× UR10e + AMR", "models": "Wafers de 300 mm", "stations": "≈ 740 dies por wafer" },
+    "metricLabels": { "uph": "Capacidade", "stations": "Mapa" },
+    "cover": "capas/adata-inspecao-pos-corte.png",
+    "url": "projetos/adata-inspecao-pos-corte/",
+    "updatedAt": "2026-11-18"
   }
 ]

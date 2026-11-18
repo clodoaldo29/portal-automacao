@@ -15,6 +15,7 @@ const pages = {
   'adata-substratos': 'projetos/adata-substratos/index.html',
   'adata-microscopia': 'projetos/adata-microscopia/index.html',
   'adata-npi': 'projetos/adata-npi/index.html',
+  'adata-inspecao-pos-corte': 'projetos/adata-inspecao-pos-corte/index.html',
 };
 
 export default defineConfig({

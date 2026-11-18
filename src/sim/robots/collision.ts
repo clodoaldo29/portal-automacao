@@ -6,14 +6,15 @@ import * as THREE from 'three';
 import type { Cobot } from './ur-arm';
 import { urFK } from './ur-kinematics';
 
-export interface Obstacle { name: string; box: THREE.Box3 }
+/** A named box. With `inv`, the box is in the obstacle's own frame and `inv` takes world points into it (rotated boxes). */
+export interface Obstacle { name: string; box: THREE.Box3; inv?: THREE.Matrix4 }
 /** Smallest gap, the obstacle it is to, and the part of the robot (link 1–6 or the tool box index). */
 export interface Clearance { min: number; name: string; part: string }
 
 /** Capsule radius of each segment (base → shoulder → … → tool flange), UR10e housings plus a safety margin. */
 const RADII = [0.1, 0.09, 0.08, 0.07, 0.06, 0.055];
 
-const _m = new THREE.Vector3(), _q = new THREE.Quaternion(), _s = new THREE.Vector3(), _p = new THREE.Vector3();
+const _m = new THREE.Vector3(), _q = new THREE.Quaternion(), _s = new THREE.Vector3(), _p = new THREE.Vector3(), _l = new THREE.Vector3();
 
 /** World positions of the joint frames 0..6 of the arm (base to tool0). */
 export function jointPoints(arm: Cobot): THREE.Vector3[] {
@@ -45,13 +46,14 @@ export function armClearance(arm: Cobot, obstacles: Obstacle[], tool: THREE.Box3
     for (let k = 0; k <= n; k++) {
       _p.lerpVectors(a, b, k / n);
       for (const o of obstacles) {
-        const d = o.box.containsPoint(_p) ? -0.01 : o.box.distanceToPoint(_p);
+        const q = o.inv ? _l.copy(_p).applyMatrix4(o.inv) : _p;
+        const d = o.box.containsPoint(q) ? -0.01 : o.box.distanceToPoint(q);
         if (d - r < min) { min = d - r; name = o.name; part = `elo ${i + 1}`; }
       }
     }
   }
   tool.forEach((t, ti) => { for (const o of obstacles) {
-    const d = boxGap(t, o.box);
+    const d = boxGap(t, (o as Obstacle & { world?: THREE.Box3 }).world ?? o.box);
     if (d < min) { min = d; name = o.name; part = `ferramenta ${ti + 1}`; }
   } });
   return { min, name, part };
@@ -60,3 +62,11 @@ export function armClearance(arm: Cobot, obstacles: Obstacle[], tool: THREE.Box3
 /** Box helper: centre (x, y, z) and size (w, h, d). */
 export const obstacleBox = (name: string, x: number, y: number, z: number, w: number, h: number, d: number): Obstacle =>
   ({ name, box: new THREE.Box3(new THREE.Vector3(x - w / 2, y - h / 2, z - d / 2), new THREE.Vector3(x + w / 2, y + h / 2, z + d / 2)) });
+
+/** Box of size (w, h, d) centred at (x, y, z) and turned by `yaw` about the vertical axis (links only: tool boxes ignore the turn). */
+export function orientedObstacle(name: string, x: number, y: number, z: number, w: number, h: number, d: number, yaw: number): Obstacle {
+  const m = new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw), new THREE.Vector3(1, 1, 1));
+  const box = new THREE.Box3(new THREE.Vector3(-w / 2, -h / 2, -d / 2), new THREE.Vector3(w / 2, h / 2, d / 2));
+  // tool boxes are compared with the world box that contains the turned one
+  return { name, box, inv: m.clone().invert(), world: box.clone().applyMatrix4(m) } as Obstacle & { world: THREE.Box3 };
+}

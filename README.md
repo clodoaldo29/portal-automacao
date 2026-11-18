@@ -43,7 +43,8 @@ src/
     machines.ts · plant3d.ts        modelos dos equipamentos e a planta em 3D
     actors.ts                       lotes, operadores com carrinho e AMRs
     ui/                             indicadores, comparação de cenários, parâmetros, cartão do equipamento
-    cell/                           célula de inspeção pós-corte com IA (página projetos/memory-flow-3d/inspecao/)
+    cell/                           célula de inspeção pós-corte com IA: na planta (projetos/memory-flow-3d/inspecao/)
+                                    e avulsa (projetos/adata-inspecao-pos-corte/, body data-standalone="1")
       wafer.ts                      mapa de dies e defeitos do wafer (funções puras, com semente)
       cell.ts · main.ts             UR10e com garra de garfo, cassetes, mesa XY com câmera, AMR; painel
   projects/adata-movimentacao/      Adata 06 · movimentação com AMR (usa o motor e a planta da Memory Flow)

@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { pct } from '../../../sim/kpi';
 import { createLabels, type LabelDef } from '../../../sim/labels';
 import { createMaterials } from '../../../sim/materials';
+import { buildRoom } from '../../../sim/room';
 import { useHDRI, useUR10eMeshes } from '../../../sim/robots/ur-arm';
 import { createStage } from '../../../sim/stage';
 import { $ } from '../../../sim/ui/dom';
@@ -21,8 +22,13 @@ import { CLASSES, drawWafer } from './wafer';
 const query = new URLSearchParams(location.search);
 const benchMin = Math.max(0, Number(query.get('bench')) || 0);
 
-/** Where the cell goes: P01C, in place of the manual benches INS01 and INS02. */
-const [OX, OZ] = W(35.9, 55.4);
+/**
+ * Two pages use this file: inside the plant (projetos/memory-flow-3d/inspecao/, the cell in P01C) and on its own
+ * (projetos/adata-inspecao-pos-corte/, <body data-standalone="1">: the cell alone on an ESD floor, no plant).
+ */
+const standalone = document.body.dataset.standalone === '1';
+/** Where the cell goes: P01C, in place of the manual benches INS01 and INS02 (origin when standalone). */
+const [OX, OZ] = standalone ? [0, 0] : W(35.9, 55.4);
 const origin = new THREE.Vector3(OX, 0, OZ);
 const V = (x: number, y: number, z: number): [number, number, number] => [OX + x, y, OZ + z];
 
@@ -33,12 +39,13 @@ stage.sun.position.set(OX + 6, 30, OZ + 12);
 stage.sun.target.position.copy(origin);
 stage.scene.add(stage.sun.target);
 const M = createMaterials();
-buildPlant(stage.scene, { exclude: e => e.area === 'P01C' && (e.tag === 'INS01' || e.tag === 'INS02'), status: false });
+if (standalone) buildRoom(stage.scene, { w: 6, d: 5, x: 0.6, z: -0.2, band: 0x2f6fb0, name: 'Front-end · inspeção pós-corte', font: FONT });
+else buildPlant(stage.scene, { exclude: e => e.area === 'P01C' && (e.tag === 'INS01' || e.tag === 'INS02'), status: false });
 const cell = createCell(stage.scene, M, origin, FONT);
 
 // ---------- labels ----------
 const LABELS: LabelDef[] = [
-  { lines: ['Inspeção pós-corte com IA', 'proposta · P01C'], x: OX, y: 2.75, z: OZ - 0.2 },
+  { lines: standalone ? ['Inspeção pós-corte com IA'] : ['Inspeção pós-corte com IA', 'proposta · P01C'], x: OX, y: 2.75, z: OZ - 0.2 },
   { lines: ['UR10e · garra de garfo'], x: OX - 0.6, y: 2.25, z: OZ - 1.0 },
   { lines: ['Cassete de entrada'], x: OX - 0.92, y: 1.55, z: OZ + 0.15 },
   { lines: ['Cassete de saída'], x: OX + 0.92, y: 1.55, z: OZ + 0.15 },
@@ -57,7 +64,7 @@ const VIEWS: Record<string, ViewDef> = {
   robo: { pos: V(-2.3, 2.1, -2.5), target: V(0, 1.0, 0.1) },
   mesa: { pos: V(0.75, 1.75, 1.45), target: V(0, 0.95, 0.35) },
   cassetes: { pos: V(-2.4, 1.7, 1.6), target: V(-0.9, 0.95, 0) },
-  planta: { pos: V(14, 15, 24), target: V(0, 0, 0) },
+  ...(standalone ? {} : { planta: { pos: V(14, 15, 24), target: V(0, 0, 0) } }),
   cima: { pos: V(0, 7, 0.01), target: V(0, 0, -0.2) },
 };
 const TOUR = {
@@ -65,7 +72,7 @@ const TOUR = {
   targets: [V(0, 0.95, 0), V(-0.5, 1, 0.1), V(0, 1, -0.2), V(0.4, 1, 0.1), V(0, 0.95, 0.3)],
   seconds: 45,
 };
-const dock = ['celula', 'robo', 'mesa', 'cassetes', 'planta', 'cima', 'tour'];
+const dock = ['celula', 'robo', 'mesa', 'cassetes', 'planta', 'cima', 'tour'].filter(n => document.getElementById('v-' + n));
 const views = createViews(stage.camera, stage.controls, { views: VIEWS, tour: TOUR, onChange: n => dock.forEach(d => $('v-' + d).setAttribute('aria-pressed', String(d === n))) });
 dock.filter(n => n !== 'tour').forEach(n => ($('v-' + n).onclick = () => views.go(n)));
 $('v-tour').onclick = () => (views.touring ? views.go('celula') : views.startTour());
@@ -209,16 +216,21 @@ cell.resetStats();
 declare global {
   interface Window {
     __cell: unknown;
-    __cellBench?: { minutes: number; wafers: number; lots: number; ng: number; maxIkErr: number; ms: number };
+    __cellBench?: { minutes: number; wafers: number; lots: number; ng: number; maxIkErr: number; minClear: number; minClearAt: string; ms: number };
   }
 }
 window.__cell = { cell, stage, views };
+/** Portal cover (tests/e2e/capa.spec.ts): a wafer under the camera, the arm at work. */
+(window as unknown as { __capa: () => void }).__capa = () => {
+  for (let i = 0; i < 30 * 70; i++) cell.step(1 / 30);
+  stage.camera.position.set(...V(2.2, 2.3, 2.9)); stage.controls.target.set(...V(0, 0.95, -0.05)); stage.controls.update();
+};
 
 if (benchMin) {
   const t0 = performance.now();
   for (let i = 0, n = Math.round(benchMin * 60 * 30); i < n; i++) cell.step(1 / 30);
   const s = cell.stats;
-  window.__cellBench = { minutes: benchMin, wafers: s.wafers, lots: s.lots, ng: s.ng, maxIkErr: Math.round(s.maxIkErr * 1e4) / 1e4, ms: Math.round(performance.now() - t0) };
+  window.__cellBench = { minutes: benchMin, wafers: s.wafers, lots: s.lots, ng: s.ng, maxIkErr: Math.round(s.maxIkErr * 1e4) / 1e4, minClear: Math.round(s.minClear * 1000) / 1000, minClearAt: s.minClearAt, ms: Math.round(performance.now() - t0) };
 } else {
   const base = import.meta.env.BASE_URL;
   useUR10eMeshes([cell.arm], `${base}assets/ur10e/`).catch(err => console.warn('UR10e meshes not loaded; keeping the modelled arm', err));

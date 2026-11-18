@@ -27,6 +27,8 @@ test.describe('Memory Flow 3D · inspection cell', () => {
     console.log(`célula: ${r!.wafers} wafers, ${r!.lots} lote, ${r!.ng} reprovado, IK ${r!.maxIkErr} m (${r!.ms} ms)`);
     expect({ minutes: r!.minutes, wafers: r!.wafers, lots: r!.lots, ng: r!.ng }).toEqual(REFERENCE);
     expect(r!.maxIkErr).toBeLessThan(0.005);
+    // the arm links never touch the enclosure, the stage, the camera bridge or the cassettes
+    expect(r!.minClear, `o braço encostou em: ${r!.minClearAt}`).toBeGreaterThan(0);
   });
 
   test('the plant links to the cell and back', async ({ page }) => {

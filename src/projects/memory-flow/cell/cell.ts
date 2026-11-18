@@ -8,6 +8,7 @@ import * as THREE from 'three';
 import { createAndons } from '../../../sim/andon';
 import { at, box, canvasTex, cyl, mk, shadowify, std } from '../../../sim/kit';
 import type { Materials } from '../../../sim/materials';
+import { armClearance, obstacleBox, orientedObstacle, type Obstacle } from '../../../sim/robots/collision';
 import { LED, makeCobot, poseAt, solve, upgradeArm, urTrack, type Cobot } from '../../../sim/robots/ur-arm';
 import { UR10E } from '../../../sim/robots/ur-kinematics';
 import { runSeq, type Pose, type Step } from '../../../sim/sequencer';
@@ -23,7 +24,7 @@ const CHUCK_TOP = 0.93, PIN = 0.03;
 const CASS = [{ x: -0.92, z: 0.0 }, { x: 0.92, z: 0.0 }];
 const CASS_BASE = 0.84, SLOT0 = 0.02, PITCH = 0.012;
 /** Fork end effector: frame centre sits FORK_DOWN below the flange and FORK_F ahead of it. */
-const FORK_DOWN = 0.129, FORK_F = 0.25;
+const FORK_DOWN = 0.129, FORK_F = 0.34; // long enough for the wrist to stay outside the cassette
 /** Fork stand-off when entering a cassette or the stage (frame centre distance). */
 const OUT = 0.42;
 const STRIPES = 10;
@@ -57,9 +58,12 @@ export interface CellStats {
   robotT: number;
   swapT: number;
   maxIkErr: number;
+  /** Smallest clearance between the arm links and the equipment (the fork goes into the cassettes by design). */
+  minClear: number;
+  minClearAt: string;
 }
 
-const newStats = (): CellStats => ({ t: 0, wafers: 0, ok: 0, ng: 0, lots: 0, dies: 0, counts: [0, 0, 0, 0, 0], review: 0, scanT: 0, robotT: 0, swapT: 0, maxIkErr: 0 });
+const newStats = (): CellStats => ({ t: 0, wafers: 0, ok: 0, ng: 0, lots: 0, dies: 0, counts: [0, 0, 0, 0, 0], review: 0, scanT: 0, robotT: 0, swapT: 0, maxIkErr: 0, minClear: Infinity, minClearAt: '' });
 
 /** Ring frame (300 mm wafer frame) with tape and the wafer. */
 function makeFrameGeometry() {
@@ -212,6 +216,7 @@ export function createCell(scene: THREE.Scene, M: Materials, origin: THREE.Vecto
   fork.add(at(box(0.06, 0.006, 0.36, std(0x2b2f36, 0.3, 0.35)), -0.07, -FORK_DOWN + 0.003, FORK_F));
   fork.add(at(box(0.06, 0.006, 0.36, std(0x2b2f36, 0.3, 0.35)), 0.07, -FORK_DOWN + 0.003, FORK_F));
   fork.add(at(box(0.2, 0.006, 0.06, std(0x2b2f36, 0.3, 0.35)), 0, -FORK_DOWN + 0.003, FORK_F - 0.15));
+  fork.add(at(box(0.06, 0.008, FORK_F - 0.21, M.aluDark), 0, -FORK_DOWN + 0.004, (0.06 + FORK_F - 0.15) / 2)); // stem from the bracket to the blades
   for (const [x, z] of [[-0.07, FORK_F - 0.12], [0.07, FORK_F - 0.12], [-0.07, FORK_F + 0.14], [0.07, FORK_F + 0.14]]) fork.add(at(cyl(0.012, 0.012, 0.004, M.rubber, 12), x, -FORK_DOWN + 0.007, z));
   fork.add(at(box(0.05, 0.04, 0.05, M.blue), 0, -0.06, -0.04)); // vacuum generator
   shadowify(fork);
@@ -369,6 +374,18 @@ export function createCell(scene: THREE.Scene, M: Materials, origin: THREE.Vecto
 
   // ---------- step ----------
   const tmpErr = { v: 0 };
+  let clearT = 0;
+  // equipment around the arm, as boxes in world coordinates (links only: the fork enters the cassettes by design)
+  const ob = (name: string, x: number, y: number, z: number, w: number, hh: number, d: number) => obstacleBox(name, origin.x + x, y, origin.z + z, w, hh, d);
+  const obstacles: Obstacle[] = [
+    ob('proteção (fundo)', 0, h / 2, z0, x1 - x0, h, 0.06), ob('proteção (lado)', x0, h / 2, (z0 + z1) / 2, 0.06, h, z1 - z0), ob('proteção (lado)', x1, h / 2, (z0 + z1) / 2, 0.06, h, z1 - z0),
+    ob('proteção (frente)', 0, (1.15 + h) / 2, z1, x1 - x0, h - 1.15, 0.06), ob('teto da célula', 0, h, (z0 + z1) / 2, x1 - x0, 0.06, z1 - z0),
+    ob('gabinete da mesa', STAGE.x, 0.44, STAGE.z, 1.0, 0.88, 0.8),
+    ob('ponte da câmera', STAGE.x - 0.52, 1.23, STAGE.z + 0.36, 0.08, 0.7, 0.08), ob('ponte da câmera', STAGE.x + 0.52, 1.23, STAGE.z + 0.36, 0.08, 0.7, 0.08),
+    ob('ponte da câmera', STAGE.x, 1.58, STAGE.z + 0.36, 1.12, 0.1, 0.1), ob('ponte da câmera', STAGE.x, 1.58, STAGE.z + 0.18, 0.1, 0.06, 0.4),
+    ob('câmera', STAGE.x, 1.4, STAGE.z, 0.12, 0.34, 0.12),
+    ...CASS.flatMap((c, i) => [ob('porta do cassete', c.x, 0.41, c.z, 0.62, 0.82, 0.62), orientedObstacle('cassete', origin.x + c.x, CASS_BASE + 0.19, origin.z + c.z, 0.46, 0.38, 0.44, cassYaw[i])]),
+  ];
   function step(dt: number) {
     stats.t += dt;
     // robot: next job when free
@@ -382,6 +399,7 @@ export function createCell(scene: THREE.Scene, M: Materials, origin: THREE.Vecto
     solve(arm, actor.pose);
     tmpErr.v = urTrack(arm, actor.pose, iters);
     if (stats.t > 3 && busy) stats.maxIkErr = Math.max(stats.maxIkErr, tmpErr.v);
+    if (busy && (clearT += dt) >= 1 / 15) { clearT = 0; const c = armClearance(arm, obstacles); if (c.min < stats.minClear) { stats.minClear = c.min; stats.minClearAt = `${c.name} (${c.part})`; } }
 
     // lift pins
     st.pin = st.pinTarget > st.pin ? Math.min(st.pinTarget, st.pin + dt / 0.4) : Math.max(st.pinTarget, st.pin - dt / 0.4);
