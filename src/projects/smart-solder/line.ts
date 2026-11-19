@@ -242,7 +242,8 @@ export function createLine(scene: THREE.Scene, M: Materials, font: string, param
     g.add(at(box(0.5, 0.3, 0.5, liftMat), 0, 0.15, 0)); // drive
     const plat = new THREE.Group();
     g.add(plat);
-    plat.add(at(box(0.5, 0.03, 0.44, M.aluDark), 0, -0.015, 0));
+    // the plate sits 8 mm under the belt it lines up with: two surfaces in the same plane flicker
+    plat.add(at(box(0.5, 0.03, 0.44, M.aluDark), 0, -0.023, 0));
     for (const sz of [-1, 1]) plat.add(at(box(0.5, 0.05, 0.02, M.alu), 0, 0.01, sz * 0.22));
     shadowify(g);
     return plat;
@@ -512,7 +513,7 @@ export function createLine(scene: THREE.Scene, M: Materials, font: string, param
     const SD: Line<Pallet> = makeLine<Pallet>({ track: dn, speed: LINE.speed * 1.4, gap: LINE.gap, tex: buildConveyor(scene, M, dn, LINE.beltW - 0.1, LINE.retTop), y: LINE.retTop, onExit: () => {} });
     // transfer unit in the main line: belts that rise between the rollers and move the pallet sideways
     const xfer = new THREE.Group();
-    xfer.position.set(x, LINE.top - 0.012, 0);
+    xfer.position.set(x, LINE.top - 0.03, 0); // resting well under the belt (no flicker), rises to lift the pallet
     scene.add(xfer);
     for (const sx of [-1, 1]) xfer.add(at(box(0.04, 0.02, 0.5, std(0x2f6b47, 0.05, 0.6)), sx * 0.15, 0, 0));
     scene.add(at(box(0.42, 0.18, 0.3, std(0x5f6b7a, 0.2, 0.5)), x, LINE.top - 0.22, 0));
@@ -568,7 +569,7 @@ export function createLine(scene: THREE.Scene, M: Materials, font: string, param
         br.div.t += dt;
         const u = Math.min(1, br.div.t / br.div.dur);
         it.obj.position.set(x, LINE.top, SPUR.z0 * u);
-        br.xfer.position.y = LINE.top - 0.012 + 0.012 * Math.sin(Math.PI * u);
+        br.xfer.position.y = LINE.top - 0.03 + 0.03 * Math.sin(Math.PI * u);
         if (u >= 1) { it.s = 0; it.hold = null; it.passed = new Set(); SU.items.push(it); br.div = null; }
       }
     }
