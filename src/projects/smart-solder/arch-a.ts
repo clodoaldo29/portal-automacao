@@ -177,7 +177,7 @@ export function createArchA(scene: THREE.Scene, M: Materials, font: string, line
   for (const x of [A.pick, A.place]) scene.add(at(box(0.04, 0.03, 0.08, M.yellow), x + PALLET.l / 2 + 0.03, LINE.top + 0.015, -0.18));
   const blankTop = LINE.top + PALLET.h + 0.003 + PCB.t + 0.014; // edge gripper over the components
   let atPick: Pallet | null = null, atPlace: Pallet | null = null;
-  line.zoneStop(A.pick, it => !!it.blank && it.blank.done === 0, it => { atPick = it; });
+  line.zoneStop(A.pick, it => !!it.blank && !it.blank.preNok && it.blank.done === 0, it => { atPick = it; });
   line.zoneStop(A.place, it => !it.blank, it => { atPlace = it; });
 
   /** Table load point of a cartesian in world coordinates, and the tool yaw that lines the blank up with the table. */

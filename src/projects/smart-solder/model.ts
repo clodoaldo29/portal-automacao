@@ -24,6 +24,8 @@ export interface SolderParams {
   /** Share of NOK and inconclusive PCBs at the post-solder inspection. */
   nok: number;
   inconclusive: number;
+  /** Share of blanks that fail the pre-solder check (LED or spring missing or misplaced). */
+  preNok: number;
   /** Manual stations, seconds per PCB: IR LEDs (blank on the pallet included) and springs. */
   ledS: number;
   springS: number;
@@ -32,13 +34,15 @@ export interface SolderParams {
 }
 
 export const DEFAULT_SOLDER: SolderParams = {
-  boards: 6, points: 10, pointS: 2.5, alignS: 3, target: 350, nok: 0.015, inconclusive: 0.005, ledS: 4, springS: 4, cells: [true, true, true],
+  boards: 6, points: 10, pointS: 2.5, alignS: 3, target: 350, nok: 0.015, inconclusive: 0.005, preNok: 0.02, ledS: 4, springS: 4, cells: [true, true, true],
 };
 /** NOK share when "Simular NOK" is on. */
 export const NOK_HIGH = 0.08;
+/** Pre-solder NOK share (of blanks) when "Simular NOK" is on. */
+export const PRE_NOK_HIGH = 0.12;
 
 /** Limits of the parameters form. */
-export const LIMITS = { boards: [4, 10], points: [2, 30], pointS: [1.5, 8], alignS: [1, 10], target: [50, 1000], nok: [0, 30], ledS: [1, 15], springS: [1, 15] } as const;
+export const LIMITS = { boards: [4, 10], points: [2, 30], pointS: [1.5, 8], alignS: [1, 10], target: [50, 1000], nok: [0, 30], preNok: [0, 30], ledS: [1, 15], springS: [1, 15] } as const;
 
 // ---------- line layout (metres; the line runs along +x at z = 0) ----------
 export const LINE = { x0: -5.6, x1: 4.45, top: 0.9, beltW: 0.5, speed: 0.35, gap: 0.55, retTop: 0.38 };

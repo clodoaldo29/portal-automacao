@@ -17,7 +17,7 @@ import { createArchA } from './arch-a';
 import { createArchB, type RobotStat } from './arch-b';
 import { createLine, lineUph } from './line';
 import {
-  A, A_COBOT_S, DEFAULT_SOLDER, LIMITS, LINE, MAGAZINE, OUT, SPUR, ST, NOK_HIGH, activeCells, blankS, capacityA, ledStationS, springStationS, strategiesB, type Arch, type SolderParams,
+  A, A_COBOT_S, DEFAULT_SOLDER, LIMITS, LINE, MAGAZINE, OUT, SPUR, ST, NOK_HIGH, PRE_NOK_HIGH, activeCells, blankS, capacityA, ledStationS, springStationS, strategiesB, type Arch, type SolderParams,
 } from './model';
 
 const ARCH: Arch = document.body.dataset.arch === 'A' ? 'A' : 'B';
@@ -30,11 +30,11 @@ const M = createMaterials();
 // ---------- parameters ----------
 const PKEY = `smartsolder.${ARCH}.params.v1`;
 const params: SolderParams = { ...DEFAULT_SOLDER, cells: [...DEFAULT_SOLDER.cells] };
-let baseNok = params.nok;
+let baseNok = params.nok, basePre = params.preNok;
 if (!benchMin) {
   try {
     const s = JSON.parse(localStorage.getItem(PKEY) || 'null');
-    if (s && typeof s === 'object') { Object.assign(params, s); params.cells = Array.isArray(s.cells) && s.cells.length === 3 ? s.cells.map(Boolean) : [true, true, true]; baseNok = params.nok; }
+    if (s && typeof s === 'object') { Object.assign(params, s); params.cells = Array.isArray(s.cells) && s.cells.length === 3 ? s.cells.map(Boolean) : [true, true, true]; baseNok = params.nok; basePre = params.preNok ?? DEFAULT_SOLDER.preNok; params.preNok = basePre; }
   } catch { /* defaults */ }
 }
 
@@ -53,7 +53,7 @@ const f = (id: string) => $<HTMLInputElement>(id);
 const val = (id: string, d: number, [lo, hi]: readonly [number, number]) => { const x = Number(f(id).value); return f(id).value !== '' && Number.isFinite(x) ? Math.min(hi, Math.max(lo, x)) : d; };
 function writeForm() {
   f('p-boards').value = String(params.boards); f('p-points').value = String(params.points); f('p-pointS').value = String(params.pointS);
-  f('p-alignS').value = String(params.alignS); f('p-target').value = String(params.target); f('p-nok').value = String(Math.round(baseNok * 1000) / 10);
+  f('p-alignS').value = String(params.alignS); f('p-target').value = String(params.target); f('p-nok').value = String(Math.round(baseNok * 1000) / 10); f('p-preNok').value = String(Math.round(basePre * 1000) / 10);
   f('p-ledS').value = String(params.ledS); f('p-springS').value = String(params.springS);
   params.cells.forEach((on, i) => { f(`p-cell${i}`).checked = on; });
 }
@@ -66,12 +66,13 @@ $<HTMLFormElement>('params').addEventListener('submit', e => {
   if (!cells.some(Boolean)) { $('p-status').textContent = 'Deixe pelo menos uma célula ligada.'; return; }
   params.boards = Math.round(val('p-boards', d.boards, LIMITS.boards)); params.points = Math.round(val('p-points', d.points, LIMITS.points));
   params.pointS = val('p-pointS', d.pointS, LIMITS.pointS); params.alignS = val('p-alignS', d.alignS, LIMITS.alignS);
-  params.target = Math.round(val('p-target', d.target, LIMITS.target)); baseNok = val('p-nok', d.nok * 100, LIMITS.nok) / 100;
+  params.target = Math.round(val('p-target', d.target, LIMITS.target)); baseNok = val('p-nok', d.nok * 100, LIMITS.nok) / 100; basePre = val('p-preNok', d.preNok * 100, LIMITS.preNok) / 100;
   params.ledS = val('p-ledS', d.ledS, LIMITS.ledS); params.springS = val('p-springS', d.springS, LIMITS.springS);
   params.cells = cells;
-  params.nok = nokBtn.getAttribute('aria-pressed') === 'true' ? NOK_HIGH : baseNok;
+  const high = nokBtn.getAttribute('aria-pressed') === 'true';
+  params.nok = high ? NOK_HIGH : baseNok; params.preNok = high ? PRE_NOK_HIGH : basePre;
   writeForm();
-  try { localStorage.setItem(PKEY, JSON.stringify({ ...params, nok: baseNok })); } catch { /* not saved */ }
+  try { localStorage.setItem(PKEY, JSON.stringify({ ...params, nok: baseNok, preNok: basePre })); } catch { /* not saved */ }
   line.resetStats(); zone.resetStats();
   $('p-status').textContent = `Aplicado. Novos blanks com ${params.boards} PCBs e ${params.points} pontos por PCB; os que já estão na linha seguem como estavam. Indicadores zerados.`;
 });
@@ -79,6 +80,7 @@ nokBtn.onclick = () => {
   const on = nokBtn.getAttribute('aria-pressed') !== 'true';
   nokBtn.setAttribute('aria-pressed', String(on));
   params.nok = on ? NOK_HIGH : baseNok;
+  params.preNok = on ? PRE_NOK_HIGH : basePre;
 };
 $('b-other').onclick = () => { location.href = `/projetos/smart-solder-${ARCH === 'A' ? 'b' : 'a'}/`; };
 
@@ -91,7 +93,7 @@ const capRows = rowsOf('cap-rows', ['Meta', 'Capacidade calculada', 'Capacidade 
 capRows[3].className = 'total';
 const robotNames = ARCH === 'A' ? ['Cartesiano 1', 'Cartesiano 2', 'Cartesiano 3', 'Braço (alimenta)'] : ['Robô 1', 'Robô 2', 'Robô 3'];
 const robRows = rowsOf('rob-rows', robotNames, 4);
-const stRows = rowsOf('st-rows', ['Posto 1 · blank e LEDs', 'Posto 2 · molas', 'Retirada · OK e NOK', 'Buffer NOK', 'UnLoader · magazine', 'AMR'], 3);
+const stRows = rowsOf('st-rows', ['Posto 1 · blank e LEDs', 'Posto 2 · molas', 'Retirada · OK e NOK', 'Buffer NOK pré-solda', 'Buffer NOK pós-solda', 'UnLoader · magazine', 'AMR'], 3);
 const cmpBody = $<HTMLTableSectionElement>('cmp-rows');
 const AMR_STATE: Record<string, string> = { docked: 'na doca', lower: 'trocando', out: 'recebendo o cheio', shift: 'trocando', in: 'entregando o vazio', raise: 'trocando', go: 'indo à montagem', away: 'na montagem e teste', back: 'voltando' };
 
@@ -155,12 +157,14 @@ function panel() {
   $('q-nok').textContent = String(s.nokBoards);
   $('q-inc').textContent = String(s.incBoards);
   $('q-seg').textContent = String(s.nokStored);
+  $('q-pre').textContent = String(s.preNok);
   // stations and logistics
   const ledCap = (3600 * params.boards) / ledStationS(params), springCap = (3600 * params.boards) / springStationS(params);
   const st = [
     [s.ledT / T, `${num(ledCap, 0)} placas/h no máximo`],
     [s.springT / T, `${num(springCap, 0)} placas/h no máximo`],
     [s.removalT / T, s.blockedT > 5 ? `esperou ${num(s.blockedT, 0)} s pela esteira` : 'manual'],
+    [line.preSpur / SPUR.cap, `${line.preSpur}/${SPUR.cap} pallets · máx. ${s.preSpurMax} · ${s.preStored} no magazine`],
     [line.spur / SPUR.cap, `${line.spur}/${SPUR.cap} pallets · máx. ${s.spurMax}`],
     [line.magazine ? line.magazine.fill / MAGAZINE.slots : 0, `${line.magazine ? line.magazine.fill : 0}/${MAGAZINE.slots} blanks · ${s.magazines} cheios`],
     [null, `${AMR_STATE[line.amrPhase] ?? line.amrPhase} · ${s.deliveries} entregues`],
@@ -184,7 +188,7 @@ const LABELS: LabelDef[] = [
     : [{ lines: ['4 · Soldagem: braço + 3 robôs cartesianos'], x: 0, y: 2.65, z: -0.4 }, { lines: ['Retira o blank'], x: A.pick, y: 1.3, z: 0.1 }, { lines: ['Devolve soldado'], x: A.place, y: 1.3, z: 0.1 }]),
   { lines: ['5 · Inspeção pós-solda', 'OK · NOK · inconclusivo'], x: ST.post, y: 2.15, z: 0 },
   { lines: ['6 · Retirada do blank'], x: LINE.x1 - 0.1, y: 2.05, z: -0.6 },
-  { lines: ['Separação NOK · buffer de 4 pallets'], x: ST.divert, y: 1.75, z: -1.3 }, { lines: ['Magazine NOK (manual)'], x: ST.divert + 0.62, y: 1.45, z: SPUR.lift - 0.66 },
+  { lines: ['NOK pós-solda · buffer de 4 pallets'], x: ST.divert, y: 1.75, z: -1.3 }, { lines: ['NOK pré-solda · buffer de 4 pallets'], x: ST.pre, y: 1.75, z: -1.3 }, { lines: ['Magazine NOK (manual)'], x: ST.divert + 0.62, y: 1.45, z: SPUR.lift - 0.66 }, { lines: ['Magazine NOK (manual)'], x: ST.pre - 0.62, y: 1.45, z: SPUR.lift - 0.66 },
   { lines: ['UnLoader · magazine'], x: OUT.x1 + 0.22, y: 2.05, z: 0 },
   { lines: ['AMR · magazines', 'para montagem e teste'], x: OUT.x1 + 0.8, y: 1.55, z: -0.3 },
   { lines: ['Retorno automático dos pallets'], x: -1.5, y: 0.55, z: 0.55 },

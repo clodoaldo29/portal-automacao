@@ -131,7 +131,7 @@ export function createArchB(scene: THREE.Scene, M: Materials, font: string, line
     if (!allFree) return;
     const k = activeCells(params);
     const bufS = ST.buffer - LINE.x0;
-    const queue = line.L.items.filter(it => it.target < 0 && it.blank && it.blank.pre && it.blank.done === 0 && it.s <= bufS + 1e-6 && it.s >= bufS - (k - 1) * LINE.gap - 0.05)
+    const queue = line.L.items.filter(it => it.target < 0 && it.blank && it.blank.pre && !it.blank.preNok && it.blank.done === 0 && it.s <= bufS + 1e-6 && it.s >= bufS - (k - 1) * LINE.gap - 0.05)
       .sort((a, b) => b.s - a.s);
     const anyDone = cells.some(c => c.state === 'done');
     if (queue.length < k && !anyDone) return;
