@@ -17,7 +17,7 @@ import { createArchA } from './arch-a';
 import { createArchB, type RobotStat } from './arch-b';
 import { createLine, lineUph } from './line';
 import {
-  A, A_COBOT_S, DEFAULT_SOLDER, LIMITS, LINE, MAGAZINE, OUT, SPUR, ST, NOK_HIGH, PRE_NOK_HIGH, activeCells, blankS, capacityA, ledStationS, springStationS, strategiesB, type Arch, type SolderParams,
+  A, A_COBOT_S, DEFAULT_SOLDER, LIMITS, LINE, MAGAZINE, pcbSize, OUT, SPUR, ST, NOK_HIGH, PRE_NOK_HIGH, activeCells, blankS, capacityA, ledStationS, springStationS, strategiesB, type Arch, type SolderParams,
 } from './model';
 
 const ARCH: Arch = document.body.dataset.arch === 'A' ? 'A' : 'B';
@@ -74,7 +74,10 @@ $<HTMLFormElement>('params').addEventListener('submit', e => {
   writeForm();
   try { localStorage.setItem(PKEY, JSON.stringify({ ...params, nok: baseNok, preNok: basePre })); } catch { /* not saved */ }
   line.resetStats(); zone.resetStats();
-  $('p-status').textContent = `Aplicado. Novos blanks com ${params.boards} PCBs e ${params.points} pontos por PCB; os que já estão na linha seguem como estavam. Indicadores zerados.`;
+  const pcb = pcbSize(params.boards, params.points);
+  const size = params.boards === 1 ? ` A placa única fica com ${Math.round(pcb.l * 1000)} × ${Math.round(pcb.w * 1000)} mm, pontos a ${Math.round(pcb.pitch * 1000)} mm.` : '';
+  const fit = pcb.fits ? '' : ' Atenção: com tantos pontos a placa não cabe no pallet de referência; ela foi desenhada maior.';
+  $('p-status').textContent = `Aplicado. Novos blanks com ${params.boards} PCB${params.boards > 1 ? 's' : ''} e ${params.points} pontos por PCB; os que já estão na linha seguem como estavam.${size}${fit} Indicadores zerados.`;
 });
 nokBtn.onclick = () => {
   const on = nokBtn.getAttribute('aria-pressed') !== 'true';
@@ -129,7 +132,9 @@ function panel() {
   const gap = calc / params.target - 1;
   $('cap-note').textContent = gap >= 0
     ? `Pelo cálculo, ${activeCells(params)} ${ARCH === 'A' ? 'cartesianos' : 'células'} atendem a meta com ${pct(gap)} de folga, com ${params.boards} PCBs por blank e ${params.points} pontos por PCB. A medida aparece depois de 2 minutos.`
-    : `Pelo cálculo, ficam ${pct(-gap)} abaixo da meta. Ligue as três ${ARCH === 'A' ? 'cartesianos' : 'células'} ou reduza o tempo por ponto.`;
+    : activeCells(params) < 3
+      ? `Pelo cálculo, ficam ${pct(-gap)} abaixo da meta. Ligue ${ARCH === 'A' ? 'os três cartesianos' : 'as três células'} ou reduza o tempo por ponto.`
+      : `Pelo cálculo, ficam ${pct(-gap)} abaixo da meta: com ${params.boards * params.points} pontos por blank, a solda limita a linha. Reduza o tempo por ponto ou os pontos por placa.`;
 
   // balancing
   const totalBlanks = z.robots.reduce((a, r) => a + r.blanks, 0);

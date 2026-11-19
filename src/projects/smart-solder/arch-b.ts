@@ -97,7 +97,7 @@ export function createArchB(scene: THREE.Scene, M: Materials, font: string, line
     const dwell = Math.max(0.6, s * 0.5), down = 0.22, up = 0.22, move = Math.max(0.1, s - dwell - down - up);
     const pts = b.pts.map((_, k) => line.jointWorld(b, k));
     const lift = 0.03;
-    const { l } = blankSize(b.boards);
+    const { l } = blankSize(b.boards, b.points);
     const cx = it.obj.position.x, top = LINE.top + PALLET.h + 0.003 + PCB.t;
     const fid = [cx - l / 2 + 0.015, cx + l / 2 - 0.015];
     const steps: Step[] = [

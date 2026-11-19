@@ -28,6 +28,8 @@ export interface Blank {
   obj: THREE.Group;
   id: number;
   boards: number;
+  /** Joints per PCB (sets the size of a single PCB). */
+  points: number;
   /** Joints in soldering order (blank local), and how many are done. */
   pts: { x: number; z: number; board: number }[];
   done: number;
@@ -150,14 +152,15 @@ export function createLine(scene: THREE.Scene, M: Materials, font: string, param
 
   // blank: board texture per PCB count, joints / LEDs / springs as instanced meshes
   const texCache = new Map<number, THREE.Texture>();
-  function blankTex(n: number) {
-    if (texCache.has(n)) return texCache.get(n)!;
-    const { l, w } = blankSize(n), S = 1400, W = Math.round(S * w / l);
+  function blankTex(n: number, points: number) {
+    const key = n > 1 ? n : 1000 + points; // a single PCB changes with its joints
+    if (texCache.has(key)) return texCache.get(key)!;
+    const { l, w, pcb } = blankSize(n, points), S = 1400, W = Math.round(S * w / l);
     const [c, g] = mk(S, W);
     const px = (x: number) => (x / l + 0.5) * S, pz = (z: number) => (z / w + 0.5) * W;
     g.fillStyle = '#1b5e34'; g.fillRect(0, 0, S, W);
-    for (const b of boardCenters(n)) {
-      const x0 = px(b.x - PCB.l / 2), z0 = pz(b.z - PCB.w / 2), bw = (PCB.l / l) * S, bh = (PCB.w / w) * W;
+    for (const b of boardCenters(n, points)) {
+      const x0 = px(b.x - pcb.l / 2), z0 = pz(b.z - pcb.w / 2), bw = (pcb.l / l) * S, bh = (pcb.w / w) * W;
       g.fillStyle = '#23794a'; g.fillRect(x0, z0, bw, bh);
       g.strokeStyle = 'rgba(10,30,18,0.8)'; g.lineWidth = 3; g.strokeRect(x0, z0, bw, bh);
       g.strokeStyle = 'rgba(240,250,240,0.55)'; g.lineWidth = 2;
@@ -166,10 +169,10 @@ export function createLine(scene: THREE.Scene, M: Materials, font: string, param
       g.fillText('CR-MX', x0 + bw * (b.flip ? 0.72 : 0.08), z0 + bh * 0.25);
     }
     g.fillStyle = '#d9c27a';
-    for (const j of blankJoints(n, 10)) { g.beginPath(); g.arc(px(j.x), pz(j.z), 7, 0, Math.PI * 2); g.fill(); }
+    for (const j of blankJoints(n, n > 1 ? 10 : points)) { g.beginPath(); g.arc(px(j.x), pz(j.z), 7, 0, Math.PI * 2); g.fill(); }
     g.fillStyle = '#e5e7eb'; for (const [x, z] of [[0.04, 0.5], [0.96, 0.5]]) { g.beginPath(); g.arc(x * S, z * W, 9, 0, Math.PI * 2); g.fill(); } // fiducials
     const t = canvasTex(c);
-    texCache.set(n, t);
+    texCache.set(key, t);
     return t;
   }
   const jointGeo = new THREE.CylinderGeometry(0.0016, 0.0019, 0.0014, 8);
@@ -179,23 +182,25 @@ export function createLine(scene: THREE.Scene, M: Materials, font: string, param
   const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _qz = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.PI / 2);
   let blankSeq = 0;
   function makeBlank(): Blank {
-    const n = params.boards, { l, w } = blankSize(n), pts = blankJoints(n, params.points);
+    const n = params.boards, points = params.points, { l, w, pcb } = blankSize(n, points), pts = blankJoints(n, points);
     const obj = new THREE.Group();
-    const base = new THREE.Mesh(new THREE.BoxGeometry(l, PCB.t, w), [M.dark, M.dark, std(0xffffff, 0.05, 0.55, { map: blankTex(n) }), M.dark, M.dark, M.dark]);
+    const base = new THREE.Mesh(new THREE.BoxGeometry(l, PCB.t, w), [M.dark, M.dark, std(0xffffff, 0.05, 0.55, { map: blankTex(n, points) }), M.dark, M.dark, M.dark]);
     base.position.y = PCB.t / 2;
     base.castShadow = base.receiveShadow = true;
     obj.add(base);
     const joints = new THREE.InstancedMesh(jointGeo, jointMat, pts.length);
     pts.forEach((p, i) => { joints.setMatrixAt(i, _m.makeTranslation(p.x, PCB.t + 0.0007, p.z)); joints.setColorAt(i, COPPER); });
     obj.add(joints);
-    const centers = boardCenters(n);
+    const centers = boardCenters(n, points);
+    // LEDs at the LED end, springs at the other end (a single PCB is larger: they follow its ends)
+    const ledX = pcb.fixed ? 0.074 : pcb.l / 2 - 0.006, springX = pcb.fixed ? 0.068 : pcb.l / 2 - 0.012;
     const leds = new THREE.InstancedMesh(ledGeo, ledMat, n * 2), springs = new THREE.InstancedMesh(springGeo, springMat, n * 2);
     centers.forEach((c, i) => {
       const s = c.flip ? -1 : 1;
       for (const k of [0, 1]) {
-        leds.setMatrixAt(i * 2 + k, _m.makeTranslation(c.x + s * (0.074 + k * 0.0), PCB.t + 0.0045 + k * 0.0, c.z + (k ? 0.009 : -0.009)));
+        leds.setMatrixAt(i * 2 + k, _m.makeTranslation(c.x + s * ledX, PCB.t + 0.0045, c.z + (k ? 0.009 : -0.009)));
         _q.copy(_qz);
-        springs.setMatrixAt(i * 2 + k, _m.compose(new THREE.Vector3(c.x - s * 0.068, PCB.t + 0.0055, c.z + (k ? 0.013 : -0.013)), _q, new THREE.Vector3(1, 1, 1)));
+        springs.setMatrixAt(i * 2 + k, _m.compose(new THREE.Vector3(c.x - s * springX, PCB.t + 0.0055, c.z + (k ? 0.013 : -0.013)), _q, new THREE.Vector3(1, 1, 1)));
       }
     });
     leds.count = 0; springs.count = 0;
@@ -204,7 +209,7 @@ export function createLine(scene: THREE.Scene, M: Materials, font: string, param
     obj.add(marks);
     obj.traverse(o => { if ((o as THREE.Mesh).isMesh) o.castShadow = true; });
     stats.blanksIn++;
-    return { obj, id: blankSeq++, boards: n, pts, done: 0, joints, leds, springs, marks, pre: false, preNok: false, boardResult: [], result: null, by: -1 };
+    return { obj, id: blankSeq++, boards: n, points, pts, done: 0, joints, leds, springs, marks, pre: false, preNok: false, boardResult: [], result: null, by: -1 };
   }
   /** Free the per-blank GPU resources (its texture and the shared geometries stay). */
   function disposeBlank(b: Blank) {
@@ -655,7 +660,7 @@ export function createLine(scene: THREE.Scene, M: Materials, font: string, param
   function verdict(b: Blank) {
     b.boardResult = Array.from({ length: b.boards }, () => { const r = rng(); return r < params.nok ? 'nok' : r < params.nok + params.inconclusive ? 'inc' : 'ok'; });
     b.result = b.boardResult.includes('nok') ? 'nok' : b.boardResult.includes('inc') ? 'inc' : 'ok';
-    boardCenters(b.boards).forEach((c, i) => {
+    boardCenters(b.boards, b.points).forEach((c, i) => {
       const v = b.boardResult[i];
       if (v === 'ok') return;
       const m = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.002, 0.012), markMat[v]);
@@ -719,7 +724,7 @@ export function createLine(scene: THREE.Scene, M: Materials, font: string, param
         if (rng() < params.preNok) {
           b.preNok = true;
           stats.preNok++;
-          const c = boardCenters(b.boards)[Math.floor(rng() * b.boards)];
+          const c = boardCenters(b.boards, b.points)[Math.floor(rng() * b.boards)];
           const m = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.002, 0.012), markMat.nok);
           m.position.set(c.x, PCB.t + 0.004, c.z);
           b.marks.add(m);

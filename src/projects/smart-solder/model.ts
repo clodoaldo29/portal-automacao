@@ -42,7 +42,7 @@ export const NOK_HIGH = 0.08;
 export const PRE_NOK_HIGH = 0.12;
 
 /** Limits of the parameters form. */
-export const LIMITS = { boards: [1, 10], points: [2, 30], pointS: [1.5, 8], alignS: [1, 10], target: [50, 1000], nok: [0, 30], preNok: [0, 30], ledS: [1, 15], springS: [1, 15] } as const;
+export const LIMITS = { boards: [1, 10], points: [1, 100], pointS: [1.5, 8], alignS: [1, 10], target: [50, 1000], nok: [0, 30], preNok: [0, 30], ledS: [1, 15], springS: [1, 15] } as const;
 
 // ---------- line layout (metres; the line runs along +x at z = 0) ----------
 export const LINE = { x0: -5.6, x1: 4.45, top: 0.9, beltW: 0.5, speed: 0.35, gap: 0.55, retTop: 0.38 };
@@ -68,28 +68,78 @@ export const MAGAZINE = { slots: 20 };
 // ---------- blank geometry ----------
 /** Blank: PCBs in two columns (long side along x), rails around; a single PCB sits alone in a one-column blank. */
 export const blankCols = (boards: number) => (boards === 1 ? 1 : 2);
-export function blankSize(boards: number) {
-  const cols = blankCols(boards), rows = Math.ceil(boards / cols);
-  return { l: cols * PCB.l + (cols + 1) * PCB.rail, w: rows * PCB.pitch + 2 * PCB.rail, rows };
+/** Room for the blank on the pallet (the adaptable nest), and the gap between PCBs in a blank. */
+export const PALLET_FIT = { l: 0.42, w: 0.36 };
+const GAP = 0.005;
+/** Joint spacing: 9 mm wanted, down to 5 mm when the blank would not fit the pallet otherwise. */
+export const JOINT_PITCH = { want: 0.009, min: 0.005 };
+
+export interface PcbSize {
+  /** PCB length (x) and width (z), metres. */
+  l: number; w: number;
+  /** Spacing of the extra joints and how many fit in one row of them. */
+  pitch: number; perRow: number;
+  /** False when even at the minimum spacing the blank is larger than the pallet. */
+  fits: boolean;
+  /** Several PCBs per blank: the remote control PCB, fixed size and joint pattern. */
+  fixed: boolean;
+}
+
+/**
+ * PCB size. With several PCBs per blank it is the remote control PCB (160 × 45 mm), always. A single PCB per blank
+ * (a TV or notebook board) grows with its joints: beyond the 4 LED and spring joints, the others go in rows across the
+ * middle, the PCB gets wider and then longer, up to the size of the pallet.
+ */
+export function pcbSize(boards: number, points: number): PcbSize {
+  if (boards > 1) return { l: PCB.l, w: PCB.w, pitch: 0, perRow: 0, fits: true, fixed: true };
+  const rest = Math.max(0, points - 4);
+  const maxL = PALLET_FIT.l - 2 * PCB.rail, maxW = PALLET_FIT.w - 2 * PCB.rail;
+  const perRow = (l: number, p: number) => Math.max(1, Math.floor((l - 0.06) / p) + 1);
+  const width = (l: number, p: number) => Math.max(PCB.w, Math.ceil(rest / perRow(l, p)) * p + 0.016);
+  let last: PcbSize | null = null;
+  for (let p = JOINT_PITCH.want; p >= JOINT_PITCH.min - 1e-9; p -= 0.001) {
+    let l = PCB.l, w = width(l, p);
+    while (w > maxW && l < maxL - 1e-9) { l = Math.min(maxL, l + 0.02); w = width(l, p); }
+    last = { l, w, pitch: p, perRow: perRow(l, p), fits: w <= maxW + 1e-9, fixed: false };
+    if (last.fits) return last;
+  }
+  return last!;
+}
+
+export function blankSize(boards: number, points = 10) {
+  const pcb = pcbSize(boards, points), cols = blankCols(boards), rows = Math.ceil(boards / cols);
+  const w = pcb.fixed ? rows * PCB.pitch + 2 * PCB.rail : rows * (pcb.w + GAP) - GAP + 2 * PCB.rail;
+  return { l: cols * pcb.l + (cols + 1) * PCB.rail, w, rows, pcb };
 }
 
 /** Centre of each PCB in the blank (x along the blank, z across). */
-export function boardCenters(boards: number): { x: number; z: number; flip: boolean }[] {
-  const { rows } = blankSize(boards);
+export function boardCenters(boards: number, points = 10): { x: number; z: number; flip: boolean }[] {
+  const { rows, pcb } = blankSize(boards, points);
   const out: { x: number; z: number; flip: boolean }[] = [];
   for (let i = 0; i < boards; i++) {
     if (blankCols(boards) === 1) { out.push({ x: 0, z: 0, flip: false }); continue; }
     const row = Math.floor(i / 2), col = i % 2;
-    out.push({ x: (col ? 1 : -1) * (PCB.l / 2 + PCB.rail / 2), z: (row - (rows - 1) / 2) * PCB.pitch, flip: col === 0 });
+    out.push({ x: (col ? 1 : -1) * (pcb.l / 2 + PCB.rail / 2), z: (row - (rows - 1) / 2) * PCB.pitch, flip: col === 0 });
   }
   return out;
 }
 
-/** Joint pattern on one PCB (local, LED end at +x): LED legs, spring tabs, then the other through-hole pins. */
-export function boardJoints(points: number): { x: number; z: number }[] {
-  const out = [{ x: 0.068, z: -0.0025 }, { x: 0.068, z: 0.0025 }, { x: -0.06, z: -0.013 }, { x: -0.06, z: 0.013 }];
-  const rest = points - 4;
-  for (let k = 0; k < rest; k++) out.push({ x: -0.035 + (0.085 * (k + 0.5)) / Math.max(1, rest), z: k % 2 ? 0.011 : -0.011 });
+/** Joint pattern on one PCB (local, LED end at +x): LED legs, spring tabs, then the other through-hole pins in rows. */
+export function boardJoints(points: number, pcb: PcbSize = pcbSize(2, points)): { x: number; z: number }[] {
+  if (pcb.fixed) { // remote control PCB: the extra joints share the middle of the board
+    const out = [{ x: 0.068, z: -0.0025 }, { x: 0.068, z: 0.0025 }, { x: -0.06, z: -0.013 }, { x: -0.06, z: 0.013 }];
+    const rest = points - 4;
+    for (let k = 0; k < rest; k++) out.push({ x: -0.035 + (0.085 * (k + 0.5)) / Math.max(1, rest), z: k % 2 ? 0.011 : -0.011 });
+    return out.slice(0, points);
+  }
+  const { l, w, pitch, perRow } = pcb, tab = Math.min(0.013, w / 2 - 0.006);
+  const out = [{ x: l / 2 - 0.012, z: -0.0025 }, { x: l / 2 - 0.012, z: 0.0025 }, { x: -l / 2 + 0.02, z: -tab }, { x: -l / 2 + 0.02, z: tab }];
+  const rest = Math.max(0, points - 4), rows = Math.ceil(rest / perRow);
+  for (let k = 0; k < rest; k++) {
+    const r = Math.floor(k / perRow), c = k % perRow, inRow = Math.min(perRow, rest - r * perRow);
+    const span = (inRow - 1) * pitch; // each row centred along the PCB
+    out.push({ x: -span / 2 + c * pitch + 0.005, z: (r - (rows - 1) / 2) * pitch });
+  }
   return out.slice(0, points);
 }
 
@@ -98,7 +148,8 @@ export function boardJoints(points: number): { x: number; z: number }[] {
  * makes short moves. `board` tells which PCB the joint belongs to.
  */
 export function blankJoints(boards: number, points: number): { x: number; z: number; board: number }[] {
-  const centers = boardCenters(boards), joints = boardJoints(points), out: { x: number; z: number; board: number }[] = [];
+  const pcb = pcbSize(boards, points);
+  const centers = boardCenters(boards, points), joints = boardJoints(points, pcb), out: { x: number; z: number; board: number }[] = [];
   const order: number[] = [];
   const rows = Math.ceil(boards / 2);
   for (let r = 0; r < rows; r++) for (const c of r % 2 ? [1, 0] : [0, 1]) { const i = r * 2 + c; if (i < boards) order.push(i); }

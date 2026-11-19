@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  CELLS_B, DEFAULT_SOLDER, LINE, ST, blankJoints, blankS, blankSize, boardCenters, capacityA, groupIndexS, strategiesB, type SolderParams,
+  CELLS_B, DEFAULT_SOLDER, LINE, PALLET_FIT, ST, blankJoints, blankS, blankSize, boardCenters, capacityA, groupIndexS, pcbSize, strategiesB, type SolderParams,
 } from '../../src/projects/smart-solder/model';
 
 const P = (o: Partial<SolderParams> = {}): SolderParams => ({ ...DEFAULT_SOLDER, cells: [...DEFAULT_SOLDER.cells], ...o });
@@ -19,6 +19,29 @@ describe('Smart Solder AI · blank', () => {
   it('solders board by board (no jumping back to a finished PCB)', () => {
     const order = blankJoints(10, 10).map(j => j.board).filter((b, i, a) => i === 0 || b !== a[i - 1]);
     expect(new Set(order).size).toBe(order.length);
+  });
+
+  it('several PCBs per blank: the remote control PCB, the same blank as before', () => {
+    for (const points of [4, 10, 30, 100]) {
+      expect(pcbSize(6, points)).toMatchObject({ l: 0.16, w: 0.045, fixed: true });
+      expect(blankSize(6, points).w).toBeCloseTo(3 * 0.05 + 2 * 0.015);
+    }
+  });
+
+  it('a single PCB grows with its joints, keeps them apart and fits the pallet while it can', () => {
+    const sizes = [4, 10, 20, 40, 60, 80, 100].map(p => pcbSize(1, p));
+    for (let i = 1; i < sizes.length; i++) expect(sizes[i].l * sizes[i].w).toBeGreaterThanOrEqual(sizes[i - 1].l * sizes[i - 1].w);
+    expect(sizes[0]).toMatchObject({ l: 0.16, w: 0.045 });
+    for (const points of [1, 4, 10, 30, 60, 100]) {
+      const pcb = pcbSize(1, points), b = blankSize(1, points), js = blankJoints(1, points);
+      expect(js).toHaveLength(points);
+      if (pcb.fits) { expect(b.l).toBeLessThanOrEqual(PALLET_FIT.l + 1e-9); expect(b.w).toBeLessThanOrEqual(PALLET_FIT.w + 1e-9); }
+      expect(js.every(j => Math.abs(j.x) < b.l / 2 && Math.abs(j.z) < b.w / 2)).toBe(true);
+      let min = Infinity;
+      for (let i = 0; i < js.length; i++) for (let k = i + 1; k < js.length; k++) min = Math.min(min, Math.hypot(js[i].x - js[k].x, js[i].z - js[k].z));
+      if (points > 1) expect(min).toBeGreaterThanOrEqual(0.005 - 1e-9); // LED legs are 5 mm apart, the rest at least the minimum pitch
+    }
+    expect(pcbSize(1, 100).fits).toBe(true);
   });
 
   it('PCBs do not overlap', () => {
