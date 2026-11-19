@@ -3,21 +3,23 @@
 // Pallets ride the main line and come back on the return belt under it (lifts at both ends). On the main line:
 // 1 the operator puts a blank on the pallet and inserts the IR LEDs, 2 the second operator inserts the springs,
 // 3 the camera reads the model, loads the soldering recipe and checks the components, [soldering zone: architecture A
-// or B], 5 the post-solder inspection classifies every PCB OK / NOK / inconclusive, 6 the operator takes the blank off
-// the pallet and puts it on the blank conveyor. There the sorter sends NOK and inconclusive blanks to the NOK rack,
-// and the UnLoader fills the magazine; an AMR swaps the full magazine for an empty one and takes it to assembly and test.
+// or B], 5 the post-solder inspection classifies every PCB OK / NOK / inconclusive. Right after it, a transfer sends
+// NOK and inconclusive pallets onto a short branch with a buffer of up to 4 pallets; at its end lift the operator takes
+// the blank off by hand and stores it in the NOK magazine, and the empty pallet goes down and back under the branch to
+// the return belt. OK pallets go on to the end lift, where the same operator takes the blank off onto the blank
+// conveyor (it starts right at the lift); the UnLoader fills the magazine and an AMR swaps the full magazine for an
+// empty one and takes it to assembly and test. Every stop has a presence sensor (green light: pallet there).
 import * as THREE from 'three';
 import { createAndons } from '../../sim/andon';
 import { buildConveyor, flowArrow } from '../../sim/conveyor';
 import type { Rng } from '../../sim/des';
 import { at, box, canvasTex, cyl, cylA, glow, mk, shadowify, std } from '../../sim/kit';
-import { makeLine, station, updateLine, type Line, type LineItem } from '../../sim/line';
+import { makeLine, station, updateLine, type Line, type LineItem, type Station } from '../../sim/line';
 import type { Materials } from '../../sim/materials';
 import { buildRoom } from '../../sim/room';
 import { Track, line } from '../../sim/track';
-import { makeAmr } from '../memory-flow/actors';
 import {
-  LINE, MAGAZINE, OUT, PALLET, PCB, ST, blankJoints, blankSize, boardCenters, ledStationS, springStationS, type SolderParams,
+  LINE, MAGAZINE, OUT, PALLET, PCB, SPUR, ST, blankJoints, blankSize, boardCenters, ledStationS, springStationS, type SolderParams,
 } from './model';
 
 export type Verdict = 'ok' | 'nok' | 'inc';
@@ -54,18 +56,20 @@ export interface LineStats {
   inspectedBoards: number; okBoards: number; nokBoards: number; incBoards: number;
   okBlanks: number; nokBlanks: number; incBlanks: number;
   magazines: number; deliveries: number;
+  /** NOK / inconclusive blanks stored by hand in the NOK magazine, and the most pallets seen in the NOK buffer. */
+  nokStored: number; spurMax: number;
   ledT: number; springT: number; removalT: number; blockedT: number;
 }
 const newStats = (): LineStats => ({
   t: 0, blanksIn: 0, inspectedBoards: 0, okBoards: 0, nokBoards: 0, incBoards: 0, okBlanks: 0, nokBlanks: 0, incBlanks: 0,
-  magazines: 0, deliveries: 0, ledT: 0, springT: 0, removalT: 0, blockedT: 0,
+  magazines: 0, deliveries: 0, nokStored: 0, spurMax: 0, ledT: 0, springT: 0, removalT: 0, blockedT: 0,
 });
 
 /** Line output in PCBs per hour (after 2 minutes and two blanks). */
 export const lineUph = (s: LineStats, boards: number) => (s.t > 120 && s.inspectedBoards >= 2 * boards ? (s.inspectedBoards / s.t) * 3600 : null);
 
 const COPPER = new THREE.Color(0xc77b3a), SILVER = new THREE.Color(0xe8edf2);
-const PALLET_N = 18;
+const PALLET_N = 17;
 
 /** Standing operator in the blue Multi uniform with a hair cap; arms swing from the shoulders. */
 function makeOperator(M: Materials) {
@@ -116,7 +120,7 @@ export function createLine(scene: THREE.Scene, M: Materials, font: string, param
   const retTrack = new Track([line(LINE.x1, 0, LINE.x0, 0)], false);
   const mainTex = buildConveyor(scene, M, mainTrack, LINE.beltW, LINE.top);
   const retTex = buildConveyor(scene, M, retTrack, LINE.beltW - 0.1, LINE.retTop);
-  for (const x of [-7.1, -3.4, 2.4]) flowArrow(scene, x, 0, LINE.top + 0.002);
+  for (const x of [-4.45, -2.6, 2.3]) flowArrow(scene, x, 0, LINE.top + 0.002);
   const L: Line<Pallet> = makeLine<Pallet>({ track: mainTrack, speed: LINE.speed, gap: LINE.gap, tex: mainTex, y: LINE.top, onExit: () => {} });
   const R: Line<Pallet> = makeLine<Pallet>({ track: retTrack, speed: LINE.speed * 1.4, gap: LINE.gap, tex: retTex, y: LINE.retTop, onExit: () => {} });
   const sAt = (x: number) => x - LINE.x0;
@@ -135,7 +139,7 @@ export function createLine(scene: THREE.Scene, M: Materials, font: string, param
   }
   const pallets: Pallet[] = [];
   for (let i = 0; i < PALLET_N; i++) {
-    const it: Pallet = { obj: makePallet(), s: 0.3 + i * 0.6, hold: null, passed: new Set(), blank: null, target: -1, stage: 0 };
+    const it: Pallet = { obj: makePallet(), s: 0.3 + i * 0.57, hold: null, passed: new Set(), blank: null, target: -1, stage: 0 };
     pallets.push(it);
     R.items.push(it);
   }
@@ -224,13 +228,14 @@ export function createLine(scene: THREE.Scene, M: Materials, font: string, param
 
   // ---------- lifts at both ends ----------
   const liftMat = std(0xdfe3e7, 0.25, 0.45);
-  function liftTower(x: number) {
+  /** Lift tower: four posts and a top frame, open on every side (the operator unloads blanks on the end lifts). */
+  function liftTower(x: number, z = 0) {
     const g = new THREE.Group();
-    g.position.set(x, 0, 0);
+    g.position.set(x, 0, z);
     scene.add(g);
     for (const sz of [-1, 1]) for (const sx of [-1, 1]) g.add(at(box(0.05, 1.25, 0.05, M.alu), sx * 0.27, 0.625, sz * 0.3));
     g.add(at(box(0.6, 0.05, 0.66, M.alu), 0, 1.25, 0));
-    g.add(at(box(0.6, 0.9, 0.02, liftMat), 0, 0.8, -0.32));
+    g.add(at(box(0.5, 0.3, 0.5, liftMat), 0, 0.15, 0)); // drive
     const plat = new THREE.Group();
     g.add(plat);
     plat.add(at(box(0.5, 0.03, 0.44, M.aluDark), 0, -0.015, 0));
@@ -241,12 +246,14 @@ export function createLine(scene: THREE.Scene, M: Materials, font: string, param
   const liftEnd = { plat: liftTower(LINE.x1 - 0.25), item: null as Pallet | null, t: 0, phase: 'idle' as 'idle' | 'move' | 'wait' };
   const liftStart = { plat: liftTower(LINE.x0 + 0.25), item: null as Pallet | null, t: 0, phase: 'idle' as 'idle' | 'move' | 'wait' };
   liftEnd.plat.position.y = LINE.top; liftStart.plat.position.y = LINE.retTop;
-  const endStop = station(L, mainTrack.length - 0.25, () => true, () => {});
+  /** The end lift of the main line: an OK pallet waits there while the operator takes its blank off. */
+  const endStop = station(L, mainTrack.length - 0.25, () => true, it => { if (it.blank) jRem = { it, t: 0, dur: 0 }; });
   const retStop = station(R, retTrack.length - 0.25, () => true, () => {});
-  function stepLift(lf: typeof liftEnd, from: Line<Pallet>, stop: typeof endStop, to: Line<Pallet>, y0: number, y1: number, dt: number) {
+  /** A lift takes the pallet held at `stop` (once `ready`), moves it from y0 to y1 and puts it on `to` at `toS`. */
+  function stepLift(lf: typeof liftEnd, from: Line<Pallet>, stop: Station<Pallet>, to: Line<Pallet>, y0: number, y1: number, dt: number, ready: (it: Pallet) => boolean = () => true, toS = 0.25) {
     if (lf.phase === 'idle') {
       const it = from.items.find(i => i.hold === stop);
-      if (it) { from.items.splice(from.items.indexOf(it), 1); lf.item = it; lf.phase = 'move'; lf.t = 0; }
+      if (it && ready(it)) { from.items.splice(from.items.indexOf(it), 1); lf.item = it; lf.phase = 'move'; lf.t = 0; }
     }
     if (lf.phase === 'move' && lf.item) {
       lf.t += dt;
@@ -256,9 +263,9 @@ export function createLine(scene: THREE.Scene, M: Materials, font: string, param
       if (u >= 1) lf.phase = 'wait';
     }
     if (lf.phase === 'wait' && lf.item) {
-      if (!to.items.some(i => i.s < 0.25 + to.gap)) {
+      if (!to.items.some(i => Math.abs(i.s - toS) < to.gap)) {
         const it = lf.item;
-        it.s = 0.25; it.hold = null; it.passed = new Set(); it.target = -1;
+        it.s = toS; it.hold = null; it.passed = new Set(); it.target = -1;
         to.items.push(it);
         lf.item = null; lf.phase = 'idle'; lf.t = 0;
       }
@@ -283,7 +290,24 @@ export function createLine(scene: THREE.Scene, M: Materials, font: string, param
   const op2 = makeOperator(M); op2.g.position.set(ST.spring, 0, -0.82); scene.add(op2.g);
   partsShelf(ST.load, [0x1f5fd6, 0x334155, 0x1f5fd6]);
   partsShelf(ST.spring, [0x94a3b8, 0x64748b, 0x94a3b8]);
-  stopper(ST.load); stopper(ST.spring); stopper(ST.pre); stopper(ST.post); stopper(ST.removal);
+  stopper(ST.load); stopper(ST.spring); stopper(ST.pre); stopper(ST.post); stopper(ST.divert);
+  // presence sensors: a photo-eye at every stop, its light turns green while a pallet (or blank) is there
+  const sensorOn = new THREE.MeshBasicMaterial({ color: 0x22c55e, toneMapped: false }), sensorOff = new THREE.MeshBasicMaterial({ color: 0x334155 });
+  const sensors: { led: THREE.Mesh; on: () => boolean }[] = [];
+  /** Photo-eye at (x, y, z) facing local −z (turned by ry), with its reflector `across` metres away on the far rail. */
+  function sensor(x: number, y: number, z: number, on: () => boolean, ry = 0, across = 0.56) {
+    const g = new THREE.Group();
+    g.position.set(x, y, z);
+    g.rotation.y = ry;
+    scene.add(g);
+    g.add(at(box(0.03, 0.045, 0.035, M.dark), 0, 0.02, 0));
+    const led = at(box(0.014, 0.014, 0.006, sensorOff), 0, 0.034, 0.019);
+    g.add(led);
+    g.add(at(box(0.026, 0.03, 0.006, std(0xd23b3b, 0.2, 0.3)), 0, 0.02, -across));
+    sensors.push({ led, on });
+  }
+  /** Sensor on the front rail of a line along +x, at the stop of station `st`. */
+  const lineSensor = (ln: Line<Pallet>, st: Station<Pallet>, x: number) => sensor(x + PALLET.l / 2 - 0.03, LINE.top + 0.04, 0.3, () => ln.items.some(i => i.hold === st));
   // blank supply magazine beside operator 1
   const supply = new THREE.Group();
   supply.position.set(ST.load - 0.62, 0, -0.66);
@@ -352,32 +376,33 @@ export function createLine(scene: THREE.Scene, M: Materials, font: string, param
   }
   drawScreen(pre, null, ''); drawScreen(post, null, '');
 
-  // 6 · removal: operator takes the blank off the pallet and puts it on the blank conveyor
-  const op3 = makeOperator(M); op3.g.position.set(ST.removal + 0.6, 0, -0.82); scene.add(op3.g);
+  // 6 · end-of-line operator: takes OK blanks off at the end lift onto the blank conveyor, and NOK blanks off at the
+  // lift of the NOK branch into the NOK magazine (walks between the two)
+  const op3 = makeOperator(M);
+  scene.add(op3.g);
+  const OP = { ok: [LINE.x1 - 0.02, -0.72] as [number, number], nok: [ST.divert + 0.62, SPUR.lift] as [number, number] };
+  op3.g.position.set(OP.ok[0], 0, OP.ok[1]);
 
-  // ---------- blank conveyor, NOK sorter, UnLoader ----------
+  // ---------- NOK branch: transfer, buffer conveyor, lift, return under it ----------
+  const spurUp = new Track([line(ST.divert, SPUR.z0, ST.divert, SPUR.end)], false);
+  const spurDn = new Track([line(ST.divert, SPUR.end, ST.divert, -0.2)], false);
+  const SU: Line<Pallet> = makeLine<Pallet>({ track: spurUp, speed: LINE.speed, gap: LINE.gap, tex: buildConveyor(scene, M, spurUp, LINE.beltW, LINE.top), y: LINE.top, onExit: () => {} });
+  const SD: Line<Pallet> = makeLine<Pallet>({ track: spurDn, speed: LINE.speed * 1.4, gap: LINE.gap, tex: buildConveyor(scene, M, spurDn, LINE.beltW - 0.1, LINE.retTop), y: LINE.retTop, onExit: () => {} });
+  // transfer unit in the main line: belts that rise between the rollers and move the pallet sideways
+  const xfer = new THREE.Group();
+  xfer.position.set(ST.divert, LINE.top - 0.012, 0);
+  scene.add(xfer);
+  for (const sx of [-1, 1]) xfer.add(at(box(0.04, 0.02, 0.5, std(0x2f6b47, 0.05, 0.6)), sx * 0.15, 0, 0));
+  scene.add(at(box(0.42, 0.18, 0.3, std(0x5f6b7a, 0.2, 0.5)), ST.divert, LINE.top - 0.22, 0));
+  const spurLift = { plat: liftTower(ST.divert, SPUR.lift), item: null as Pallet | null, t: 0, phase: 'idle' as 'idle' | 'move' | 'wait' };
+  spurLift.plat.position.y = LINE.top;
+  const signTex = (text: string, bg: string, w = 512) => { const [c, g] = mk(w, 96); g.fillStyle = bg; g.fillRect(0, 0, w, 96); g.fillStyle = '#fff'; g.font = `700 54px ${font}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, w / 2, 50); return canvasTex(c); };
+  const spurSign = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.12), new THREE.MeshBasicMaterial({ map: signTex('BUFFER NOK · 4', '#d23b3b') }));
+  spurSign.position.set(ST.divert, 1.3, SPUR.lift + 0.33);
+  scene.add(spurSign);
+
+  // ---------- blank conveyor (from the end lift) and UnLoader ----------
   const outTex = buildConveyor(scene, M, new Track([line(OUT.x0, 0, OUT.x1, 0)], false), 0.36, OUT.top);
-  // sorter: shuttle plate that slides the blank sideways onto the NOK chute
-  const sorter = new THREE.Group();
-  scene.add(sorter);
-  sorter.add(at(box(0.42, 0.02, 0.36, M.aluDark), 0, -0.012, 0));
-  for (const sz of [-1, 1]) sorter.add(at(box(0.42, 0.04, 0.02, M.alu), 0, 0.01, sz * 0.19));
-  sorter.position.set(OUT.sorter, OUT.top, 0);
-  scene.add(at(box(0.3, 0.14, 0.42, std(0x5f6b7a, 0.2, 0.5)), OUT.sorter, OUT.top - 0.12, 0));
-  const nokRack = new THREE.Group();
-  nokRack.position.set(OUT.sorter, 0, 0.62);
-  scene.add(nokRack);
-  nokRack.add(at(box(0.42, 0.55, 0.38, std(0xd23b3b, 0.1, 0.5)), 0, 0.275, 0));
-  nokRack.add(at(box(0.38, 0.02, 0.34, M.dark), 0, 0.56, 0));
-  const nokSign = (() => { const [c, g] = mk(256, 96); g.fillStyle = '#d23b3b'; g.fillRect(0, 0, 256, 96); g.fillStyle = '#fff'; g.font = `700 62px ${font}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('NOK', 128, 50); return canvasTex(c); })();
-  const ns = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.11), new THREE.MeshBasicMaterial({ map: nokSign }));
-  ns.position.set(0, 0.4, 0.192);
-  nokRack.add(ns);
-  shadowify(nokRack);
-  const chute = at(box(0.36, 0.015, 0.36, M.aluDark), OUT.sorter, OUT.top - 0.17, 0.34);
-  chute.rotation.x = 0.6;
-  scene.add(chute);
-  const nokPile: THREE.Object3D[] = [];
 
   // UnLoader: elevator tower around the magazine at the end of the blank conveyor
   const UNL = { x: OUT.x1 + 0.22, slotPitch: 0.024, base0: 0.03, xferY: 0.76 };
@@ -411,17 +436,54 @@ export function createLine(scene: THREE.Scene, M: Materials, font: string, param
   mag.g.position.set(UNL.x, slotY(0), 0);
   let magMove: { y: number } | null = null;
 
-  // AMR with a roller top: two magazine places (front, back), long side along z
+  // AMR (highlighted): Multi blue body, roller top with two magazine places, amber beacon, route painted on the floor
   const amr = new THREE.Group();
-  amr.add(makeAmr());
-  amr.add(at(box(0.56, 0.36, 0.86, std(0xdfe3e7, 0.25, 0.45)), 0, 0.55, 0));
+  const amrBlue = std(0x1546c4, 0.25, 0.5), amrDark = std(0x1b1d22, 0.3, 0.5);
+  amr.add(at(box(0.62, 0.28, 0.92, amrBlue), 0, 0.2, 0));
+  amr.add(at(box(0.64, 0.07, 0.94, amrDark), 0, 0.055, 0));
+  amr.add(at(box(0.645, 0.022, 0.945, new THREE.MeshBasicMaterial({ color: 0x38bdf8, toneMapped: false })), 0, 0.12, 0));
+  amr.add(at(cyl(0.06, 0.07, 0.07, amrDark, 12), -0.2, 0.37, 0.38)); // lidar
+  for (const s of [-1, 1]) amr.add(at(box(0.36, 0.05, 0.012, M.yellow), 0, 0.24, s * 0.462));
+  amr.add(at(box(0.56, 0.32, 0.86, std(0xf2f3f5, 0.2, 0.45)), 0, 0.53, 0));
+  amr.add(at(box(0.565, 0.05, 0.865, amrBlue), 0, 0.395, 0));
   for (let k = 0; k < 8; k++) amr.add(at(cylA(0.015, 0.5, M.alu, 'x', 10), 0, 0.745, -0.4 + k * 0.115));
-  const amrLogo = (() => { const [c, g] = mk(256, 64); g.fillStyle = '#1f5fd6'; g.fillRect(0, 0, 256, 64); g.fillStyle = '#fff'; g.font = `700 40px ${font}`; g.textBaseline = 'middle'; g.fillText('Multi · AMR', 16, 34); return canvasTex(c); })();
-  for (const s of [-1, 1]) { const m = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.1), new THREE.MeshBasicMaterial({ map: amrLogo })); m.position.set(s * 0.282, 0.55, 0); m.rotation.y = s * Math.PI / 2; amr.add(m); }
+  const amrLogo = signTex('Multi · AMR', '#1f5fd6', 384);
+  for (const s of [-1, 1]) { const m = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.125), new THREE.MeshBasicMaterial({ map: amrLogo })); m.position.set(s * 0.282, 0.55, 0); m.rotation.y = s * Math.PI / 2; amr.add(m); }
+  const beaconMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xf59e0b, emissiveIntensity: 0.3, transparent: true, opacity: 0.9 });
+  amr.add(at(cyl(0.012, 0.012, 0.3, M.alu, 8), 0.255, 0.85, -0.4));
+  const beacon = at(cyl(0.04, 0.04, 0.07, beaconMat, 16), 0.255, 1.03, -0.4);
+  amr.add(beacon);
+  const beaconGlow = glow(0xf59e0b, 0.7);
+  beaconGlow.position.copy(beacon.position);
+  beaconGlow.visible = false;
+  amr.add(beaconGlow);
   shadowify(amr);
   scene.add(amr);
-  const AMR = { x: UNL.x + 0.52, dockZ: -0.22, deck: 0.76, dest: [OUT.x1 + 3.2, 2.4] as [number, number], speed: 0.8 };
+  const AMR = { x: UNL.x + 0.52, dockZ: -0.22, deck: 0.76, dest: [OUT.x1 + 3.6, 2.4] as [number, number], speed: 0.8 };
   amr.position.set(AMR.x, 0, AMR.dockZ);
+  // floor: dashed yellow route from the dock to assembly and test, and the docking box
+  const lane = new THREE.MeshBasicMaterial({ color: 0xf2c230 });
+  const dash = (x0: number, z0: number, x1: number, z1: number) => {
+    const len = Math.hypot(x1 - x0, z1 - z0), n = Math.floor(len / 0.4), h = Math.atan2(z1 - z0, x1 - x0);
+    for (let i = 0; i < n; i++) {
+      const u = (i + 0.5) / n, m = new THREE.Mesh(new THREE.PlaneGeometry(0.24, 0.07), lane);
+      m.rotation.x = -Math.PI / 2; m.rotation.z = -h;
+      m.position.set(x0 + (x1 - x0) * u, 0.016, z0 + (z1 - z0) * u);
+      m.userData.noShadow = true;
+      scene.add(m);
+    }
+  };
+  for (const s of [-1, 1]) { dash(AMR.x + s * 0.42, AMR.dockZ + 0.6, AMR.x + s * 0.42, 2.4 - s * 0.42); dash(AMR.x - s * 0.42 * -1, 2.4 - s * 0.42, AMR.dest[0] - 0.2, 2.4 - s * 0.42); }
+  const dockBox = new THREE.Mesh(new THREE.RingGeometry(0.5, 0.56, 4, 1), lane);
+  dockBox.rotation.x = -Math.PI / 2; dockBox.rotation.z = Math.PI / 4;
+  dockBox.scale.set(1.05, 1.5, 1);
+  dockBox.position.set(AMR.x, 0.015, AMR.dockZ);
+  scene.add(dockBox);
+  const floorText = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.3), new THREE.MeshBasicMaterial({ map: (() => { const [c, g] = mk(512, 128); g.fillStyle = '#f2c230'; g.font = `700 92px ${font}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('ROTA AMR', 256, 66); return canvasTex(c); })(), transparent: true }));
+  floorText.rotation.x = -Math.PI / 2;
+  floorText.position.set((AMR.x + AMR.dest[0]) / 2, 0.016, 2.4);
+  floorText.userData.noShadow = true;
+  scene.add(floorText);
   let amrBack: Magazine | null = makeMagazine(); // the empty magazine it brings
   amr.attach(amrBack.g);
   amrBack.g.position.set(0, AMR.deck, -0.22);
@@ -444,21 +506,41 @@ export function createLine(scene: THREE.Scene, M: Materials, font: string, param
 
   // ---------- station logic ----------
   type Job = { it: Pallet; t: number; dur: number } | null;
-  let j1: Job = null, j2: Job = null, jPre: Job = null, jPost: Job = null, jRem: Job = null;
-  station(L, sAt(ST.load), it => !it.blank, it => { j1 = { it, t: 0, dur: ledStationS(params) }; });
-  station(L, sAt(ST.spring), it => !!it.blank && it.blank.springs.count === 0, it => { j2 = { it, t: 0, dur: springStationS(params) }; });
-  station(L, sAt(ST.pre), it => !!it.blank && !it.blank.pre, it => { jPre = { it, t: 0, dur: 3 }; drawScreen(pre, it.blank, ''); });
-  station(L, sAt(ST.post), it => !!it.blank && it.blank.result === null && it.blank.done >= it.blank.pts.length, it => { jPost = { it, t: 0, dur: 4 }; drawScreen(post, it.blank, ''); });
-  station(L, sAt(ST.removal), it => !!it.blank && it.blank.result !== null, it => { jRem = { it, t: 0, dur: 0 }; });
+  let j1: Job = null, j2: Job = null, jPre: Job = null, jPost: Job = null, jRem: Job = null, jNok: Job = null, jDiv: Job = null;
+  let jMerge: { it: Pallet; t: number } | null = null;
+  lineSensor(L, station(L, sAt(ST.load), it => !it.blank, it => { j1 = { it, t: 0, dur: ledStationS(params) }; }), ST.load);
+  lineSensor(L, station(L, sAt(ST.spring), it => !!it.blank && it.blank.springs.count === 0, it => { j2 = { it, t: 0, dur: springStationS(params) }; }), ST.spring);
+  lineSensor(L, station(L, sAt(ST.pre), it => !!it.blank && !it.blank.pre, it => { jPre = { it, t: 0, dur: 3 }; drawScreen(pre, it.blank, ''); }), ST.pre);
+  lineSensor(L, station(L, sAt(ST.post), it => !!it.blank && it.blank.result === null && it.blank.done >= it.blank.pts.length, it => { jPost = { it, t: 0, dur: 4 }; drawScreen(post, it.blank, ''); }), ST.post);
+  // NOK and inconclusive pallets stop on the transfer and go onto the branch when the buffer has room
+  lineSensor(L, station(L, sAt(ST.divert), it => !!it.blank && it.blank.result !== null && it.blank.result !== 'ok', it => { jDiv = { it, t: -1, dur: 0.9 }; }), ST.divert);
+  lineSensor(L, endStop, LINE.x1 - 0.25);
+  const spurStop = station(SU, SPUR.z0 - SPUR.lift, () => true, it => { if (it.blank) jNok = { it, t: 0, dur: 0 }; });
+  const dnStop = station(SD, spurDn.length - 0.25, () => true, () => {});
+  const spurZ = (it: Pallet) => SPUR.z0 - it.s;
+  sensor(ST.divert + 0.3, LINE.top + 0.04, SPUR.lift + 0.12, () => SU.items.some(i => i.hold === spurStop), Math.PI / 2);
+  sensor(ST.divert + 0.3, LINE.top + 0.04, -0.8, () => SU.items.some(i => Math.abs(spurZ(i) + 0.8) < 0.2), Math.PI / 2);
+  // NOK magazine (filled by hand) on a red cart beside the branch lift
+  const nokCart = new THREE.Group();
+  nokCart.position.set(OP.nok[0], 0, SPUR.lift - 0.66);
+  scene.add(nokCart);
+  nokCart.add(at(box(0.5, 0.66, 0.42, std(0xd23b3b, 0.1, 0.5)), 0, 0.33, 0));
+  const nokLabel = new THREE.Mesh(new THREE.PlaneGeometry(0.36, 0.08), new THREE.MeshBasicMaterial({ map: signTex('MAGAZINE NOK', '#7f1d1d') }));
+  nokLabel.position.set(0, 0.45, 0.212);
+  nokCart.add(nokLabel);
+  shadowify(nokCart);
+  const nokMag = makeMagazine();
+  nokMag.g.position.set(OP.nok[0], 0.66, SPUR.lift - 0.66);
 
   const release = (it: Pallet) => { it.hold = null; };
   function swing(op: Operator, on: boolean, t: number, phase = 0) {
     op.arms.forEach((a, i) => { a.rotation.x = on ? -0.75 - 0.25 * Math.sin(t * 6 + i * 2 + phase) : -0.2; a.rotation.z = on ? (i ? -0.18 : 0.18) : 0; });
   }
 
-  interface OutBlank { b: Blank; x: number; state: 'ride' | 'sort' | 'push' }
+  interface OutBlank { b: Blank; x: number; state: 'ride' | 'push' }
   const outs: OutBlank[] = [];
-  let carry: { b: Blank; t: number; from: THREE.Vector3 } | null = null;
+  /** End-of-line operator: walks to the job, then moves the blank by hand to the conveyor or the NOK magazine. */
+  let task: { kind: 'ok' | 'nok'; it: Pallet; b: Blank | null; phase: 'walk' | 'move'; t: number; from: THREE.Vector3; to: THREE.Vector3 } | null = null;
   const OUT_IN = OUT.x0 + 0.24;
 
   function verdict(b: Blank) {
@@ -483,8 +565,40 @@ export function createLine(scene: THREE.Scene, M: Materials, font: string, param
     stats.t += dt;
     updateLine(L, dt);
     updateLine(R, dt);
-    stepLift(liftEnd, L, endStop, R, LINE.top, LINE.retTop, dt);
+    updateLine(SU, dt);
+    updateLine(SD, dt);
+    for (const it of SU.items) it.obj.rotation.y = 0; // transfer conveyors keep the pallet's orientation
+    for (const it of SD.items) it.obj.rotation.y = 0;
+    stepLift(liftEnd, L, endStop, R, LINE.top, LINE.retTop, dt, it => !it.blank);
     stepLift(liftStart, R, retStop, L, LINE.retTop, LINE.top, dt);
+    stepLift(spurLift, SU, spurStop, SD, LINE.top, LINE.retTop, dt, it => !it.blank);
+    // NOK transfer: off the main line onto the branch, when the buffer has room
+    if (jDiv) {
+      const it = jDiv.it;
+      if (jDiv.t < 0) {
+        if (SU.items.length < SPUR.cap && !SU.items.some(i => i.s < SU.gap)) { L.items.splice(L.items.indexOf(it), 1); jDiv.t = 0; }
+      } else {
+        jDiv.t += dt;
+        const u = Math.min(1, jDiv.t / jDiv.dur);
+        it.obj.position.set(ST.divert, LINE.top, SPUR.z0 * u);
+        xfer.position.y = LINE.top - 0.012 + 0.012 * Math.sin(Math.PI * u);
+        if (u >= 1) { it.s = 0; it.hold = null; it.passed = new Set(); SU.items.push(it); jDiv = null; }
+      }
+    }
+    stats.spurMax = Math.max(stats.spurMax, SU.items.length);
+    // empty pallet from under the branch back onto the return belt
+    const sR = LINE.x1 - ST.divert, rFree = () => !R.items.some(i => Math.abs(i.s - sR) < R.gap);
+    if (!jMerge) {
+      const it = SD.items.find(i => i.hold === dnStop);
+      if (it && rFree()) { SD.items.splice(SD.items.indexOf(it), 1); jMerge = { it, t: 0 }; }
+    }
+    if (jMerge) {
+      jMerge.t += dt;
+      const u = Math.min(1, jMerge.t / 1.0), it = jMerge.it;
+      it.obj.position.set(ST.divert, LINE.retTop, -0.45 * (1 - u));
+      if (u >= 1 && rFree()) { it.s = sR; it.hold = null; it.passed = new Set(); it.target = -1; R.items.push(it); jMerge = null; }
+    }
+    for (const s of sensors) s.led.material = s.on() ? sensorOn : sensorOff;
     const T = stats.t;
 
     // 1 · blank on the pallet, then one pair of LEDs per PCB
@@ -530,57 +644,68 @@ export function createLine(scene: THREE.Scene, M: Materials, font: string, param
     } else { post.light.visible = false; post.andon.state = 'wait'; }
     postAlarm = Math.max(0, postAlarm - dt);
     if (postAlarm > 0) post.andon.state = 'alarm';
-    // 6 · removal onto the blank conveyor (when its entry is free)
-    if (jRem && !carry && !outs.some(o => o.x < OUT_IN + 0.45)) {
-      const b = jRem.it.blank!;
-      b.obj.updateWorldMatrix(true, false);
-      const from = new THREE.Vector3().setFromMatrixPosition(b.obj.matrixWorld);
-      scene.attach(b.obj);
-      carry = { b, t: 0, from };
-      jRem.it.blank = null;
-      release(jRem.it);
-      jRem = null;
-    } else if (jRem) stats.blockedT += dt;
-    if (carry) {
-      carry.t += dt; stats.removalT += dt;
-      const u = Math.min(1, carry.t / 2.4), e = u * u * (3 - 2 * u);
-      carry.b.obj.position.set(carry.from.x + (OUT_IN - carry.from.x) * e, carry.from.y + (OUT.top + 0.003 - carry.from.y) * e + Math.sin(Math.PI * e) * 0.5, carry.from.z * (1 - e));
-      if (u >= 1) { outs.push({ b: carry.b, x: OUT_IN, state: 'ride' }); carry = null; }
+    // 6 · end-of-line operator: OK blank onto the blank conveyor (when its entry is free), NOK blank into the NOK magazine
+    if (!task) {
+      if (jRem && !outs.some(o => o.x < OUT_IN + 0.45)) { task = { kind: 'ok', it: jRem.it, b: null, phase: 'walk', t: 0, from: new THREE.Vector3(), to: new THREE.Vector3(OUT_IN, OUT.top + 0.003, 0) }; jRem = null; }
+      else if (jNok) {
+        const k = nokMag.fill;
+        task = { kind: 'nok', it: jNok.it, b: null, phase: 'walk', t: 0, from: new THREE.Vector3(), to: new THREE.Vector3(OP.nok[0], 0.66 + UNL.base0 + k * UNL.slotPitch + 0.002, SPUR.lift - 0.66) };
+        jNok = null;
+      } else if (jRem) stats.blockedT += dt;
     }
-    swing(op3, !!carry || !!jRem, T, 2);
+    if (task) {
+      stats.removalT += dt;
+      const spot = task.kind === 'ok' ? OP.ok : OP.nok, p = op3.g.position;
+      if (task.phase === 'walk') {
+        const dx = spot[0] - p.x, dz = spot[1] - p.z, d = Math.hypot(dx, dz), v = 1.0 * dt;
+        if (d > 0.01) op3.g.rotation.y = Math.atan2(dx, dz);
+        if (d <= v) {
+          p.set(spot[0], 0, spot[1]);
+          const b = task.it.blank!;
+          b.obj.updateWorldMatrix(true, false);
+          task.from.setFromMatrixPosition(b.obj.matrixWorld);
+          scene.attach(b.obj);
+          task.it.blank = null; // the lift takes the empty pallet down
+          task.b = b;
+          task.phase = 'move'; task.t = 0;
+        } else { p.x += (dx / d) * v; p.z += (dz / d) * v; }
+      } else {
+        const b = task.b!;
+        task.t += dt;
+        const u = Math.min(1, task.t / 2.4), e = u * u * (3 - 2 * u), f = task.from, to = task.to;
+        b.obj.position.set(f.x + (to.x - f.x) * e, f.y + (to.y - f.y) * e + Math.sin(Math.PI * e) * 0.3, f.z + (to.z - f.z) * e);
+        const mx = (f.x + to.x) / 2 - p.x, mz = (f.z + to.z) / 2 - p.z;
+        op3.g.rotation.y = Math.atan2(mx, mz);
+        if (u >= 1) {
+          if (task.kind === 'ok') outs.push({ b, x: OUT_IN, state: 'ride' });
+          else {
+            scene.remove(b.obj); disposeBlank(b);
+            nokMag.fill = (nokMag.fill + 1) % MAGAZINE.slots; // QA takes the full NOK magazine away
+            nokMag.plates.count = nokMag.fill;
+            stats.nokStored++;
+          }
+          task = null;
+        }
+      }
+    }
+    swing(op3, !!task && task.phase === 'move', T, 2);
 
-    // blank conveyor: sorter, UnLoader
-    const moving = outs.some(o => o.state === 'ride');
+    // blank conveyor to the UnLoader
+    const moving = outs.some(o => o.state === 'ride' && o.x < OUT.x1 - 0.2 - 1e-6);
     outTex.offset.x = (outTex.offset.x - (moving ? OUT.speed : 0) * dt / 0.25) % 1;
     const sorted = outs.slice().sort((a, b) => b.x - a.x);
     const endX = OUT.x1 - 0.2;
     sorted.forEach((o, i) => {
       if (o.state !== 'ride') return;
       const ahead = sorted[i - 1];
-      let nx = o.x + OUT.speed * dt;
+      let nx = Math.min(endX, o.x + OUT.speed * dt);
       if (ahead) nx = Math.min(nx, ahead.x - 0.44);
-      if (o.b.result !== 'ok' && o.x <= OUT.sorter && nx >= OUT.sorter) { nx = OUT.sorter; o.state = 'sort'; (o as OutBlank & { t?: number }).t = 0; }
-      if (o.b.result === 'ok' && nx >= endX) nx = endX;
       o.x = Math.max(o.x, nx);
       o.b.obj.position.set(o.x, OUT.top + 0.003, 0);
     });
     for (const o of outs.slice()) {
       const ot = o as OutBlank & { t?: number };
-      if (o.state === 'sort') {
-        ot.t = (ot.t ?? 0) + dt;
-        const u = Math.min(1, ot.t / 1.6);
-        sorter.position.z = 0.18 * Math.sin(Math.PI * Math.min(1, u * 1.6));
-        o.b.obj.position.set(OUT.sorter, OUT.top + 0.003 - u * (OUT.top - 0.58 - nokPile.length * 0.004), u * 0.62);
-        o.b.obj.rotation.x = 0.5 * Math.sin(Math.PI * u);
-        if (u >= 1) {
-          o.b.obj.rotation.x = 0;
-          o.b.obj.position.y = 0.58 + nokPile.length * 0.004;
-          nokPile.push(o.b.obj);
-          if (nokPile.length > 12) { const old = nokPile.shift()!; scene.remove(old); disposeBlank(old.userData.blank as Blank); }
-          o.b.obj.userData.blank = o.b;
-          outs.splice(outs.indexOf(o), 1);
-        }
-      } else if (o.state === 'ride' && o.x >= endX - 1e-6 && mag && !magMove && mag.fill < MAGAZINE.slots && amrPhase !== 'out' && amrPhase !== 'in') {
+      if (o.state === 'ride' && o.x >= endX - 1e-6 && mag && !magMove && mag.fill < MAGAZINE.slots && amrPhase !== 'out' && amrPhase !== 'in') {
         o.state = 'push'; ot.t = 0;
       } else if (o.state === 'push') {
         ot.t = (ot.t ?? 0) + dt;
@@ -596,13 +721,16 @@ export function createLine(scene: THREE.Scene, M: Materials, font: string, param
         }
       }
     }
-    if (!outs.some(o => o.state === 'sort')) sorter.position.z *= Math.max(0, 1 - dt * 6);
     if (magMove && mag) {
       const y = mag.g.position.y, d = magMove.y - y, v = 0.25 * dt;
       mag.g.position.y = Math.abs(d) <= v ? magMove.y : y + Math.sign(d) * v;
       if (mag.g.position.y === magMove.y) magMove = null;
     }
     uAndon.state = mag && mag.fill >= MAGAZINE.slots ? 'alarm' : outs.some(o => o.state === 'push') ? 'run' : 'wait';
+    // AMR beacon: flashes while it moves
+    const amrMoving = amrPhase === 'go' || amrPhase === 'back' || amrPhase === 'shift', flash = amrMoving && Math.sin(T * 9) > 0;
+    beaconMat.emissiveIntensity = flash ? 2.4 : 0.3;
+    beaconGlow.visible = flash;
 
     // AMR: swaps the full magazine for the empty one it brings, takes the full one to assembly and test
     amrT += dt;
@@ -650,7 +778,8 @@ export function createLine(scene: THREE.Scene, M: Materials, font: string, param
     }
   }
 
-  const zoneStop = (x: number, rule: (it: Pallet) => boolean, arrive: (it: Pallet) => void) => station(L, sAt(x), rule, arrive);
+  /** A stop on the main line for the soldering zone, with its presence sensor. */
+  const zoneStop = (x: number, rule: (it: Pallet) => boolean, arrive: (it: Pallet) => void) => { const st = station(L, sAt(x), rule, arrive); lineSensor(L, st, x); return st; };
 
   return {
     L, R, pallets, step, solderJoint, jointWorld, zoneStop, andons, makeOperator: () => makeOperator(M),
@@ -659,7 +788,10 @@ export function createLine(scene: THREE.Scene, M: Materials, font: string, param
     get magazine() { return mag; },
     get amrPhase() { return amrPhase; },
     get outs() { return outs; },
-    get jobs() { return { j1, j2, jPre, jPost, jRem }; },
+    get jobs() { return { j1, j2, jPre, jPost, jRem, jNok, jDiv }; },
+    /** Pallets on the NOK branch (buffer), and the NOK magazine. */
+    get spur() { return SU.items.length; },
+    get nokMagazine() { return nokMag.fill; },
   };
 }
 

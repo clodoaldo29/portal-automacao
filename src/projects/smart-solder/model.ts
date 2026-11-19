@@ -41,9 +41,12 @@ export const NOK_HIGH = 0.08;
 export const LIMITS = { boards: [4, 10], points: [2, 30], pointS: [1.5, 8], alignS: [1, 10], target: [50, 1000], nok: [0, 30], ledS: [1, 15], springS: [1, 15] } as const;
 
 // ---------- line layout (metres; the line runs along +x at z = 0) ----------
-export const LINE = { x0: -5.6, x1: 4.55, top: 0.9, beltW: 0.5, speed: 0.35, gap: 0.55, retTop: 0.38 };
+export const LINE = { x0: -5.6, x1: 4.45, top: 0.9, beltW: 0.5, speed: 0.35, gap: 0.55, retTop: 0.38 };
 /** Stop positions on the main line. */
-export const ST = { load: -4.85, spring: -4.05, pre: -3.2, buffer: -2.0, post: 2.95, removal: 3.75 };
+export const ST = { load: -4.85, spring: -4.05, pre: -3.2, buffer: -2.0, post: 2.95, divert: 3.55 };
+/** NOK branch: a short conveyor leaves the main line at ST.divert toward the back, with a buffer of up to `cap` pallets
+ *  ending on a lift (the operator unloads the blank there); the empty pallet comes back under it to the return belt. */
+export const SPUR = { z0: -0.3, lift: -2.3, end: -2.55, cap: 4 };
 /** Architecture B: the three cells along the line. */
 export const CELLS_B = [-1.3, 0, 1.3];
 /** Architecture A: the cobot takes the blank at PICK and puts the soldered one back at PLACE. */
@@ -54,7 +57,8 @@ export const A_ROW = { x: [-0.7, 0, 0.7], z: -0.64, robotZ: 0.56 };
 export const PALLET = { l: 0.44, h: 0.03, d: 0.38 };
 export const PCB = { l: 0.16, w: 0.045, t: 0.0016, pitch: 0.05, rail: 0.015 };
 /** Blank conveyor after the line: sorter and UnLoader. */
-export const OUT = { x0: 5.0, x1: 6.5, top: 0.95, speed: 0.25, sorter: 5.6 };
+/** Blank conveyor, starting right at the end lift of the main line, to the UnLoader. */
+export const OUT = { x0: 4.5, x1: 5.9, top: 0.95, speed: 0.25 };
 export const MAGAZINE = { slots: 20 };
 
 // ---------- blank geometry ----------

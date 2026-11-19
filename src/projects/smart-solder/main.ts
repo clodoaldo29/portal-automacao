@@ -17,7 +17,7 @@ import { createArchA } from './arch-a';
 import { createArchB, type RobotStat } from './arch-b';
 import { createLine, lineUph } from './line';
 import {
-  A, A_COBOT_S, DEFAULT_SOLDER, LIMITS, MAGAZINE, OUT, ST, NOK_HIGH, activeCells, blankS, capacityA, ledStationS, springStationS, strategiesB, type Arch, type SolderParams,
+  A, A_COBOT_S, DEFAULT_SOLDER, LIMITS, LINE, MAGAZINE, OUT, SPUR, ST, NOK_HIGH, activeCells, blankS, capacityA, ledStationS, springStationS, strategiesB, type Arch, type SolderParams,
 } from './model';
 
 const ARCH: Arch = document.body.dataset.arch === 'A' ? 'A' : 'B';
@@ -91,7 +91,7 @@ const capRows = rowsOf('cap-rows', ['Meta', 'Capacidade calculada', 'Capacidade 
 capRows[3].className = 'total';
 const robotNames = ARCH === 'A' ? ['Cartesiano 1', 'Cartesiano 2', 'Cartesiano 3', 'Braço (alimenta)'] : ['Robô 1', 'Robô 2', 'Robô 3'];
 const robRows = rowsOf('rob-rows', robotNames, 4);
-const stRows = rowsOf('st-rows', ['Posto 1 · blank e LEDs', 'Posto 2 · molas', 'Retirada do blank', 'UnLoader · magazine', 'AMR'], 3);
+const stRows = rowsOf('st-rows', ['Posto 1 · blank e LEDs', 'Posto 2 · molas', 'Retirada · OK e NOK', 'Buffer NOK', 'UnLoader · magazine', 'AMR'], 3);
 const cmpBody = $<HTMLTableSectionElement>('cmp-rows');
 const AMR_STATE: Record<string, string> = { docked: 'na doca', lower: 'trocando', out: 'recebendo o cheio', shift: 'trocando', in: 'entregando o vazio', raise: 'trocando', go: 'indo à montagem', away: 'na montagem e teste', back: 'voltando' };
 
@@ -154,13 +154,14 @@ function panel() {
   $('q-ok').textContent = String(s.okBoards);
   $('q-nok').textContent = String(s.nokBoards);
   $('q-inc').textContent = String(s.incBoards);
-  $('q-seg').textContent = String(s.nokBlanks + s.incBlanks);
+  $('q-seg').textContent = String(s.nokStored);
   // stations and logistics
   const ledCap = (3600 * params.boards) / ledStationS(params), springCap = (3600 * params.boards) / springStationS(params);
   const st = [
     [s.ledT / T, `${num(ledCap, 0)} placas/h no máximo`],
     [s.springT / T, `${num(springCap, 0)} placas/h no máximo`],
     [s.removalT / T, s.blockedT > 5 ? `esperou ${num(s.blockedT, 0)} s pela esteira` : 'manual'],
+    [line.spur / SPUR.cap, `${line.spur}/${SPUR.cap} pallets · máx. ${s.spurMax}`],
     [line.magazine ? line.magazine.fill / MAGAZINE.slots : 0, `${line.magazine ? line.magazine.fill : 0}/${MAGAZINE.slots} blanks · ${s.magazines} cheios`],
     [null, `${AMR_STATE[line.amrPhase] ?? line.amrPhase} · ${s.deliveries} entregues`],
   ] as [number | null, string][];
@@ -182,8 +183,8 @@ const LABELS: LabelDef[] = [
     ? [{ lines: ['Lote de 3 pallets'], x: ST.buffer - 0.5, y: 1.45, z: 0 }, { lines: ['4 · Soldagem: 3 células com braço articulado'], x: 0, y: 2.65, z: -0.4 }]
     : [{ lines: ['4 · Soldagem: braço + 3 robôs cartesianos'], x: 0, y: 2.65, z: -0.4 }, { lines: ['Retira o blank'], x: A.pick, y: 1.3, z: 0.1 }, { lines: ['Devolve soldado'], x: A.place, y: 1.3, z: 0.1 }]),
   { lines: ['5 · Inspeção pós-solda', 'OK · NOK · inconclusivo'], x: ST.post, y: 2.15, z: 0 },
-  { lines: ['6 · Retirada do blank'], x: ST.removal + 0.6, y: 2.05, z: -0.6 },
-  { lines: ['Separação automática NOK'], x: OUT.sorter, y: 1.4, z: 0.62 },
+  { lines: ['6 · Retirada do blank'], x: LINE.x1 - 0.1, y: 2.05, z: -0.6 },
+  { lines: ['Separação NOK · buffer de 4 pallets'], x: ST.divert, y: 1.75, z: -1.3 }, { lines: ['Magazine NOK (manual)'], x: ST.divert + 0.62, y: 1.45, z: SPUR.lift - 0.66 },
   { lines: ['UnLoader · magazine'], x: OUT.x1 + 0.22, y: 2.05, z: 0 },
   { lines: ['AMR · magazines', 'para montagem e teste'], x: OUT.x1 + 0.8, y: 1.55, z: -0.3 },
   { lines: ['Retorno automático dos pallets'], x: -1.5, y: 0.55, z: 0.55 },
@@ -193,7 +194,7 @@ const VIEWS: Record<string, ViewDef> = {
   solda: ARCH === 'B' ? { pos: [0.6, 2.4, 3.2], target: [0, 1.0, -0.35] } : { pos: [-1.6, 3.0, 3.4], target: [0, 0.9, -0.2] },
   manual: { pos: [-3.7, 2.2, 2.9], target: [-4.4, 1.0, -0.3] },
   inspecao: { pos: [3.6, 2.0, 2.6], target: [3.2, 1.0, -0.1] },
-  saida: { pos: [5.0, 2.5, 3.6], target: [6.1, 0.9, 0.1] },
+  saida: { pos: [3.6, 3.6, 6.4], target: [6.6, 0.6, 0.9] },
   cima: { pos: [1.0, 14, 0.62], target: [1.0, 0, 0.6] },
 };
 
@@ -207,7 +208,7 @@ line.resetStats(); zone.resetStats();
 page.start({
   first: 'linha',
   views: VIEWS,
-  tour: { positions: [[-3.4, 2.6, 3.4], [-0.4, 2.6, 3.4], [3.4, 2.3, 3.0], [5.4, 2.6, 3.8], [1.2, 5.8, 9.2]], targets: [[-4.4, 1, -0.2], [0, 1, -0.4], [3.2, 1, 0], [6.2, 0.9, 0.1], [1.0, 0.8, 0]], seconds: 50 },
+  tour: { positions: [[-3.4, 2.6, 3.4], [-0.4, 2.6, 3.4], [3.4, 2.3, 3.0], [3.6, 3.6, 6.4], [1.2, 5.8, 9.2]], targets: [[-4.4, 1, -0.2], [0, 1, -0.4], [3.2, 1, 0], [6.6, 0.6, 0.9], [1.0, 0.8, 0]], seconds: 50 },
   labels: LABELS,
   speeds: [1, 2, 4, 8, 16],
   step,

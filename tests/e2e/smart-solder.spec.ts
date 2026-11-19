@@ -25,7 +25,7 @@ for (const a of ['a', 'b'] as const) {
       await expect(page.locator('#k-uph')).not.toHaveText('—');
       await expect(page.locator('#rob-rows tr')).toHaveCount(a === 'a' ? 4 : 3);
       await expect(page.locator('#cmp-rows tr')).toHaveCount(2);
-      await expect(page.locator('#st-rows tr')).toHaveCount(5);
+      await expect(page.locator('#st-rows tr')).toHaveCount(6);
       await expect(page.locator('#b-other')).toHaveText(`Ver arquitetura ${a === 'a' ? 'B' : 'A'}`);
       expect(errors).toEqual([]);
     });
