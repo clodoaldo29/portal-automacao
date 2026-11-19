@@ -79,9 +79,9 @@ export function makePallet(M: Materials) {
   g.rotation.y = Math.PI;
   g0.add(g);
   const W = PAL_W, D = PAL_D, T = 0.06, H = 0.08;
-  g.add(at(box(W, H, T, M.blue), 0, H / 2, D / 2 - T / 2)); g.add(at(box(W, H, T, M.blue), 0, H / 2, -D / 2 + T / 2));
-  g.add(at(box(T, H, D, M.blue), W / 2 - T / 2, H / 2, 0)); g.add(at(box(T, H, D, M.blue), -W / 2 + T / 2, H / 2, 0));
-  for (const x of [-0.6, 0, 0.6]) g.add(at(box(0.05, 0.03, D - 0.1, M.aluDark), x, 0.065, 0));
+  g.add(at(box(W - 0.002, H, T, M.blue), 0, H / 2, D / 2 - T / 2)); g.add(at(box(W - 0.002, H, T, M.blue), 0, H / 2, -D / 2 + T / 2));
+  g.add(at(box(T, H, D - 0.002, M.blue), W / 2 - T / 2, H / 2, 0)); g.add(at(box(T, H, D - 0.002, M.blue), -W / 2 + T / 2, H / 2, 0));
+  for (const x of [-0.6, 0, 0.6]) g.add(at(box(0.05, 0.03, D - 0.12, M.aluDark), x, 0.065, 0)); // between the frame rails
   g.add(at(box(W - 0.2, 0.05, 0.16, M.dark), 0, 0.105, 0)); // grooved base rail (seat at 0.13)
   g.add(at(box(W - 0.2, 0.06, 0.02, M.alu), 0, 0.16, -0.08)); // front lip (screen side)
   g.add(at(box(W - 0.2, 0.03, 0.03, M.alu), 0, 0.165, 0.09)); // back rest rail (robot side)
@@ -93,7 +93,8 @@ export function makePallet(M: Materials) {
     lead.rotation.z = sx * 0.35;
     g.add(lead); // chamfered lead-in
   }
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) g.add(at(box(0.1, 0.1, 0.1, M.white), sx * (W / 2 - 0.05), 0.05, sz * (D / 2 - 0.05)));
+  // corner blocks 2 mm proud of the frame: their faces would otherwise lie in the frame's faces and flicker
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) g.add(at(box(0.104, 0.104, 0.104, M.white), sx * (W / 2 - 0.05), 0.052, sz * (D / 2 - 0.05)));
   g.add(at(box(0.08, 0.07, 0.15, M.yellow), -W / 2 + 0.15, 0.12, 0.17));
   shadowify(g0);
   return g0;

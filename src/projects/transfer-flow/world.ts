@@ -147,6 +147,8 @@ export function step(w: World, dt: number) {
   updateSpawn(w);
   updateLine(w.asm, dt);
   updateLine(w.test, dt);
+  // the jig still inside the lift (s < 0) rises with it instead of being drawn over the jig already on the belt
+  for (const it of w.asm.items) if (it.s < 0) it.obj.position.y = TOP - 0.8 * Math.min(1, -it.s / (JIG_L * 0.5));
   updateRobots(w, dt);
   dispatchPallets(w);
   updateInspector(w, dt);

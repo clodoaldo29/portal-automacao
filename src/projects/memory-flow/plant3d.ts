@@ -54,20 +54,23 @@ export function buildPlant(scene: THREE.Scene, opts: PlantOptions = {}) {
     root.add(m);
     return m;
   };
-  const byZone = <T,>(f: (z: Zone) => T) => Object.fromEntries((Object.keys(ZONES) as Zone[]).map(z => [z, f(z)])) as Record<Zone, T>;
-  const tintMat = byZone(z => new THREE.MeshLambertMaterial({ color: ZONES[z].tint, polygonOffset: true, polygonOffsetFactor: -1 }));
-  const edgeMat = byZone(z => new THREE.MeshBasicMaterial({ color: ZONES[z].strong }));
-  for (const a of AREAS) {
+  // The floor layers are millimetres apart, too little for the depth buffer when the whole plant is in view: each
+  // layer is drawn in front of the one under it with a polygon offset (larger areas first, then the smaller areas
+  // inside them, then the borders, the corridor tape and the flow lanes), so none of them flickers.
+  const layer = (units: number) => ({ polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -units });
+  const ranked = AREAS.slice().sort((a, b) => (b.x1 - b.x0) * (b.z1 - b.z0) - (a.x1 - a.x0) * (a.z1 - a.z0));
+  const N = ranked.length;
+  ranked.forEach((a, i) => {
     const cx = (a.x0 + a.x1) / 2, cz = (a.z0 + a.z1) / 2, w = a.x1 - a.x0, d = a.z1 - a.z0;
-    flat(w - 0.1, d - 0.1, tintMat[a.zone], cx, cz, 0.006);
-    const e = edgeMat[a.zone], t = 0.12;
+    flat(w - 0.1, d - 0.1, new THREE.MeshLambertMaterial({ color: ZONES[a.zone].tint, ...layer(2 + 2 * i) }), cx, cz, 0.006);
+    const e = new THREE.MeshBasicMaterial({ color: ZONES[a.zone].strong, ...layer(4 + 2 * N + 2 * i) }), t = 0.12;
     flat(w - 0.1, t, e, cx, a.z0 + 0.11, 0.009); flat(w - 0.1, t, e, cx, a.z1 - 0.11, 0.009);
-    flat(t, d - 0.1, e, a.x0 + 0.11, cz, 0.009); flat(t, d - 0.1, e, a.x1 - 0.11, cz, 0.009);
-  }
-  const tape = new THREE.MeshBasicMaterial({ color: 0xf2c230 });
+    flat(t, d - 0.24, e, a.x0 + 0.11, cz, 0.009); flat(t, d - 0.24, e, a.x1 - 0.11, cz, 0.009);
+  });
+  const tape = new THREE.MeshBasicMaterial({ color: 0xf2c230, ...layer(8 + 4 * N) });
   for (const c of CORRIDORS) for (const z of [c.z0 + 0.3, c.z1 - 0.3]) flat(c.x1 - c.x0 - 0.6, 0.12, tape, (c.x0 + c.x1) / 2, z, 0.01);
   for (const z of [33, 37, 60, 63]) flat(119.4, 0.1, tape, 60, z, 0.028);
-  const flowMat = new THREE.MeshBasicMaterial({ color: 0xe07b1f });
+  const flowMat = new THREE.MeshBasicMaterial({ color: 0xe07b1f, ...layer(10 + 4 * N) });
   for (const l of LANES) {
     if (l.door) continue;
     const len = Math.hypot(l.b.x - l.a.x, l.b.z - l.a.z);
@@ -86,20 +89,25 @@ export function buildPlant(scene: THREE.Scene, opts: PlantOptions = {}) {
   const panelMat = std(0xf2f7fb, 0.05, 0.1, { transparent: true, opacity: 0.38, depthWrite: false, side: THREE.DoubleSide });
   const railMat = std(0xb9c1ca, 0.7, 0.3);
   /** Straight wall along x (horizontal) or z, with openings: [centre, width]. */
+  // Walls along z stop at the walls along x (half a thickness short at each end), and a post shared by two glass
+  // walls is built once: overlapping corners would show coincident faces that flicker.
+  const posts = new Set<string>();
   function wall(x0: number, z0: number, x1: number, z1: number, h: number, mat: THREE.Material, gaps: [number, number][] = [], glass = false) {
     const alongX = Math.abs(z1 - z0) < 1e-6, a0 = alongX ? x0 : z0, a1 = alongX ? x1 : z1;
     const cuts = [...gaps].sort((p, q) => p[0] - q[0]);
     let s = a0;
     const seg = (u: number, v: number) => {
       if (v - u < 0.05) return;
-      const mid = (u + v) / 2, len = v - u;
+      const mid = (u + v) / 2, len = v - u - (alongX ? 0 : glass ? 0.1 : 0.25);
       const [X, Z] = alongX ? W(mid, z0) : W(x0, mid);
       if (glass) {
         root.add(at(box(alongX ? len : 0.06, h, alongX ? 0.06 : len, mat), X, h / 2, Z));
         root.add(at(box(alongX ? len : 0.1, 0.1, alongX ? 0.1 : len, railMat), X, h, Z));
         root.add(at(box(alongX ? len : 0.1, 0.1, alongX ? 0.1 : len, railMat), X, 0.05, Z));
-        for (let p = u; p <= v + 1e-6; p += Math.min(2.5, len)) {
-          const [PX, PZ] = alongX ? W(p, z0) : W(x0, p);
+        for (let p = u; p <= v + 1e-6; p += Math.min(2.5, v - u)) {
+          const [PX, PZ] = alongX ? W(p, z0) : W(x0, p), key = `${PX.toFixed(2)},${PZ.toFixed(2)}`;
+          if (posts.has(key)) continue;
+          posts.add(key);
           root.add(at(box(0.08, h, 0.08, railMat), PX, h / 2, PZ));
         }
       } else root.add(at(box(alongX ? len : 0.25, h, alongX ? 0.25 : len, mat), X, h / 2, Z));

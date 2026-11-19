@@ -65,11 +65,11 @@ export function createReworkCell(scene: THREE.Scene, M: Materials, font: string)
   scene.add(at(box(2.3, 0.86, 1.1, M.cabinet), 0, 0.43, 0));
   scene.add(at(box(2.3, 0.04, 1.1, std(0x2b2f36, 0.1, 0.35)), 0, 0.88, 0));
   scene.add(at(box(1.0, 0.04, 0.9, std(0x3a3f47, 0.1, 0.3)), 0, 0.92, 0));
-  for (const z of [-0.06, 0.06]) scene.add(at(box(2.0, 0.012, 0.02, M.alu), 0, TABLE - 0.006, z));
+  for (const z of [-0.06, 0.06]) scene.add(at(box(2.0, 0.012, 0.02, M.alu), 0, TABLE - 0.004, z)); // 2 mm proud of the table top
   const glass = new THREE.MeshStandardMaterial({ color: 0xbcd6ea, transparent: true, opacity: 0.13, roughness: 0.05, depthWrite: false, side: THREE.DoubleSide });
   for (const x of [-0.55, 0.55]) for (const z of [-0.5, 0.5]) scene.add(at(box(0.04, 0.85, 0.04, M.alu), x, 0.9 + 0.425, z));
-  for (const z of [-0.5, 0.5]) scene.add(at(box(1.14, 0.04, 0.04, M.alu), 0, 1.75, z));
-  for (const x of [-0.55, 0.55]) scene.add(at(box(0.04, 0.04, 1.04, M.alu), x, 1.75, 0));
+  for (const z of [-0.5, 0.5]) scene.add(at(box(1.15, 0.04, 0.04, M.alu), 0, 1.75, z)); // 5 mm past the posts
+  for (const x of [-0.55, 0.55]) scene.add(at(box(0.04, 0.04, 0.96, M.alu), x, 1.75, 0)); // between the long beams
   const pane = (w: number, h: number, x: number, y: number, z: number, ry: number) => { const p = new THREE.Mesh(new THREE.PlaneGeometry(w, h), glass); p.position.set(x, y, z); p.rotation.y = ry; p.userData.noShadow = true; scene.add(p); };
   pane(1.1, 0.8, 0, 1.33, -0.5, 0); pane(1.1, 0.45, 0, 1.5, 0.5, 0);
   // input and output stackers
@@ -90,7 +90,7 @@ export function createReworkCell(scene: THREE.Scene, M: Materials, font: string)
   // ---------- gantry: X bridge on two rails, Z carriage with the laser profiler and the pick nozzle ----------
   for (const z of [-0.36, 0.36]) {
     for (const x of [-0.5, 0.5]) scene.add(at(box(0.05, 0.36, 0.05, M.aluDark), x, TABLE + 0.18, z));
-    scene.add(at(box(1.05, 0.05, 0.06, M.alu), 0, TABLE + 0.38, z));
+    scene.add(at(box(1.06, 0.05, 0.06, M.alu), 0, TABLE + 0.38, z));
   }
   const bridge = new THREE.Group();
   scene.add(bridge);

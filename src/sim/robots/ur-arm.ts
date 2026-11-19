@@ -34,7 +34,8 @@ export function makeCobot(scene: THREE.Scene, M: Materials, { x, z, L1 = 2.2, L2
   const root = new THREE.Group();
   root.position.set(x, 0, z);
   scene.add(root);
-  root.add(at(box(pedW, ped, pedW, M.cabinet), 0, ped / 2, 0));
+  // the cabinet stops 6 mm under the mounting plate: two tops in the same plane flicker
+  root.add(at(box(pedW, ped - 0.006, pedW, M.cabinet), 0, (ped - 0.006) / 2, 0));
   root.add(at(box(pedW + 0.04, 0.02, pedW + 0.04, M.aluDark), 0, ped - 0.01, 0)); // mounting plate
   const ledMat = new THREE.MeshStandardMaterial({ color: 0x0b1b33, emissive: 0x3b82f6, emissiveIntensity: 1.4 });
   root.add(at(box(pedW + 0.02, 0.025, pedW + 0.02, ledMat), 0, ped - 0.06, 0));

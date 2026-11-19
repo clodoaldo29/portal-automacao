@@ -244,7 +244,7 @@ export function createLine(scene: THREE.Scene, M: Materials, font: string, param
     g.add(plat);
     // the plate sits 8 mm under the belt it lines up with: two surfaces in the same plane flicker
     plat.add(at(box(0.5, 0.03, 0.44, M.aluDark), 0, -0.023, 0));
-    for (const sz of [-1, 1]) plat.add(at(box(0.5, 0.05, 0.02, M.alu), 0, 0.01, sz * 0.22));
+    for (const sz of [-1, 1]) plat.add(at(box(0.5, 0.05, 0.02, M.alu), 0, 0.01, sz * 0.21)); // inside the belt side rails
     shadowify(g);
     return plat;
   }
@@ -258,7 +258,8 @@ export function createLine(scene: THREE.Scene, M: Materials, font: string, param
   function stepLift(lf: typeof liftEnd, from: Line<Pallet>, stop: Station<Pallet>, to: Line<Pallet>, y0: number, y1: number, dt: number, ready: (it: Pallet) => boolean = () => true, toS = 0.25) {
     if (lf.phase === 'idle') {
       const it = from.items.find(i => i.hold === stop);
-      if (it && ready(it)) { from.items.splice(from.items.indexOf(it), 1); lf.item = it; lf.phase = 'move'; lf.t = 0; }
+      // it starts only when its place on the other belt is free: a pallet never rides through another one
+      if (it && ready(it) && !to.items.some(i => Math.abs(i.s - toS) < to.gap)) { from.items.splice(from.items.indexOf(it), 1); lf.item = it; lf.phase = 'move'; lf.t = 0; }
     }
     if (lf.phase === 'move' && lf.item) {
       lf.t += dt;
@@ -510,7 +511,7 @@ export function createLine(scene: THREE.Scene, M: Materials, font: string, param
   function makeBranch(x: number, title: string, side: -1 | 1, rule: (it: Pallet) => boolean, ownSensor = true) {
     const up = new Track([line(x, SPUR.z0, x, SPUR.end)], false), dn = new Track([line(x, SPUR.end, x, -0.2)], false);
     const SU: Line<Pallet> = makeLine<Pallet>({ track: up, speed: LINE.speed, gap: LINE.gap, tex: buildConveyor(scene, M, up, LINE.beltW, LINE.top), y: LINE.top, onExit: () => {} });
-    const SD: Line<Pallet> = makeLine<Pallet>({ track: dn, speed: LINE.speed * 1.4, gap: LINE.gap, tex: buildConveyor(scene, M, dn, LINE.beltW - 0.1, LINE.retTop), y: LINE.retTop, onExit: () => {} });
+    const SD: Line<Pallet> = makeLine<Pallet>({ track: dn, speed: LINE.speed * 1.4, gap: LINE.gap, tex: buildConveyor(scene, M, dn, LINE.beltW - 0.1, LINE.retTop - 0.006), y: LINE.retTop, onExit: () => {} });
     // transfer unit in the main line: belts that rise between the rollers and move the pallet sideways
     const xfer = new THREE.Group();
     xfer.position.set(x, LINE.top - 0.03, 0); // resting well under the belt (no flicker), rises to lift the pallet
@@ -520,7 +521,7 @@ export function createLine(scene: THREE.Scene, M: Materials, font: string, param
     const lift = { plat: liftTower(x, SPUR.lift), item: null as Pallet | null, t: 0, phase: 'idle' as 'idle' | 'move' | 'wait' };
     lift.plat.position.y = LINE.top;
     const sign = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.12), new THREE.MeshBasicMaterial({ map: signTex(title, '#d23b3b', 768) }));
-    sign.position.set(x, 1.3, SPUR.lift + 0.33);
+    sign.position.set(x, 1.3, SPUR.lift + 0.36); // in front of the lift frame, not in its face
     scene.add(sign);
     const spot: [number, number] = [x + side * 0.62, SPUR.lift];
     // NOK magazine (filled by hand) on a red cart beside the lift

@@ -39,7 +39,9 @@ stage.scene.add(routes);
     routes.add(m);
   }
   // pick-up and drop points: every WIP shelf and every machine load port of the route
-  const pts = [...Object.values(RACKS), DOCK_IN, ...STEPS.flatMap(s => s.tags.map(t => plant.equipList.find(e => e.area === s.area && e.tag === t)!.access!))];
+  // one pad per place: the route passes several times by the same shelves, and overlapping pads flicker
+  const pts: { x: number; z: number }[] = [];
+  for (const p of [...Object.values(RACKS), DOCK_IN, ...STEPS.flatMap(s => s.tags.map(t => plant.equipList.find(e => e.area === s.area && e.tag === t)!.access!))]) if (!pts.some(q => Math.hypot(q.x - p.x, q.z - p.z) < 0.95)) pts.push(p);
   const pad = new THREE.InstancedMesh(new THREE.BoxGeometry(0.9, 0.03, 0.9), new THREE.MeshBasicMaterial({ color: 0x0e7490 }), pts.length);
   const m4 = new THREE.Matrix4();
   pts.forEach((p, i) => { const [X, Z] = W(p.x, p.z); m4.makeTranslation(X, 0.06, Z); pad.setMatrixAt(i, m4); });

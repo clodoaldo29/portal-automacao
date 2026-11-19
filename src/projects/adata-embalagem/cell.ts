@@ -160,7 +160,7 @@ export function createPackCell(scene: THREE.Scene, M: Materials, font: string) {
   const APP_REST = { y: BAG.top + 0.36, z: BAG.z + 0.3 }, APP_WORK_Z = BAG.z;
   applicator.position.set(BAG.x[2], APP_REST.y, APP_REST.z);
   // barcode verifier: post behind the line, reader over the bag
-  solid('leitor de verificação', BAG.x[2] - 0.2, BAG.top + 0.35, BAG.z + 0.3, 0.04, 0.7, 0.04, M.alu);
+  solid('leitor de verificação', BAG.x[2] - 0.19, BAG.top + 0.35, BAG.z + 0.3, 0.04, 0.7, 0.04, M.alu); // clear of the sealer housing face
   solid('leitor de verificação', BAG.x[2] - 0.2, BAG.top + 0.68, BAG.z + 0.18, 0.08, 0.06, 0.26, M.dark);
   const verifyBeam = new THREE.Mesh(new THREE.PlaneGeometry(0.004, 0.2), new THREE.MeshBasicMaterial({ color: 0xff2d2d, toneMapped: false }));
   verifyBeam.rotation.x = -Math.PI / 2;
@@ -174,7 +174,7 @@ export function createPackCell(scene: THREE.Scene, M: Materials, font: string) {
   chute.rotation.x = 0.45;
   scene.add(chute);
   solid('coletor de reprovados', REJECT.x, 0.25, REJECT.z, 0.4, 0.5, 0.4, std(0xd23b3b, 0.1, 0.5));
-  scene.add(at(box(0.36, 0.02, 0.36, std(0x2a2d33, 0.2, 0.6)), REJECT.x, 0.49, REJECT.z));
+  scene.add(at(box(0.36, 0.02, 0.36, std(0x2a2d33, 0.2, 0.6)), REJECT.x, 0.496, REJECT.z)); // lid 6 mm proud of the bin
   const rejectPile: THREE.Object3D[] = [];
 
   // ---------- outfeed belt, case erector, case sealer, pallet ----------
@@ -184,16 +184,16 @@ export function createPackCell(scene: THREE.Scene, M: Materials, font: string) {
   // case erector: housing over the start of the belt, with the magazine of flat blanks on top
   const ex = ERECTOR.x;
   solid('formadora de caixas', ex - 0.05, ERECTOR.h / 2, OUT.z - ERECTOR.d / 2 + 0.08, ERECTOR.w, ERECTOR.h, 0.16, machine);
-  solid('formadora de caixas', ex - 0.05, ERECTOR.h - 0.1, OUT.z, ERECTOR.w, 0.2, ERECTOR.d, machine);
+  solid('formadora de caixas', ex - 0.05, ERECTOR.h - 0.095, OUT.z, ERECTOR.w - 0.01, 0.2, ERECTOR.d - 0.01, machine); // 5 mm inside the side panels (no shared faces)
   solid('formadora de caixas', ex - 0.05, ERECTOR.h / 2, OUT.z + ERECTOR.d / 2 - 0.08, ERECTOR.w, ERECTOR.h, 0.16, machine);
   for (let i = 0; i < 8; i++) scene.add(at(box(CARTON.l + 0.3, 0.008, CARTON.w + 0.3, cartonMat), ex - 0.05, ERECTOR.h + 0.01 + i * 0.01, OUT.z));
   scene.add(at(box(ERECTOR.w + 0.01, 0.06, ERECTOR.d + 0.01, std(0x5f6b7a, 0.2, 0.5)), ex - 0.05, ERECTOR.h - 0.25, OUT.z));
   // case sealer: two columns, top head with the tape roll; flap-folding guides before it
   const sx = (SEALER.x0 + SEALER.x1) / 2;
   for (const s of [-1, 1]) solid('fechadora de caixas', sx, 0.7, OUT.z + s * 0.3, SEALER.x1 - SEALER.x0, 1.4, 0.08, machine);
-  solid('fechadora de caixas', sx, OUT.top + CARTON.h + 0.18, OUT.z, SEALER.x1 - SEALER.x0, 0.2, 0.68, machine);
+  solid('fechadora de caixas', sx, OUT.top + CARTON.h + 0.18, OUT.z, SEALER.x1 - SEALER.x0 - 0.01, 0.2, 0.67, machine); // 5 mm inside the columns
   scene.add(at(cylA(0.09, 0.05, std(0xc9a46a, 0.1, 0.4), 'z', 20), SEALER.x0 + 0.08, OUT.top + CARTON.h + 0.04, OUT.z));
-  scene.add(at(box(0.3, 0.03, 0.05, M.aluDark), SEALER.x0 + 0.15, OUT.top + CARTON.h + 0.015, OUT.z));
+  scene.add(at(box(0.3, 0.03, 0.045, M.aluDark), SEALER.x0 + 0.15, OUT.top + CARTON.h + 0.015, OUT.z));
   for (const s of [-1, 1]) {
     const guide = at(box(SEALER.fold1 - SEALER.fold0 + 0.05, 0.02, 0.02, M.alu), (SEALER.fold0 + SEALER.fold1) / 2, OUT.top + CARTON.h + 0.05, OUT.z + s * 0.1);
     guide.rotation.z = -0.25;

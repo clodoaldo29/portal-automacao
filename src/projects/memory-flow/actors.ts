@@ -77,9 +77,13 @@ export function createActors(scene: THREE.Scene, plant: Plant) {
     // carriers
     const deckY = e.fleet.kind === 'amr' ? 0.52 : 0.96, deckFwd = e.fleet.kind === 'amr' ? 0 : 0.25;
     const carrierLot = new Map<number, THREE.Vector3>();
+    // carriers at (nearly) the same point stand side by side, 0.9 m apart, instead of inside each other
+    const placed: [number, number][] = [];
     e.carriers.forEach((c, i) => {
       const p = e.carrierPos(c, t), b = bodies[i];
-      const [X, Z] = W(p.x, p.z);
+      let [X, Z] = W(p.x, p.z);
+      for (let k = 0; k < 8 && placed.some(([px, pz]) => Math.hypot(px - X, pz - Z) < 0.5); k++) X += 0.9;
+      placed.push([X, Z]);
       if (p.dx || p.dz) heading[i] = Math.atan2(p.dx, p.dz);
       const h = heading[i] ?? 0;
       b.position.set(X, 0, Z);

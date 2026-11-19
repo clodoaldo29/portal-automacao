@@ -102,11 +102,11 @@ export function createCell(scene: THREE.Scene, M: Materials, origin: THREE.Vecto
   };
   panel(cw, 0, z0, 0); panel(cd, x0, cz, Math.PI / 2); panel(cd, x1, cz, Math.PI / 2);
   panel(cw, 0, z1, 0, 1.15, h - 0.05); // front: open below for the cassette ports, light curtain
-  for (const x of [x0 + 0.02, x1 - 0.02]) root.add(at(box(0.04, 1.0, 0.04, std(0x15171b, 0.2, 0.4)), x, 0.6, z1));
+  for (const x of [x0 + 0.025, x1 - 0.025]) root.add(at(box(0.04, 1.0, 0.04, std(0x15171b, 0.2, 0.4)), x, 0.6, z1)); // clear of the side panels
   root.add(at(box(cw - 0.2, 0.05, 0.12, new THREE.MeshBasicMaterial({ color: 0xffffff })), 0, h - 0.06, cz)); // light bar
   // floor marking around the cell
   const tape = new THREE.MeshBasicMaterial({ color: 0xf2c230 });
-  for (const [w, d, x, z] of [[cw + 0.5, 0.1, 0, z0 - 0.25], [cw + 0.5, 0.1, 0, z1 + 0.25], [0.1, cd + 0.5, x0 - 0.25, cz], [0.1, cd + 0.5, x1 + 0.25, cz]] as const) {
+  for (const [w, d, x, z] of [[cw + 0.5, 0.1, 0, z0 - 0.25], [cw + 0.5, 0.1, 0, z1 + 0.25], [0.1, cd + 0.4, x0 - 0.25, cz], [0.1, cd + 0.4, x1 + 0.25, cz]] as const) {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), tape);
     m.rotation.x = -Math.PI / 2;
     m.position.set(x, 0.015, z);
@@ -125,7 +125,7 @@ export function createCell(scene: THREE.Scene, M: Materials, origin: THREE.Vecto
   chuck.position.y = CHUCK_TOP - 0.88;
   xCarriage.add(chuck);
   chuck.add(at(cyl(0.2, 0.2, 0.02, std(0x9aa1a9, 0.6, 0.25), 48), 0, -0.01, 0));
-  chuck.add(at(cyl(0.16, 0.16, 0.022, std(0x5b6170, 0.4, 0.2), 48), 0, -0.01, 0));
+  chuck.add(at(cyl(0.16, 0.16, 0.022, std(0x5b6170, 0.4, 0.2), 48), 0, -0.0104, 0)); // top 0.6 mm over the outer chuck, under the tape (1.2 mm)
   const pins = [0, 1, 2].map(i => { const p = cyl(0.006, 0.006, PIN + 0.01, M.alu, 8); p.position.set(Math.cos(i * 2.094) * 0.12, -0.005, Math.sin(i * 2.094) * 0.12); chuck.add(p); return p; });
   for (const sx of [-1, 1]) root.add(at(box(0.08, 0.7, 0.08, M.alu), STAGE.x + sx * 0.52, 0.88 + 0.35, STAGE.z + 0.36));
   root.add(at(box(1.12, 0.1, 0.1, M.alu), STAGE.x, 1.58, STAGE.z + 0.36));
@@ -186,10 +186,10 @@ export function createCell(scene: THREE.Scene, M: Materials, origin: THREE.Vecto
     const obj = new THREE.Group();
     obj.add(new THREE.Mesh(ringGeo, ringMat));
     const tp = new THREE.Mesh(tapeGeo, tapeMat);
-    tp.rotation.x = -Math.PI / 2; tp.position.y = 0.0006; tp.userData.noShadow = true;
+    tp.rotation.x = -Math.PI / 2; tp.position.y = 0.0012; tp.userData.noShadow = true;
     obj.add(tp);
     const wafer = new THREE.Mesh(waferGeo, plainMat);
-    wafer.rotation.x = -Math.PI / 2; wafer.position.y = 0.0018;
+    wafer.rotation.x = -Math.PI / 2; wafer.position.y = 0.0028; // clear of the ring top (0.0015)
     obj.add(wafer);
     shadowify(obj);
     tp.castShadow = false;
@@ -215,7 +215,7 @@ export function createCell(scene: THREE.Scene, M: Materials, origin: THREE.Vecto
   fork.add(at(box(0.14, 0.03, 0.1, M.aluDark), 0, -0.12, 0.04));
   fork.add(at(box(0.06, 0.006, 0.36, std(0x2b2f36, 0.3, 0.35)), -0.07, -FORK_DOWN + 0.003, FORK_F));
   fork.add(at(box(0.06, 0.006, 0.36, std(0x2b2f36, 0.3, 0.35)), 0.07, -FORK_DOWN + 0.003, FORK_F));
-  fork.add(at(box(0.2, 0.006, 0.06, std(0x2b2f36, 0.3, 0.35)), 0, -FORK_DOWN + 0.003, FORK_F - 0.15));
+  fork.add(at(box(0.2, 0.006, 0.06, std(0x2b2f36, 0.3, 0.35)), 0, -FORK_DOWN + 0.0045, FORK_F - 0.15)); // 1.5 mm over the tines
   fork.add(at(box(0.06, 0.008, FORK_F - 0.21, M.aluDark), 0, -FORK_DOWN + 0.004, (0.06 + FORK_F - 0.15) / 2)); // stem from the bracket to the blades
   for (const [x, z] of [[-0.07, FORK_F - 0.12], [0.07, FORK_F - 0.12], [-0.07, FORK_F + 0.14], [0.07, FORK_F + 0.14]]) fork.add(at(cyl(0.012, 0.012, 0.004, M.rubber, 12), x, -FORK_DOWN + 0.007, z));
   fork.add(at(box(0.05, 0.04, 0.05, M.blue), 0, -0.06, -0.04)); // vacuum generator

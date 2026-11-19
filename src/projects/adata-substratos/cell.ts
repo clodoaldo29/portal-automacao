@@ -53,8 +53,9 @@ export function createSubstrateCell(scene: THREE.Scene, M: Materials, font: stri
     const body = new THREE.Group();
     g.add(body);
     for (const s of [-1, 1]) body.add(at(box(L + 0.02, SLOTS * PITCH + 0.02, 0.004, magMat), 0, SLOTS * PITCH / 2, s * (Wd / 2 + 0.006)));
-    body.add(at(box(L + 0.02, 0.006, Wd + 0.016, magMat), 0, 0, 0));
-    body.add(at(box(L + 0.02, 0.006, Wd + 0.016, magMat), 0, SLOTS * PITCH + 0.01, 0));
+    // top and bottom 1 mm inside the side plates: no shared faces
+    body.add(at(box(L + 0.018, 0.006, Wd + 0.014, magMat), 0, 0, 0));
+    body.add(at(box(L + 0.018, 0.006, Wd + 0.014, magMat), 0, SLOTS * PITCH + 0.01, 0));
     const fill = new THREE.InstancedMesh(new THREE.BoxGeometry(L, 0.0012, Wd), stripSide, SLOTS);
     body.add(fill);
     const m4 = new THREE.Matrix4();
@@ -78,9 +79,9 @@ export function createSubstrateCell(scene: THREE.Scene, M: Materials, font: stri
   scene.add(tunnel);
   const hood = std(0xe9ecef, 0.15, 0.45);
   tunnel.add(at(box(0.8, 0.02, 0.36, hood), 0.1, RAIL + 0.42, 0));
-  tunnel.add(at(box(0.8, 0.42, 0.02, hood), 0.1, RAIL + 0.21, -0.18));
-  tunnel.add(at(box(0.8, 0.3, 0.01, new THREE.MeshStandardMaterial({ color: 0x334b5e, transparent: true, opacity: 0.35, depthWrite: false })), 0.1, RAIL + 0.27, 0.18));
-  tunnel.add(at(box(0.8, 0.04, 0.02, std(0x8e5bb5, 0.2, 0.45)), 0.1, RAIL + 0.44, 0.181));
+  tunnel.add(at(box(0.79, 0.42, 0.02, hood), 0.1, RAIL + 0.21, -0.18)); // 5 mm inside the hood ends
+  tunnel.add(at(box(0.79, 0.3, 0.01, new THREE.MeshStandardMaterial({ color: 0x334b5e, transparent: true, opacity: 0.35, depthWrite: false })), 0.1, RAIL + 0.27, 0.18));
+  tunnel.add(at(box(0.79, 0.04, 0.02, std(0x8e5bb5, 0.2, 0.45)), 0.1, RAIL + 0.44, 0.181));
   const head = (x: number, color: number) => {
     tunnel.add(at(box(0.08, 0.14, 0.08, std(0x1b1d22, 0.3, 0.4)), x, RAIL + 0.32, 0));
     tunnel.add(at(box(0.05, 0.03, 0.05, std(0x2b3036, 0.4, 0.3)), x, RAIL + 0.235, 0));

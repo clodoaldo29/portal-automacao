@@ -55,7 +55,7 @@ export function buildRoom(scene: THREE.Scene, o: RoomOptions) {
     m.userData.noShadow = true;
     root.add(m);
   };
-  strip(w, 0.12, 0, -d / 2 + 0.06); strip(w, 0.12, 0, d / 2 - 0.06); strip(0.12, d, -w / 2 + 0.06, 0); strip(0.12, d, w / 2 - 0.06, 0);
+  strip(w, 0.12, 0, -d / 2 + 0.06); strip(w, 0.12, 0, d / 2 - 0.06); strip(0.12, d - 0.24, -w / 2 + 0.06, 0); strip(0.12, d - 0.24, w / 2 - 0.06, 0); // side strips stop at the end strips (no overlap)
   if (o.name) {
     const [c, g] = mk(1024, 128);
     g.fillStyle = '#0b3a6b';

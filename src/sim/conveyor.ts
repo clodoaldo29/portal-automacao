@@ -65,9 +65,10 @@ export function buildConveyor(scene: THREE.Scene, M: Materials, track: Track, be
     scene.add(r);
     scene.add(new THREE.Mesh(ribbon(track, 0.05, top + 0.04, { offset: s * (beltW / 2 + 0.03) }), aluDouble));
   }
-  const legH = top - 0.16, step = 1.25, nLeg = Math.floor(track.length / step) + (track.loop ? 0 : 1);
+  // feet height and cross-bar height differ between conveyors and from the leg tops: coincident tops flicker
+  const legH = top - 0.16, step = 1.25, footH = 0.03 + beltW * 0.02, barY = Math.min(0.2, legH * 0.5), nLeg = Math.floor(track.length / step) + (track.loop ? 0 : 1);
   const legs = new THREE.InstancedMesh(new THREE.BoxGeometry(0.045, legH, 0.045), M.alu, nLeg * 2);
-  const feet = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.045, 0.055, 0.03, 12), M.dark, nLeg * 2);
+  const feet = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.045, 0.055, footH, 12), M.dark, nLeg * 2);
   const bars = new THREE.InstancedMesh(new THREE.BoxGeometry(0.04, 0.04, beltW), M.aluDark, nLeg);
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), sc = new THREE.Vector3(1, 1, 1);
   let k = 0;
@@ -78,10 +79,10 @@ export function buildConveyor(scene: THREE.Scene, M: Materials, track: Track, be
     for (const s of [-1, 1]) {
       const x = p.x + nx * s * (beltW / 2 - 0.02), z = p.z + nz * s * (beltW / 2 - 0.02);
       m4.compose(new THREE.Vector3(x, legH / 2, z), q, sc); legs.setMatrixAt(k, m4);
-      m4.compose(new THREE.Vector3(x, 0.03, z), q, sc); feet.setMatrixAt(k, m4);
+      m4.compose(new THREE.Vector3(x, footH / 2, z), q, sc); feet.setMatrixAt(k, m4);
       k++;
     }
-    m4.compose(new THREE.Vector3(p.x, 0.2, p.z), q, sc); bars.setMatrixAt(i, m4);
+    m4.compose(new THREE.Vector3(p.x, barY, p.z), q, sc); bars.setMatrixAt(i, m4);
   }
   [legs, feet, bars].forEach(m => { m.castShadow = true; m.receiveShadow = true; scene.add(m); });
   return tex;

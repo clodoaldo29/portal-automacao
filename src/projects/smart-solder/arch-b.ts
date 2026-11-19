@@ -47,8 +47,8 @@ export function createArchB(scene: THREE.Scene, M: Materials, font: string, line
       solid('estrutura da célula', px, H / 2, Zb, 0.05, H, 0.05, frameMat);
       solid('cortina de luz', px, H / 2, Zf, 0.05, H, 0.05, M.yellow);
     }
-    for (const pz of [Zb, Zf]) scene.add(at(box(1.25, 0.06, 0.06, frameMat), x, H, pz));
-    for (const px of [X0, X1]) scene.add(at(box(0.06, 0.06, Zf - Zb + 0.06, frameMat), px, H, (Zb + Zf) / 2));
+    for (const pz of [Zb, Zf]) scene.add(at(box(1.26, 0.06, 0.06, frameMat), x, H, pz)); // 5 mm past the posts
+    for (const px of [X0, X1]) scene.add(at(box(0.06, 0.06, Zf - Zb - 0.06, frameMat), px, H, (Zb + Zf) / 2)); // between the cross beams
     const panel = (w: number, h: number, px: number, py: number, pz: number, ry: number) => {
       const p = new THREE.Mesh(new THREE.PlaneGeometry(w, h), glass); p.position.set(px, py, pz); p.rotation.y = ry; p.userData.noShadow = true; scene.add(p);
     };
