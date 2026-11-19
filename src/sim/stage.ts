@@ -1,5 +1,5 @@
 // The 3D stage every simulation starts from: renderer, camera with orbit controls, a procedural factory-hall
-// environment map, sun with a fitted shadow frustum, and a reflective concrete floor.
+// environment map, sun with a fitted shadow frustum, and a matte concrete floor (a mirror reflection is available, off by default).
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Reflector } from 'three/examples/jsm/objects/Reflector.js';
@@ -13,6 +13,8 @@ export interface StageOptions {
   fog?: { near: number; far: number };
   /** Floor and reflection size in metres (default 140 × 100). */
   floor?: { w: number; d: number };
+  /** Mirror reflection on the floor in high quality (default off: it flickered under the equipment; matte floor). */
+  reflection?: boolean;
   /** Camera far plane and the furthest the orbit camera may zoom out (defaults 300 and 90 m). */
   cameraFar?: number;
   maxDistance?: number;
@@ -94,7 +96,8 @@ export function createStage(container: HTMLElement, opts: StageOptions) {
   sun.shadow.normalBias = 0.02;
   scene.add(sun);
 
-  const floorMat = new THREE.MeshStandardMaterial({ map: floorTex(fw, fd), roughness: 0.2, metalness: 0.0, envMapIntensity: 0.9 });
+  const reflect = opts.reflection ?? false;
+  const floorMat = new THREE.MeshStandardMaterial({ map: floorTex(fw, fd), roughness: reflect ? 0.2 : 0.85, metalness: 0.0, envMapIntensity: reflect ? 0.9 : 0.3 });
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(fw, fd), floorMat);
   floor.rotation.x = -Math.PI / 2;
   floor.position.y = 0.003;
@@ -135,9 +138,9 @@ export function createStage(container: HTMLElement, opts: StageOptions) {
     const sz = high ? 3072 : 1536;
     sun.shadow.mapSize.set(sz, sz);
     resetShadowMap(sun);
-    mirror.visible = high;
-    floorMat.transparent = high;
-    floorMat.opacity = high ? 0.84 : 1;
+    mirror.visible = high && reflect;
+    floorMat.transparent = high && reflect;
+    floorMat.opacity = high && reflect ? 0.84 : 1;
     floorMat.needsUpdate = true;
     resize();
   }
