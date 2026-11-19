@@ -15,7 +15,7 @@ import { UR10E } from '../../sim/robots/ur-kinematics';
 import { runSeq, type Pose, type Step } from '../../sim/sequencer';
 import type { RobotStat } from './arch-b';
 import type { Blank, Pallet, SolderLine } from './line';
-import { A, A_ROW, LINE, PALLET, PCB, type SolderParams } from './model';
+import { A, A_ROW, LINE, PALLET, PCB, blankSize, type SolderParams } from './model';
 import { cellSign, solderIron, type SolderIron } from './tools';
 
 const ROBOT = { x: 0, z: A_ROW.robotZ, ped: 0.72 };
@@ -109,7 +109,7 @@ export function createArchA(scene: THREE.Scene, M: Materials, font: string, line
   function cartJob(c: Cart): Step[] {
     const b = c.blank!, a = params.alignS, s = params.pointS;
     const dwell = Math.max(0.6, s * 0.5), down = 0.22, up = 0.22, move = Math.max(0.1, s - dwell - down - up), lift = 0.03;
-    const { l } = { l: 2 * 0.16 + 3 * 0.015 };
+    const { l } = blankSize(b.boards);
     const steps: Step[] = [
       { to: [-l / 2 + 0.015, 0.07, C.headZ], dur: 0.3 * a }, { dur: 0.15 * a },
       { to: [l / 2 - 0.015, 0.07, C.headZ], dur: 0.15 * a }, { dur: 0.1 * a },

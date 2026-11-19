@@ -11,7 +11,7 @@
 export type Arch = 'A' | 'B';
 
 export interface SolderParams {
-  /** PCBs per blank (the client: 4 to 10). */
+  /** PCBs per blank: 1 (a single board, e.g. a TV or notebook PCB) to 10. */
   boards: number;
   /** Solder points per PCB. */
   points: number;
@@ -42,7 +42,7 @@ export const NOK_HIGH = 0.08;
 export const PRE_NOK_HIGH = 0.12;
 
 /** Limits of the parameters form. */
-export const LIMITS = { boards: [4, 10], points: [2, 30], pointS: [1.5, 8], alignS: [1, 10], target: [50, 1000], nok: [0, 30], preNok: [0, 30], ledS: [1, 15], springS: [1, 15] } as const;
+export const LIMITS = { boards: [1, 10], points: [2, 30], pointS: [1.5, 8], alignS: [1, 10], target: [50, 1000], nok: [0, 30], preNok: [0, 30], ledS: [1, 15], springS: [1, 15] } as const;
 
 // ---------- line layout (metres; the line runs along +x at z = 0) ----------
 export const LINE = { x0: -5.6, x1: 4.45, top: 0.9, beltW: 0.5, speed: 0.35, gap: 0.55, retTop: 0.38 };
@@ -66,10 +66,11 @@ export const OUT = { x0: 4.5, x1: 5.9, top: 0.95, speed: 0.25 };
 export const MAGAZINE = { slots: 20 };
 
 // ---------- blank geometry ----------
-/** Blank: PCBs in two columns (long side along x), rails around. */
+/** Blank: PCBs in two columns (long side along x), rails around; a single PCB sits alone in a one-column blank. */
+export const blankCols = (boards: number) => (boards === 1 ? 1 : 2);
 export function blankSize(boards: number) {
-  const rows = Math.ceil(boards / 2);
-  return { l: 2 * PCB.l + 3 * PCB.rail, w: rows * PCB.pitch + 2 * PCB.rail, rows };
+  const cols = blankCols(boards), rows = Math.ceil(boards / cols);
+  return { l: cols * PCB.l + (cols + 1) * PCB.rail, w: rows * PCB.pitch + 2 * PCB.rail, rows };
 }
 
 /** Centre of each PCB in the blank (x along the blank, z across). */
@@ -77,6 +78,7 @@ export function boardCenters(boards: number): { x: number; z: number; flip: bool
   const { rows } = blankSize(boards);
   const out: { x: number; z: number; flip: boolean }[] = [];
   for (let i = 0; i < boards; i++) {
+    if (blankCols(boards) === 1) { out.push({ x: 0, z: 0, flip: false }); continue; }
     const row = Math.floor(i / 2), col = i % 2;
     out.push({ x: (col ? 1 : -1) * (PCB.l / 2 + PCB.rail / 2), z: (row - (rows - 1) / 2) * PCB.pitch, flip: col === 0 });
   }

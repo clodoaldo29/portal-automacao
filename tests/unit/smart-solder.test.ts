@@ -7,7 +7,7 @@ const P = (o: Partial<SolderParams> = {}): SolderParams => ({ ...DEFAULT_SOLDER,
 
 describe('Smart Solder AI · blank', () => {
   it('has every joint of every PCB inside the blank, once', () => {
-    for (let boards = 4; boards <= 10; boards++) for (const points of [4, 10, 20]) {
+    for (let boards = 1; boards <= 10; boards++) for (const points of [4, 10, 20]) {
       const { l, w } = blankSize(boards), js = blankJoints(boards, points);
       expect(js).toHaveLength(boards * points);
       expect(js.every(j => Math.abs(j.x) < l / 2 && Math.abs(j.z) < w / 2)).toBe(true);
@@ -37,7 +37,7 @@ describe('Smart Solder AI · capacity', () => {
   });
 
   it('B: the group of three is faster than splitting the joints in series, for any blank size', () => {
-    for (let boards = 4; boards <= 10; boards++) for (const pointS of [1.5, 2.5, 5]) {
+    for (let boards = 1; boards <= 10; boards++) for (const pointS of [1.5, 2.5, 5]) {
       const [group, series] = strategiesB(P({ boards, pointS }));
       expect(group.uph).toBeGreaterThan(series.uph);
     }
