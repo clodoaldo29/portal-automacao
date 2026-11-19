@@ -58,6 +58,12 @@ src/
   projects/adata-substratos/        Adata 02 · inspeção de substratos, RGB + espectral (substrate.ts: modelo da tira, puro)
   projects/adata-microscopia/       Adata 01 · microscopia digital: bancada de hoje × digital (model.ts: tempos e imagens, puro)
   projects/adata-npi/               Adata 04 · plataforma NPI: protótipo de telas, sem 3D (data.ts: regras do fluxo, puro)
+  projects/intellifix/              Intellifix AI · parafusamento final de TVs (LTV01) com 2 UR10e frente a frente
+    model.ts                        7 modelos, TVs por pallet, pontos de fixação (provisórios) (puro)
+    balance.ts                      divisão dos parafusos entre os robôs, ordem, faixa central exclusiva, ciclo (puro)
+    cell.ts · tool.ts               célula 3D (esteira de roletes, cabine, robôs, alimentadores, IHM) e parafusadeira
+    sim.ts · main.ts                pallets, robôs, torque/ângulo, inspeção, Torque Flow, painel; ?fluxo=integrado
+                                    põe a célula alimentando o Transfer Flow na mesma cena
   portal/                           portal
 public/
   projetos.json                     lista de projetos do portal

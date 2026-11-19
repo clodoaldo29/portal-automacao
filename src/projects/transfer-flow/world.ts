@@ -128,7 +128,9 @@ function addPallet(w: World, s: number, inch: Inch | null) {
 function updateSpawn(w: World) {
   const { asm, test } = w;
   const minS = asm.items.reduce((m, it) => Math.min(m, it.s), Infinity);
-  if (minS >= asm.gap) addAsmItem(w, 0, false);
+  if (w.inbox !== undefined) { // fed by the Intellifix AI cell: only the jigs it handed over
+    if (w.inbox > 0 && minS >= 0 && !asm.items.some(it => it.s < 0)) { addAsmItem(w, Math.min(0, minS - asm.gap), false); w.inbox--; }
+  } else if (minS >= asm.gap) addAsmItem(w, 0, false);
   else if (minS >= 0 && !asm.items.some(it => it.s < 0)) addAsmItem(w, minS - asm.gap, false); // one jig waits inside the lift
   const minP = test.items.reduce((m, it) => Math.min(m, it.s), Infinity);
   const waiting = test.items.filter(it => !it.released && !it.tvs.length).length;

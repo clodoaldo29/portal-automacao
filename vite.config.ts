@@ -24,6 +24,7 @@ const pages = {
   'adata-inspecao-pos-corte': 'projetos/adata-inspecao-pos-corte/index.html',
   'smart-solder-a': 'projetos/smart-solder-a/index.html',
   'smart-solder-b': 'projetos/smart-solder-b/index.html',
+  'intellifix-ai': 'projetos/intellifix-ai/index.html',
 };
 
 export default defineConfig({

@@ -85,6 +85,8 @@ export interface Task {
   p: ScrewPoint;
   /** Leaves the previous point (or home) toward this one; times from the end of the vision step. */
   moveStart: number;
+  /** Over the point, ready to go down (the move includes the trip to the feeder when the robot fetches screws). */
+  arrive: number;
   /** Screw done, tool retracted. */
   done: number;
 }
@@ -117,16 +119,17 @@ export interface CyclePlan {
 }
 
 function runRobot(r: 0 | 1, pts: ScrewPoint[], t: TimingParams, zoneFreeAt: number): RobotPlan {
-  const seq = order(r, pts), perScrew = t.screwS + (t.feed === 'pick' ? t.pickS : 0);
+  const seq = order(r, pts), pick = t.feed === 'pick' ? t.pickS : 0;
   let at: { x: number; z: number } = robotHome(r), now = 0, waitS = 0, zIn = -1, zOut = -1;
   const tasks: Task[] = [];
   for (const p of seq) {
     if (inZone(p) && zIn < 0 && now < zoneFreeAt) { waitS += zoneFreeAt - now; now = zoneFreeAt; }
-    const moveStart = now;
+    const moveStart = now, move = moveS(dist(at, p), t) + pick;
     if (inZone(p) && zIn < 0) zIn = moveStart;
-    if (!inZone(p) && zIn >= 0 && zOut < 0) zOut = moveStart + moveS(dist(at, p), t); // left the zone on arrival here
-    now += moveS(dist(at, p), t) + perScrew + (p.selfTap ? t.selfTapS : 0);
-    tasks.push({ p, moveStart, done: now });
+    if (!inZone(p) && zIn >= 0 && zOut < 0) zOut = moveStart + move; // left the zone on arrival here
+    const arrive = now + move;
+    now = arrive + t.screwS + (p.selfTap ? t.selfTapS : 0);
+    tasks.push({ p, moveStart, arrive, done: now });
     at = p;
   }
   const back = moveS(dist(at, robotHome(r)), t);

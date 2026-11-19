@@ -37,8 +37,8 @@ export const SCREW_LIMITS = [1, 16] as const;
 
 /** Cell geometry (metres). */
 export const CELL = {
-  /** Robot base centres at z = ±robotZ, x = 0 (belt 1.2 m wide + pedestal). */
-  robotZ: 0.75,
+  /** Robot base centres at z = ±robotZ, x = 0: the pedestal stands just outside the 1.24 m pallet. */
+  robotZ: 0.8,
   /** Useful horizontal reach of a UR10e with the screwdriver pointing down (nominal 1.3 m). */
   reach: 1.2,
   /** Tool home (clear of the TV, over the belt edge on the robot's side). */

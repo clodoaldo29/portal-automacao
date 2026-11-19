@@ -129,5 +129,17 @@
     "cover": "capas/smart-solder-b.png",
     "url": "projetos/smart-solder-b/",
     "updatedAt": "2026-11-18"
+  },
+  {
+    "id": "intellifix-ai",
+    "client": "Grupo Multilaser",
+    "name": "Intellifix AI · Parafusamento",
+    "status": "estudo",
+    "description": "Parafusamento final dos gabinetes de televisores na linha LTV01, nos sete modelos de 32″ a 75″, com 3 a 10 parafusos e cadências de 75 a 230 TVs por hora. Dois UR10e frente a frente: nos modelos de 32″ e 43″ o pallet leva duas TVs lado a lado e cada robô parafusa a sua; a partir de 50″ os dois dividem os parafusos da mesma TV, com divisão automática e uma faixa central onde só entra um robô de cada vez. Parafusadeira com controle de torque e ângulo e alimentação por sopro, câmera com IA em cada robô (classes C01 a C06), retenção da TV NOK para retrabalho e rastreabilidade por número de série (Torque Flow). Tempos do estudo de referência; um botão mostra o fluxo integrado com o Transfer Flow, como uma linha só. Estudo conceitual, com valores provisórios.",
+    "metrics": { "uph": "≈ 250 TV/h (43″)", "robots": "2× UR10e", "models": "7 TVs · 32″ a 75″", "stations": "75–230 UPH" },
+    "metricLabels": { "uph": "Capacidade", "robots": "Parafusamento", "models": "Produtos", "stations": "Cadência exigida" },
+    "cover": "capas/intellifix-ai.png",
+    "url": "projetos/intellifix-ai/",
+    "updatedAt": "2026-11-19"
   }
 ]
