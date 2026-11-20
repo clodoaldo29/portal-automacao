@@ -22,8 +22,12 @@ export const Z_PAL = Z_TEST + 0.3;
 export const SPEED_ASM = 0.6, SPEED_TEST = 0.8; // m/s
 export const LIFT_OPEN = 2.1; // clear height: a 75" standing on a pallet reaches ~1.98 m
 
-// assembly jig (standard for every model): 2.3 × 1.1 m, a pair of 32"/43" side by side or one 50"–75"
-export const JIG_L = 2.3, JIG_TOP = 0.08, SLOT = 0.52;
+// assembly jig = the "base colchão" of the Intellifix AI screwdriving cell (the same pallet goes on): 1.8 × 1.2 m,
+// aluminium frame and blue foam; a pair of 32"/43" side by side ACROSS the belt, or one 50"–75" centred
+export const JIG_L = 1.8, JIG_W = 1.2, JIG_FRAME = 0.05, JIG_TOP = 0.11, TV_GAP = 0.06;
+/** Minimum pitch of the jigs queued on the assembly belt (kept from the original 2.3 m jig + 10 cm: the transfer
+ *  work split was tuned to it). */
+export const ASM_PITCH = 2.4;
 // test pallet (standard, one TV): 1.9 × 0.55 m, TV seated 0.13 m above the belt
 export const PAL_W = 1.9, PAL_D = 0.55, SEAT_Y = 0.13;
 export const ITEM_GAP = 0.1; // accumulation: queued items keep 10 cm apart
@@ -41,9 +45,10 @@ export const CELL = { x: -5.8, z: Z_ASM + BELT_ASM / 2 + 0.1 + 0.9, w: 2.4, d: 1
 
 export const FENCE_Z = -3.05; // 1.4 m aisle behind the test belt, where the screens face
 
-/** 32" and 43": two TVs side by side per jig (one TV per test pallet). 50" and up: one TV, centred. */
+/** 32" and 43": two TVs side by side across the jig (one TV per test pallet). 50" and up: one TV, centred. */
 export const slotsFor = (inch: Inch) => (inch <= 43 ? 2 : 1);
-export const slotX = (inch: Inch, k: number) => (slotsFor(inch) === 2 ? (k === 0 ? -SLOT : SLOT) : 0);
+/** Offset across the belt of TV k on the jig: TV 0 on the robots' side (−z), TV 1 on the far side. */
+export const slotZ = (inch: Inch, k: number) => (slotsFor(inch) === 2 ? (k === 0 ? -1 : 1) * (SIZES[inch][1] / 2 + TV_GAP / 2) : 0);
 
 export const SHADOW_FRUSTUM = { left: -14, right: 14, top: 10, bottom: -10, near: 1, far: 70 };
 

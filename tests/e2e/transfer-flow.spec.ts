@@ -1,11 +1,11 @@
 import { expect, test } from '@playwright/test';
 
 // Throughput reference: 10 simulated minutes per model, both arms, automatic work split, no NG.
-// Measured on the single-file version before the move to modules; the modular version must match it exactly.
+// Re-measured when the jig became the Intellifix AI "base colchão" (32"/43" pair across the belt, near TV first).
 // When the line logic is changed on purpose, re-measure and update these numbers in the same commit.
 const REFERENCE = [
-  { inch: 32, moved: 90, perRobot: [45, 45] },
-  { inch: 43, moved: 88, perRobot: [44, 44] },
+  { inch: 32, moved: 91, perRobot: [46, 45] },
+  { inch: 43, moved: 90, perRobot: [45, 45] },
   { inch: 65, moved: 106, perRobot: [54, 52] },
   { inch: 75, moved: 106, perRobot: [54, 52] },
 ];

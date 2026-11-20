@@ -128,7 +128,8 @@ export interface World {
   hmi: Hmi;
   inspAndon: Andon;
   floorRect: (x1: number, z1: number, x2: number, z2: number, w?: number) => void;
-  /** Integrated flow (Intellifix AI page): jigs handed over by the screwdriving cell and not yet on the belt.
-   *  Undefined on the Transfer Flow page itself, where assembly keeps feeding as fast as the belt has room. */
+  /** Integrated flow (Intellifix AI page): jigs handed over by the screwdriving cell, not yet on the belt (0 or 1:
+   *  the cell only lets a jig go when the belt start is free). Undefined on the Transfer Flow page itself, where
+   *  assembly keeps feeding as fast as the belt has room. */
   inbox?: number;
 }

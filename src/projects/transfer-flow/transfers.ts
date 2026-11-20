@@ -12,7 +12,7 @@ import { hookGripper } from '../../sim/robots/grippers';
 import { LED, makeCobot, poseAt, solve, urTrack } from '../../sim/robots/ur-arm';
 import { runSeq, type Pose } from '../../sim/sequencer';
 import {
-  CUP_Z, GRIP, HOOK_D, ITEM_GAP, PAL_W, PICK_Y, ROBOT_Z, SEAT_Y, SIZES, TOP, TRANSFER_PED, TV_BACK, Z_ASM, Z_PAL, slotX, type Inch,
+  CUP_Z, GRIP, HOOK_D, ITEM_GAP, PAL_W, PICK_Y, ROBOT_Z, SEAT_Y, SIZES, TOP, TRANSFER_PED, TV_BACK, Z_ASM, Z_PAL, slotZ, type Inch,
 } from './config';
 import { tvPower } from './products';
 import type { Jig, Mode, Pallet, Transfer, World } from './types';
@@ -93,10 +93,11 @@ const viaPose = (r: Transfer): Pose => [0, 0.5, 2.3 - r.arm.shoulderY, H / 2, 1.
 /**
  * Pick: TV lies screen-down on the jig. Tool horizontal (tilt 90°, yaw 180°): the cups hang CUP_Z below the flange
  * and sit D beyond it, on the back cover, GRIP from the TV edge nearest the robot (that edge becomes the top).
+ * A 32"/43" pair lies across the jig: the robots take the near TV first, then the far one over the empty seat.
  */
 function pickPose(r: Transfer, inch: Inch, k: number, dy: number): Pose {
   const d = SIZES[inch][1];
-  const p = poseAt(r.arm, r.x + slotX(inch, k), Z_ASM - (d / 2 - GRIP) - r.D, PICK_Y + CUP_Z + dy);
+  const p = poseAt(r.arm, r.x, Z_ASM + slotZ(inch, k) - (d / 2 - GRIP) - r.D, PICK_Y + CUP_Z + dy);
   return [r.wrap(p[0]), p[1], p[2], H, Math.PI];
 }
 

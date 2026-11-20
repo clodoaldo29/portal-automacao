@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { at, box, canvasTex, mk, shadowify } from '../../sim/kit';
 import type { Materials } from '../../sim/materials';
-import { JIG_L, PAL_D, PAL_W, SIZES, TV_T, type Inch } from './config';
+import { JIG_FRAME, JIG_L, JIG_TOP, JIG_W, PAL_D, PAL_W, SIZES, TV_T, type Inch } from './config';
 
 export interface TV { obj: THREE.Group; inch: Inch; screen: THREE.Mesh }
 export type ScreenPattern = 'bars' | 'red' | 'green' | 'blue' | 'white' | 'swoosh';
@@ -56,14 +56,19 @@ export function makeTV(M: Materials, inch: Inch): TV {
 
 export const tvPower = (tv: TV, pat: ScreenPattern | null) => { tv.screen.material = pat ? getScreenMats()[pat] : screenOff; };
 
-/** Standard jig for every model: 2.3 × 1.1 m. Its LED shows the inspection result. */
+const jigFrame = new THREE.MeshStandardMaterial({ color: 0x3a4047, metalness: 0.4, roughness: 0.45 });
+const jigFoam = new THREE.MeshStandardMaterial({ color: 0x2346c8, metalness: 0, roughness: 0.85 });
+/**
+ * Standard jig for every model, the same "base colchão" the Intellifix AI screwdriving cell uses: 1.8 × 1.2 m
+ * aluminium frame with blue foam, TVs screen-down on it. Its LED (robots' side) shows the inspection result.
+ */
 export function makeJig(M: Materials) {
+  void M;
   const g = new THREE.Group();
-  g.add(at(box(JIG_L, 0.08, 1.1, M.jig), 0, 0.04, 0));
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) g.add(at(box(0.08, 0.1, 0.08, M.white), sx * 1.1, 0.13, sz * 0.5));
-  g.add(at(box(0.03, 0.05, 0.6, M.white), 0, 0.105, 0)); // centre divider between the two 32"/43" seats
+  g.add(at(box(JIG_L, JIG_FRAME, JIG_W, jigFrame), 0, JIG_FRAME / 2, 0));
+  g.add(at(box(JIG_L - 0.06, JIG_TOP - JIG_FRAME, JIG_W - 0.06, jigFoam), 0, JIG_FRAME + (JIG_TOP - JIG_FRAME) / 2, 0));
   const ledMat = new THREE.MeshStandardMaterial({ color: 0x222222, emissive: 0x000000 });
-  g.add(at(box(0.08, 0.03, 0.04, ledMat), 0.95, 0.095, -0.53));
+  g.add(at(new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.025, 0.01), ledMat), JIG_L / 2 - 0.15, JIG_FRAME / 2, -JIG_W / 2 - 0.006));
   shadowify(g);
   return { g, ledMat };
 }

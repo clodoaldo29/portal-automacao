@@ -70,7 +70,8 @@ function segDist(p1: THREE.Vector3, q1: THREE.Vector3, p2: THREE.Vector3, q2: TH
 /** Capsule radii base→flange, and the screwdriver (flange → nose). */
 const RAD = [0.1, 0.09, 0.08, 0.07, 0.06, 0.055, 0.045];
 
-export function createSim(cell: Cell, scene: THREE.Scene, params: SimParams, opts: { onExit?: (tvs: number, model: TvModel) => void } = {}) {
+/** `canExit`: integrated flow, the pallet waits at the end of the conveyor until the Transfer Flow belt can take it. */
+export function createSim(cell: Cell, scene: THREE.Scene, params: SimParams, opts: { onExit?: (tvs: number, model: TvModel) => void; canExit?: () => boolean } = {}) {
   const { X, Z, arms, tools } = cell;
   let stats = newStats();
   const rng = createRng(7);
@@ -79,7 +80,7 @@ export function createSim(cell: Cell, scene: THREE.Scene, params: SimParams, opt
   const log: TvRecord[] = [];
 
   // ---------- conveyor ----------
-  const track = new Track([line(X(LAY.x0), Z(0), X(LAY.x1), Z(0))], false);
+  const track = new Track([line(X(LAY.x0), Z(0), X(cell.x1), Z(0))], false);
   const L = makeLine<Pallet>({
     track, speed: 0.6, gap: LAY.pal.l + 0.05, tex: null, y: LAY.top,
     onExit: it => { scene.remove(it.p.g); opts.onExit?.(it.serials.length, it.model); },
@@ -88,6 +89,7 @@ export function createSim(cell: Cell, scene: THREE.Scene, params: SimParams, opt
   let claim: Pallet | null = null, atStop: Pallet | null = null, atPre: Pallet | null = null;
   station(L, sOf(LAY.preX), it => { if (claim) return true; claim = it; return false; }, it => { atPre = it; });
   station(L, sOf(LAY.stopX), () => true, it => { atStop = it; startJob(it); });
+  const endSt = opts.canExit ? station(L, track.length - 1e-4, () => !opts.canExit!(), () => {}) : null;
   const setSpeed = () => { L.speed = (LAY.stopX - LAY.preX) / Math.max(1, params.timing.exchangeS); };
   setSpeed();
 
@@ -239,6 +241,7 @@ export function createSim(cell: Cell, scene: THREE.Scene, params: SimParams, opt
   function step(dt: number) {
     stats.t += dt;
     feed(dt);
+    if (endSt) for (const it of L.items) if (it.hold === endSt && opts.canExit!()) it.hold = null;
     updateLine(L, dt);
     for (const it of L.items) { it.age += dt; if (it.s < 0) it.obj.position.y = LAY.top - 0.8 * Math.min(1, -it.s); }
     phaseT += dt;

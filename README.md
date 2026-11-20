@@ -33,7 +33,8 @@ src/
     world.ts                        monta a linha, alimenta, avança no tempo, reinicia
     transfers.ts                    Transfer 1 e 2: divisão do trabalho, poses, intertravamento
     inspection.ts                   célula de inspeção com IA
-    products.ts                     TV, suporte da montagem, pallet de teste
+    products.ts                     TV, gabarito da montagem (base colchão, o mesmo do Intellifix), pallet de teste
+    rollers.ts                      esteira de roletes da linha de TV (a mesma no Intellifix e no Transfer Flow)
     ui/                             painel de indicadores, parâmetros
     main.ts                         liga tudo e roda o laço
   projects/memory-flow/             Memory Flow 3D (planta de memórias da Adata Technology)
@@ -63,7 +64,7 @@ src/
     balance.ts                      divisão dos parafusos entre os robôs, ordem, faixa central exclusiva, ciclo (puro)
     cell.ts · tool.ts               célula 3D (esteira de roletes, cabine, robôs, alimentadores, IHM) e parafusadeira
     sim.ts · main.ts                pallets, robôs, torque/ângulo, inspeção, Torque Flow, painel; ?fluxo=integrado
-                                    põe a célula alimentando o Transfer Flow na mesma cena
+                                    põe a célula logo antes da inspeção do Transfer Flow, na mesma esteira e base
   portal/                           portal
 public/
   projetos.json                     lista de projetos do portal

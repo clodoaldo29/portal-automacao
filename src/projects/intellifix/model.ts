@@ -8,7 +8,7 @@
 //
 // PROVISIONAL: the screw points are plausible (evenly spaced on a ring inset from the back-cover edge); the real
 // positions come from each model's drawing. Times are in balance.ts (study of 2026-11-19).
-import { SIZES, type Inch } from '../transfer-flow/config';
+import { SIZES, TV_GAP, type Inch } from '../transfer-flow/config';
 
 export interface TvModel {
   id: string;
@@ -43,8 +43,8 @@ export const CELL = {
   reach: 1.2,
   /** Tool home (clear of the TV, over the belt edge on the robot's side). */
   homeZ: 0.55,
-  /** Gap between the two TVs of a 32"/43" pallet. */
-  tvGap: 0.06,
+  /** Gap between the two TVs of a 32"/43" pallet (the Transfer Flow jig). */
+  tvGap: TV_GAP,
   /** Screws sit this far in from the back-cover edge. */
   inset: 0.04,
   /** Shared zone |z| < zone around the belt centre: only one robot inside at a time. */

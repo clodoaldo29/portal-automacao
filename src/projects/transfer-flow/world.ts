@@ -1,7 +1,7 @@
 // Builds the Transfer Flow line and advances it in time. No DOM besides canvases for textures.
 import { createAndons } from '../../sim/andon';
-import { buildConveyor, flowArrow, liftUnit } from '../../sim/conveyor';
-import { buildFence, buildHall, createFloorMarks } from '../../sim/hall';
+import { liftUnit } from '../../sim/conveyor';
+import { buildHall, createFloorMarks } from '../../sim/hall';
 import { makeLine, station, updateLine } from '../../sim/line';
 import { createMaterials } from '../../sim/materials';
 import { UR10E, UR30 } from '../../sim/robots/ur-kinematics';
@@ -9,17 +9,22 @@ import { upgradeArm } from '../../sim/robots/ur-arm';
 import type { Stage } from '../../sim/stage';
 import { Track, line } from '../../sim/track';
 import {
-  BELT_ASM, BELT_TEST, BUFFER_X, FENCE_Z, ITEM_GAP, JIG_L, JIG_TOP, LIFT_OPEN, LINE_X0, LINE_X1, PAL_W, ROBOT_X1, ROBOT_X2, SEAT_Y, SIZES,
-  SPEED_ASM, SPEED_TEST, TOP, TV_T, Z_ASM, Z_PAL, Z_TEST, slotX, slotsFor, type Inch,
+  ASM_PITCH, BELT_ASM, BELT_TEST, BUFFER_X, ITEM_GAP, JIG_L, JIG_TOP, LIFT_OPEN, LINE_X0, LINE_X1, PAL_W, ROBOT_X1, ROBOT_X2, SEAT_Y, SIZES,
+  SPEED_ASM, SPEED_TEST, TOP, TV_T, Z_ASM, Z_PAL, Z_TEST, slotZ, slotsFor, type Inch,
 } from './config';
 import { buildInspectionCell, createInspector, drawInsp, resetInspector, updateInspector } from './inspection';
 import { makeJig, makePallet, makeTV, tvPower, type TV } from './products';
+import { rollerConveyor } from './rollers';
 import { commitJig, createTransfer, dispatchPallets, hasTV, resetTransfer, updateRobots } from './transfers';
 import type { Jig, Pallet, Params, World } from './types';
 
 export const DEFAULT_PARAMS: Params = { inch: 43, arms: 'both', mode: 'auto', simulateNG: false, uphTarget: 600 };
 
-export function createWorld(stage: Stage, params: Params = { ...DEFAULT_PARAMS }) {
+/**
+ * `externalFeed`: the Intellifix AI screwdriving cell feeds the assembly belt directly (its roller conveyor ends where
+ * this belt starts, same jig): no entry lift on the assembly belt, and jigs only come from the cell (w.inbox).
+ */
+export function createWorld(stage: Stage, params: Params = { ...DEFAULT_PARAMS }, opts: { externalFeed?: boolean } = {}) {
   const { scene } = stage;
   const M = createMaterials();
   const andons = createAndons(M);
@@ -27,13 +32,12 @@ export function createWorld(stage: Stage, params: Params = { ...DEFAULT_PARAMS }
 
   // ---------- conveyors ----------
   const asmTrack = new Track([line(LINE_X0, Z_ASM, LINE_X1, Z_ASM)], false);
-  const testBeltTrack = new Track([line(LINE_X0, Z_TEST, LINE_X1, Z_TEST)], false);
   const testTrack = new Track([line(LINE_X0, Z_PAL, LINE_X1, Z_PAL)], false); // pallets ride 30 cm off the belt centre
-  const asmTex = buildConveyor(scene, M, asmTrack, BELT_ASM, TOP);
-  const testTex = buildConveyor(scene, M, testBeltTrack, BELT_TEST, TOP);
-  flowArrow(scene, LINE_X1 - 2.2, Z_ASM - 0.35, TOP + 0.005);
-  flowArrow(scene, LINE_X0 + 1.4, Z_TEST - 0.38, TOP + 0.005);
+  // the TV line roller conveyor, the same as in the Intellifix AI screwdriving cell
+  rollerConveyor(scene, M, { x0: LINE_X0, x1: LINE_X1, z: Z_ASM, top: TOP, w: BELT_ASM });
+  rollerConveyor(scene, M, { x0: LINE_X0, x1: LINE_X1, z: Z_TEST, top: TOP, w: BELT_TEST });
   for (const [lz, bw] of [[Z_ASM, BELT_ASM], [Z_TEST, BELT_TEST]]) for (const sx of [-1, 1] as const) {
+    if (opts.externalFeed && lz === Z_ASM && sx < 0) continue; // the screwdriving cell's conveyor comes in here
     liftUnit(scene, M, { x: (sx < 0 ? LINE_X0 : LINE_X1) + sx * 0.15, z: lz, beltW: bw, side: sx, open: LIFT_OPEN });
   }
 
@@ -42,21 +46,22 @@ export function createWorld(stage: Stage, params: Params = { ...DEFAULT_PARAMS }
     robots: [], palletBuffer: [], okCount: 0, palletDemand: 0, losses: { tv: 0, emptyPallet: 0 },
     stats: { ok: 0, ng: 0, okTV: 0, ngTV: 0, inspTV: 0, moved: 0, simT: 0 },
     floorRect: marks.rect,
+    inbox: opts.externalFeed ? 0 : undefined,
   } as unknown as World;
 
   // accumulation belts with stoppers · queued items keep 10 cm apart
   w.asm = makeLine<Jig>({
-    track: asmTrack, speed: SPEED_ASM, gap: JIG_L + ITEM_GAP, tex: asmTex, y: TOP,
+    track: asmTrack, speed: SPEED_ASM, gap: ASM_PITCH, tex: null, y: TOP,
     onExit: it => { if (hasTV(it) && !it.ng) w.losses.tv++; scene.remove(it.obj); },
   });
   w.test = makeLine<Pallet>({
-    track: testTrack, speed: SPEED_TEST, gap: PAL_W + ITEM_GAP, tex: testTex, y: TOP,
+    track: testTrack, speed: SPEED_TEST, gap: PAL_W + ITEM_GAP, tex: null, y: TOP,
     onExit: it => { if (!it.tvs.length) w.losses.emptyPallet++; scene.remove(it.obj); },
   });
 
-  // ---------- floor, fence, hall ----------
-  marks.rect(LINE_X0 - 1.6, -2.85, LINE_X1 + 1.6, 4.2, 0.1); // cell boundary, with the operator aisle behind the test belt
-  buildFence(scene, M, FENCE_Z);
+  // ---------- floor, hall (no fence along the line) ----------
+  // cell boundary, with the operator aisle behind the test belt; integrated, it starts where the screwdriving cell ends
+  marks.rect(opts.externalFeed ? LINE_X0 - 0.2 : LINE_X0 - 1.6, -2.85, LINE_X1 + 1.6, 4.2, 0.1);
   const ceiling = buildHall(scene, M);
 
   // ---------- inspection cell ----------
@@ -95,10 +100,10 @@ function addAsmItem(w: World, s: number, inspected: boolean) {
   const j = makeJig(w.M);
   w.scene.add(j.g);
   const inch = w.params.inch, tvs: TV[] = [];
-  for (let k = 0; k < slotsFor(inch); k++) { // screen down, side by side for 32"/43"
+  for (let k = 0; k < slotsFor(inch); k++) { // screen down, side by side across the jig for 32"/43"
     const tv = makeTV(w.M, inch);
     tv.obj.rotation.x = Math.PI;
-    tv.obj.position.set(slotX(inch, k), JIG_TOP + TV_T / 2, 0);
+    tv.obj.position.set(0, JIG_TOP + TV_T / 2, slotZ(inch, k));
     j.g.add(tv.obj);
     tvs.push(tv);
   }
@@ -128,8 +133,8 @@ function addPallet(w: World, s: number, inch: Inch | null) {
 function updateSpawn(w: World) {
   const { asm, test } = w;
   const minS = asm.items.reduce((m, it) => Math.min(m, it.s), Infinity);
-  if (w.inbox !== undefined) { // fed by the Intellifix AI cell: only the jigs it handed over
-    if (w.inbox > 0 && minS >= 0 && !asm.items.some(it => it.s < 0)) { addAsmItem(w, Math.min(0, minS - asm.gap), false); w.inbox--; }
+  if (w.inbox !== undefined) { // fed by the Intellifix AI cell: the jig it hands over goes on at the belt start
+    if (w.inbox > 0 && minS >= asm.gap) { addAsmItem(w, 0, false); w.inbox--; }
   } else if (minS >= asm.gap) addAsmItem(w, 0, false);
   else if (minS >= 0 && !asm.items.some(it => it.s < 0)) addAsmItem(w, minS - asm.gap, false); // one jig waits inside the lift
   const minP = test.items.reduce((m, it) => Math.min(m, it.s), Infinity);

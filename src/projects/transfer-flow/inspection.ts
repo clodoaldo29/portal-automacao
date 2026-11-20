@@ -5,7 +5,7 @@ import { station } from '../../sim/line';
 import { cameraHead } from '../../sim/robots/grippers';
 import { LED, makeCobot, poseAt, solve, urTrack } from '../../sim/robots/ur-arm';
 import { runSeq } from '../../sim/sequencer';
-import { CELL, FONT, PICK_Y, SIZES, SLOT, Z_ASM } from './config';
+import { CELL, FONT, PICK_Y, SIZES, TV_GAP, Z_ASM } from './config';
 import { commitJig, hasTV, tvCount } from './transfers';
 import type { Hmi, Inspector, Jig, World } from './types';
 
@@ -108,14 +108,15 @@ export function createInspector(w: World): Inspector {
 
 function startInspection(w: World, a: Inspector) {
   const it = a.job!, x = CELL.x, z = Z_ASM, P = (dx: number, dz: number) => poseAt(a.arm, x + dx, z + dz, a.yW);
-  const wd = SIZES[it.inch][0], ex = it.tvs.length === 2 ? SLOT + wd / 2 - 0.35 : Math.max(0.1, wd / 2 - 0.25);
+  // one pass over each TV of a pair (they lie across the jig), two passes over a single TV
+  const [wd, hd] = SIZES[it.inch], ex = Math.max(0.1, wd / 2 - 0.25), ez = it.tvs.length === 2 ? hd / 2 + TV_GAP / 2 : 0.12;
   a.state = 'scan';
   a.prog = 0;
   drawInsp(w, 'scan', jigLabel(it), 0);
   a.seq.length = 0;
   a.seq.push(
-    { to: P(-ex, -0.12), dur: 0.35 }, { fn: () => { a.beam.visible = true; } },
-    { to: P(ex, -0.12), dur: 0.45 }, { to: P(ex, 0.12), dur: 0.15 }, { to: P(-ex, 0.12), dur: 0.45 },
+    { to: P(-ex, -ez), dur: 0.35 }, { fn: () => { a.beam.visible = true; } },
+    { to: P(ex, -ez), dur: 0.45 }, { to: P(ex, ez), dur: 0.15 }, { to: P(-ex, ez), dur: 0.45 },
     { fn: () => {
       a.beam.visible = false;
       it.inspected = true;

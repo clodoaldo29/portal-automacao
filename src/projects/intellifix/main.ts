@@ -14,7 +14,7 @@ import { createPage } from '../../sim/ui/page';
 import type { ViewDef } from '../../sim/views';
 import { FONT } from '../memory-flow/config';
 import { bar, num, pct } from '../memory-flow/ui/format';
-import { LABELS as TF_LABELS, LINE_X0, VIEWS as TF_VIEWS, Z_ASM } from '../transfer-flow/config';
+import { ASM_PITCH, CELL as TF_CELL, LABELS as TF_LABELS, LINE_X0, VIEWS as TF_VIEWS, Z_ASM } from '../transfer-flow/config';
 import { DEFAULT_PARAMS as TF_DEFAULT, applyArms, createWorld, mountArms, resetLine as tfResetLine, resetStats as tfResetStats, step as tfStep } from '../transfer-flow/world';
 import { DEFAULT_TIMING, plan } from './balance';
 import { LAY, createCell } from './cell';
@@ -24,9 +24,14 @@ import { CLASSES, DEFAULT_SIM, NOK_HIGH, createSim, modelOf, screwsOf, type Cls,
 const query = new URLSearchParams(location.search);
 const INTEGRATED = query.get('fluxo') === 'integrado';
 document.body.dataset.fluxo = INTEGRATED ? 'integrado' : 'celula';
-// cell origin: alone at the origin; integrated, upstream of the Transfer Flow assembly belt, its exit unit against
-// the Transfer Flow entry lift
-const OX = INTEGRATED ? LINE_X0 - 0.15 - 1.3 - (LAY.x1 + 0.15 + 1.3) : 0, OZ = INTEGRATED ? Z_ASM : 0;
+// cell origin: alone at the origin. Integrated, just before the Transfer Flow inspection: the roller conveyor ends where
+// the assembly belt starts, and the same jig (base colchão) goes on. Between the enclosure and the inspection there is
+// room for one pallet: it waits at the end of the conveyor while the one ahead is inspected.
+const WAIT_X = TF_CELL.x - ASM_PITCH; // waiting pallet, one pitch before the inspection stop
+const OX = INTEGRATED ? WAIT_X - LAY.pal.l / 2 - 0.1 - LAY.cab.x : 0, OZ = INTEGRATED ? Z_ASM : 0;
+const X1 = INTEGRATED ? LINE_X0 - OX : LAY.x1; // conveyor end, cell frame
+/** Integrated: the transfer lets the next pallet in only when the inspection stop is free (none on the belt up to it). */
+const S_INSP = TF_CELL.x - LINE_X0;
 
 const page = createPage({
   stage: { shadowFrustum: INTEGRATED ? { left: -24, right: 14, top: 10, bottom: -10, near: 1, far: 80 } : { left: -7, right: 7, top: 5, bottom: -5, near: 1, far: 50 } },
@@ -55,14 +60,14 @@ const save = () => { if (!benchMin) try { localStorage.setItem(PKEY, JSON.string
 // ---------- scene ----------
 let tf: ReturnType<typeof createWorld> | null = null;
 if (INTEGRATED) {
-  tf = createWorld(stage, { ...TF_DEFAULT, inch: modelOf(params.model).inch });
-  tf.world.inbox = 0;
+  tf = createWorld(stage, { ...TF_DEFAULT, inch: modelOf(params.model).inch }, { externalFeed: true });
 } else {
   buildRoom(stage.scene, { w: 12.5, d: 7.2, x: -0.7, z: 0.2, band: 0x1f5fd6, name: 'LTV01 · parafusamento final', font: FONT });
 }
-const cell = createCell(stage.scene, M, FONT, OX, OZ, { exitLift: true });
+const cell = createCell(stage.scene, M, FONT, OX, OZ, { exitLift: !INTEGRATED, x1: X1 });
 const sim = createSim(cell, stage.scene, params, {
   onExit: () => { if (tf) tf.world.inbox! += 1; },
+  canExit: INTEGRATED ? () => tf!.world.inbox === 0 && tf!.world.asm.items.every(it => it.s > S_INSP + 0.01) : undefined,
 });
 if (tf) { mountArms(tf.world); applyArms(tf.world); }
 const step = (dt: number) => { sim.step(dt); if (tf) tfStep(tf.world, dt); };
@@ -219,7 +224,7 @@ function panel() {
     const w = tf.world, tt = Math.max(1, w.stats.simT);
     const res = [[w.stats.inspTV, w.insp.busyT], ...w.robots.map(r => [r.count, r.busyT])];
     res.forEach(([n, b], i) => { const c = tfRows[i].cells; c[1].textContent = String(n); c[2].textContent = pct(b / tt); c[2].appendChild(bar(b / tt)); });
-    $('tf-note').textContent = `O Transfer Flow recebe só as TVs liberadas pelo parafusamento (${w.inbox ?? 0} aguardando na troca de base). A troca da base colchão (TVs lado a lado na largura) para o gabarito do Transfer Flow (TVs uma atrás da outra) ainda é um ponto a definir com o Grupo Multi.`;
+    $('tf-note').textContent = `O Transfer Flow recebe só as TVs liberadas pelo parafusamento: a mesma base colchão sai da célula e entra na esteira de montagem, com as TVs lado a lado na largura. O pallet só deixa a célula quando o início da esteira está livre.`;
   }
   // OEE
   const av = 1 - s.reworkT / T, pf = uph ? Math.min(1, uph / m.uph) : null, q = s.tvs ? s.tvsOk / s.tvs : null;
@@ -238,7 +243,7 @@ const VIEWS: Record<string, ViewDef> = {
   robos: v([1.9, 2.3, 2.4], [0, 1.0, 0]),
   entrada: v([-4.4, 2.5, 3.8], [-2.0, 0.9, 0]),
   cima: v([-0.4, 10.5, 0.01], [-0.4, 0, 0]),
-  ...(INTEGRATED ? { fluxo: { pos: [-8.5, 8.5, 12.5] as [number, number, number], target: [-7.5, 0.8, 0.5] as [number, number, number] }, transfer: TF_VIEWS.robots } : {}),
+  ...(INTEGRATED ? { fluxo: { pos: [-6.5, 8.5, 12.5] as [number, number, number], target: [-5.5, 0.8, 0.3] as [number, number, number] }, transfer: TF_VIEWS.robots } : {}),
 };
 const LABELS: LabelDef[] = [
   { lines: ['Entrada · pré-parada'], x: W(LAY.preX, 0, 0)[0], y: 1.75, z: OZ },
@@ -248,7 +253,7 @@ const LABELS: LabelDef[] = [
   { lines: ['Quadro elétrico · CLP e', 'controladores de torque'], x: W(-0.55, 0, 0)[0], y: 2.2, z: OZ - cab.z - 0.45 },
   { lines: ['Unidade de ar (FRL)'], x: W(-0.7, 0, 0)[0], y: 1.6, z: OZ - cab.z - 0.06 },
   INTEGRATED
-    ? { lines: ['Troca de base: colchão →', 'gabarito do Transfer Flow (a definir)'], x: W(LAY.x1 + 0.15, 0, 0)[0], y: 2.75, z: OZ }
+    ? { lines: ['Aguardando a inspeção', '(mesma base colchão)'], x: W(X1, 0, 0)[0], y: 1.75, z: OZ }
     : { lines: ['Saída · próximo posto'], x: W(LAY.x1 + 0.15, 0, 0)[0], y: 2.6, z: OZ },
   ...(INTEGRATED ? TF_LABELS : []),
 ];

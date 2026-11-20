@@ -10,32 +10,35 @@ import { obstacleBox, type Obstacle } from '../../sim/robots/collision';
 import { makeCobot, poseAt, upgradeArm, type Cobot } from '../../sim/robots/ur-arm';
 import { UR10E } from '../../sim/robots/ur-kinematics';
 import type { Pose } from '../../sim/sequencer';
-import { TV_T } from '../transfer-flow/config';
-import { makeTV, type TV } from '../transfer-flow/products';
+import { JIG_L, JIG_TOP, JIG_W, TOP, TV_T } from '../transfer-flow/config';
+import { makeJig, makeTV, type TV } from '../transfer-flow/products';
+import { rollerConveyor } from '../transfer-flow/rollers';
 import { CELL, robotHome, tvCentersZ, type TvModel } from './model';
 import { TIP, screwdriver, type Screwdriver } from './tool';
 
 /** Layout in the cell's own frame (metres): the belt runs along +x at z = 0, the stop under the robots at x = 0. */
 export const LAY = {
-  top: 0.8, // roller top
+  top: TOP, // roller top: the same height as the Transfer Flow belts
   x0: -4.7, x1: 3.3, // conveyor ends
   beltW: 1.2,
   stopX: 0,
   /** Pre-stop: the next pallet waits here, one pallet length (+ 0.3 m) before the stop. */
   preX: -2.1,
-  pal: { l: 1.8, w: 1.24, frame: 0.05, foam: 0.06 },
-  ped: 1.05, pedW: 0.22,
+  /** The pallet is the Transfer Flow assembly jig ("base colchão"): it goes on to the transfers as it is. */
+  pal: { l: JIG_L, w: JIG_W },
+  ped: TOP + 0.25, pedW: 0.22,
   cab: { x: 1.35, z: 1.4, h: 2.3 },
   /** Travel height of the nose above the back cover between screws, and at home. */
   travel: 0.07, homeLift: 0.26,
 };
 /** TV seat (top of the foam) and the back-cover surface of a TV lying screen-down. */
-export const SEAT_Y = LAY.top + LAY.pal.frame + LAY.pal.foam;
+export const SEAT_Y = LAY.top + JIG_TOP;
 export const BACK_Y = SEAT_Y + TV_T;
 
 export interface PalletObj { g: THREE.Group; tvs: TV[]; holes: THREE.Group; screws: THREE.Mesh[]; marks: THREE.Mesh[] }
 
-export function createCell(scene: THREE.Scene, M: Materials, font: string, ox: number, oz: number, opts: { exitLift: boolean }) {
+/** `x1`: where the conveyor ends (cell frame); integrated, it ends where the Transfer Flow belt starts. */
+export function createCell(scene: THREE.Scene, M: Materials, font: string, ox: number, oz: number, opts: { exitLift: boolean; x1?: number }) {
   const X = (x: number) => ox + x, Z = (z: number) => oz + z;
   const obstacles: Obstacle[] = [];
   const solid = (name: string, cx: number, cy: number, cz: number, w: number, h: number, d: number, mat: THREE.Material, collide = true) => {
@@ -45,23 +48,10 @@ export function createCell(scene: THREE.Scene, M: Materials, font: string, ox: n
     return m;
   };
 
-  // ---------- roller conveyor ----------
-  const { top, x0, x1, beltW } = LAY, len = x1 - x0, mid = (x0 + x1) / 2;
-  for (const s of [-1, 1]) {
-    solid('esteira', mid, top - 0.07, s * (beltW / 2 + 0.02), len, 0.12, 0.04, M.alu, false);
-  }
+  // ---------- roller conveyor (the TV line conveyor) ----------
+  const { top, x0, beltW } = LAY, x1 = opts.x1 ?? LAY.x1, len = x1 - x0, mid = (x0 + x1) / 2;
+  rollerConveyor(scene, M, { x0: X(x0), x1: X(x1), z: Z(0), top, w: beltW });
   obstacles.push(obstacleBox('esteira', X(mid), (top - 0.01) / 2, Z(0), len, top - 0.01, beltW + 0.08));
-  const nR = Math.floor(len / 0.1);
-  const rollers = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.024, 0.024, beltW, 14), std(0xc7cdd4, 0.85, 0.25), nR);
-  const m4 = new THREE.Matrix4(), rq = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2);
-  for (let i = 0; i < nR; i++) rollers.setMatrixAt(i, m4.compose(new THREE.Vector3(X(x0 + 0.05 + i * 0.1), top - 0.024, Z(0)), rq, new THREE.Vector3(1, 1, 1)));
-  rollers.castShadow = rollers.receiveShadow = true;
-  scene.add(rollers);
-  const legH = top - 0.13;
-  for (let x = x0 + 0.1; x <= x1; x += 1.2) for (const s of [-1, 1]) {
-    solid('', x, legH / 2, s * (beltW / 2 - 0.02), 0.045, legH, 0.045, M.alu, false);
-    solid('', x, 0.015, s * (beltW / 2 - 0.02), 0.09, 0.03, 0.09, M.dark, false);
-  }
   liftUnit(scene, M, { x: X(x0 - 0.15), z: Z(0), beltW: LAY.pal.w, side: -1, open: 1.6 });
   if (opts.exitLift) liftUnit(scene, M, { x: X(x1 + 0.15), z: Z(0), beltW: LAY.pal.w, side: 1, open: 1.6 });
 
@@ -195,25 +185,24 @@ export function createCell(scene: THREE.Scene, M: Materials, font: string, ox: n
   strip(2 * mx, 0.08, 0, -mz); strip(2 * mx, 0.08, 0, mz); strip(0.08, 2 * mz - 0.08, -mx, 0); strip(0.08, 2 * mz - 0.08, mx, 0);
 
   // ---------- pallets with TVs ----------
-  const frameM = std(0x3a4047, 0.4, 0.45), foamM = std(0x2346c8, 0.0, 0.85), holeM = std(0x0b0c0e, 0.1, 0.7);
+  const holeM = std(0x0b0c0e, 0.1, 0.7);
   const headM = std(0xc8ced6, 0.9, 0.25), nokM = new THREE.MeshStandardMaterial({ color: 0xff3b3b, emissive: 0xff2020, emissiveIntensity: 1.6, transparent: true, opacity: 0.85, depthWrite: false });
   const okRing = new THREE.MeshStandardMaterial({ color: 0x22c55e, emissive: 0x22c55e, emissiveIntensity: 1.2, transparent: true, opacity: 0.8, depthWrite: false });
   const headGeo = new THREE.CylinderGeometry(0.0055, 0.0055, 0.003, 14), holeGeo = new THREE.CylinderGeometry(0.004, 0.004, 0.0015, 10), markGeo = new THREE.RingGeometry(0.009, 0.014, 20);
-  /** A pallet for `model`: frame, blue foam, TV(s) screen-down, the screw holes, hidden screw heads and result marks. */
+  /** A pallet for `model`: the Transfer Flow jig (base colchão), TV(s) screen-down, the screw holes, hidden screw
+   *  heads and result marks. */
   function makePallet(model: TvModel, points: { x: number; z: number }[]): PalletObj {
-    const { l, w, frame, foam } = LAY.pal, g = new THREE.Group();
-    g.add(at(box(l, frame, w, frameM), 0, frame / 2, 0));
-    g.add(at(box(l - 0.06, foam, w - 0.06, foamM), 0, frame + foam / 2, 0));
+    const g = makeJig(M).g;
     const tvs = tvCentersZ(model.inch).map(cz => {
       const tv = makeTV(M, model.inch);
       tv.obj.rotation.x = Math.PI; // screen down, back cover up
-      tv.obj.position.set(0, frame + foam + TV_T / 2, cz);
+      tv.obj.position.set(0, JIG_TOP + TV_T / 2, cz);
       g.add(tv.obj);
       return tv;
     });
     const holes = new THREE.Group(), screws: THREE.Mesh[] = [], marks: THREE.Mesh[] = [];
     g.add(holes);
-    const yb = frame + foam + TV_T;
+    const yb = JIG_TOP + TV_T;
     for (const p of points) {
       holes.add(at(new THREE.Mesh(holeGeo, holeM), p.x, yb + 0.0008, p.z));
       const s = at(new THREE.Mesh(headGeo, headM), p.x, yb + 0.0015, p.z);
@@ -232,7 +221,7 @@ export function createCell(scene: THREE.Scene, M: Materials, font: string, ox: n
 
   return {
     obstacles, arms, tools, feeders, stoppers, sensorLeds, sensorOn, sensorOff, andons, andon, drawHmi, makePallet, markMats, idlePose,
-    X, Z,
+    X, Z, x1,
   };
 }
 export type Cell = ReturnType<typeof createCell>;
