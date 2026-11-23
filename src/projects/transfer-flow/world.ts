@@ -19,7 +19,7 @@ import { rollerConveyor } from './rollers';
 import { commitJig, createTransfer, dispatchPallets, hasTV, resetTransfer, updateRobots } from './transfers';
 import type { Jig, Pallet, Params, World } from './types';
 
-export const DEFAULT_PARAMS: Params = { inch: 43, arms: 'both', mode: 'auto', simulateNG: false, uphTarget: 600 };
+export const DEFAULT_PARAMS: Params = { inch: 43, arms: 'both', mode: 'auto', simulateNG: false };
 
 /**
  * `externalFeed`: the Intellifix AI screwdriving cell feeds the assembly belt directly (its roller conveyor ends where

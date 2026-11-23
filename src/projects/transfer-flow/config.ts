@@ -10,12 +10,14 @@ export type Inch = (typeof INCHES)[number];
 export const SIZES: Record<Inch, [number, number]> = { 32: [0.73, 0.43], 43: [0.97, 0.57], 50: [1.12, 0.65], 55: [1.24, 0.72], 65: [1.45, 0.84], 75: [1.68, 0.97] };
 export const TV_T = 0.06; // body thickness
 export const TV_BACK = 0.06; // back cover (electronics bump) distance from the panel centre
+/** Line LTV01 cadence by size (TV/h), from the Intellifix AI PUR (Grupo Multi): the target of the indicators. */
+export const LINE_UPH: Record<Inch, number> = { 32: 230, 43: 220, 50: 115, 55: 110, 65: 90, 75: 75 };
 
 // conveyors
 export const TOP = 0.88; // belt top height
 export const BELT_ASM = 1.2, BELT_TEST = 1.2; // both belts 1.2 m wide
 export const Z_ASM = 1.05, Z_TEST = -1.05; // belt centres; robots between them
-/** Transfers 12.5 cm toward the test belt: picking the near TV of a 32"/43" pair is not too close to the base, and
+/** Transfers 25 cm toward the test belt: picking the near TV of a 32"/43" pair is not too close to the base, and
  *  placing on the test pallet is not at full stretch (checked with the collision bench: nothing touches). */
 export const ROBOT_Z = -0.25;
 export const LINE_X0 = -8.3, LINE_X1 = 5.1; // 13.4 m of belt; ~15.8 m overall with the lift units

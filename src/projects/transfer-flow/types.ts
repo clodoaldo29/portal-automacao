@@ -106,8 +106,6 @@ export interface Params {
   arms: Arms;
   mode: Mode;
   simulateNG: boolean;
-  /** Target UPH (TV/h). */
-  uphTarget: number;
 }
 
 export interface Hmi { c: HTMLCanvasElement; g: CanvasRenderingContext2D; tex: THREE.Texture; mat: THREE.MeshBasicMaterial }

@@ -1,6 +1,7 @@
 // Live indicators: line UPH and target, UPH and occupancy per cell (vision → transfers → line output), simulated OEE,
 // and the state of each station.
 import { oee, pct, uph } from '../../../sim/kpi';
+import { LINE_UPH } from '../config';
 import type { Transfer, World } from '../types';
 import { $ } from '../../../sim/ui/dom';
 
@@ -54,11 +55,11 @@ export function createKpiPanel(w: World) {
     const { stats, insp, robots, params } = w;
     const t = stats.simT, ready = uph(1, t) != null;
     const lineUph = stats.moved ? uph(stats.moved, t) : null;
-    const target = params.uphTarget;
+    const target = LINE_UPH[params.inch];
     $('k-prod').textContent = String(stats.moved);
     $('k-rate').textContent = lineUph ? String(Math.round(lineUph)) : '—';
     $('k-target').textContent = lineUph ? pct(lineUph / target) : '—';
-    $('k-target-l').textContent = `da meta de ${target} TV/h`;
+    $('k-target-l').textContent = `da cadência da linha (${target} TV/h)`;
     $('k-cycle').textContent = lineUph ? `${(3600 / lineUph).toFixed(1)} s` : '—';
     const tot = stats.ok + stats.ng;
     $('k-yield').textContent = tot ? pct(stats.ok / tot) : '—';
