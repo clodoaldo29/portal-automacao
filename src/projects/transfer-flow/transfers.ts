@@ -12,7 +12,7 @@ import { hookGripper } from '../../sim/robots/grippers';
 import { LED, makeCobot, poseAt, solve, urTrack } from '../../sim/robots/ur-arm';
 import { runSeq, type Pose } from '../../sim/sequencer';
 import {
-  CUP_Z, GRIP, HOOK_D, ITEM_GAP, PAL_W, PICK_Y, ROBOT_Z, SEAT_Y, SIZES, TOP, TRANSFER_PED, TV_BACK, Z_ASM, Z_PAL, slotZ, type Inch,
+  CUP_Z, HOOK_D, gripOf, ITEM_GAP, PAL_W, PICK_Y, ROBOT_Z, SEAT_Y, SIZES, TOP, TRANSFER_PED, TV_BACK, Z_ASM, Z_PAL, slotZ, type Inch,
 } from './config';
 import { tvPower } from './products';
 import type { Jig, Mode, Pallet, Transfer, World } from './types';
@@ -97,13 +97,13 @@ const viaPose = (r: Transfer): Pose => [0, 0.5, 2.3 - r.arm.shoulderY, H / 2, 1.
  */
 function pickPose(r: Transfer, inch: Inch, k: number, dy: number): Pose {
   const d = SIZES[inch][1];
-  const p = poseAt(r.arm, r.x, Z_ASM + slotZ(inch, k) - (d / 2 - GRIP) - r.D, PICK_Y + CUP_Z + dy);
+  const p = poseAt(r.arm, r.x, Z_ASM + slotZ(inch, k) - (d / 2 - gripOf(inch)) - r.D, PICK_Y + CUP_Z + dy);
   return [r.wrap(p[0]), p[1], p[2], H, Math.PI];
 }
 
 /** Place: TV upright in the pallet, screen toward the robots (+z). Tool pointing down behind the TV. */
 function placePose(r: Transfer, inch: Inch, dy: number, dz: number): Pose {
-  const d = SIZES[inch][1], cupY = TOP + SEAT_Y + d - GRIP;
+  const d = SIZES[inch][1], cupY = TOP + SEAT_Y + d - gripOf(inch);
   const p = poseAt(r.arm, r.x, Z_PAL - TV_BACK - CUP_Z + dz, cupY + r.D + dy);
   // The tool must end facing the same world direction (yaw 0 ≡ 2π). Pick the equivalent that keeps the
   // tool's yaw relative to the arm what it was at the pick, so the base swing does the turning and the

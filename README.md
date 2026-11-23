@@ -35,6 +35,8 @@ src/
     inspection.ts                   célula de inspeção com IA
     products.ts                     TV, gabarito da montagem (base colchão, o mesmo do Intellifix), pallet de teste
     rollers.ts                      esteira de roletes da linha de TV (a mesma no Intellifix e no Transfer Flow)
+    clearance.ts                    verificação de colisão: elos, garra e a TV carregada contra o próprio braço, TVs,
+                                    gabaritos, pallets, esteiras, elevadores e o outro robô (o bench exige folga > 0)
     ui/                             painel de indicadores, parâmetros
     main.ts                         liga tudo e roda o laço
   projects/memory-flow/             Memory Flow 3D (planta de memórias da Adata Technology)

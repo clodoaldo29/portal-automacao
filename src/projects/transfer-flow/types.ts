@@ -132,4 +132,8 @@ export interface World {
    *  the cell only lets a jig go when the belt start is free). Undefined on the Transfer Flow page itself, where
    *  assembly keeps feeding as fast as the belt has room. */
   inbox?: number;
+  /** Start of the test belt (x). */
+  testX0: number;
+  /** Collision check (bench and tests): smallest clearance seen since it was turned on, and between what. */
+  clear?: { min: number; at: string; n: number; worst: Map<string, number> };
 }

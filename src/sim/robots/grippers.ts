@@ -22,7 +22,8 @@ export function hookGripper(mount: THREE.Object3D, M: Materials, { hookD, cupZ }
   g.add(at(box(0.56, 0.04, 0.04, M.alu), 0, -hookD, 0.035));
   for (const sx of [-1, 1]) g.add(at(box(0.04, 0.28, 0.04, M.alu), sx * 0.25, -hookD, 0.035));
   for (const sx of [-1, 1]) for (const sy of [-1, 1]) {
-    g.add(at(cylA(0.008, 0.04, M.alu, 'z', 8), sx * 0.25, -hookD + sy * 0.12, 0.065));
+    // cup stem from the bar to the cup (0.04 long, centred at 0.065 for cupZ = 0.1; longer for a longer standoff)
+    g.add(at(cylA(0.008, cupZ - 0.06, M.alu, 'z', 8), sx * 0.25, -hookD + sy * 0.12, (0.045 + cupZ - 0.015) / 2));
     g.add(at(cylA(0.036, 0.03, M.rubber, 'z', 18), sx * 0.25, -hookD + sy * 0.12, cupZ - 0.015));
   }
   g.add(at(box(0.06, 0.05, 0.04, M.blue), 0, -0.1, -0.045)); // vacuum generator

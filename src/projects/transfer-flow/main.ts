@@ -15,7 +15,9 @@ import { $ } from '../../sim/ui/dom';
 import { createKpiPanel } from './ui/kpi-panel';
 import { createParamsPanel } from './ui/params-panel';
 import { createShotModal } from '../../sim/ui/shot-modal';
-import { DEFAULT_PARAMS, applyArms, createWorld, mountArms, resetLine, resetStats, step } from './world';
+import { DEFAULT_PARAMS, applyArms, createWorld, mountArms, resetLine, resetStats, startClearance, step } from './world';
+import { measureClearance } from './clearance';
+import { jointPoints } from '../../sim/robots/collision';
 
 const query = new URLSearchParams(location.search);
 const benchMinutes = Math.max(0, Number(query.get('bench')) || 0);
@@ -100,17 +102,24 @@ drawInsp(w, 'idle', null, 0);
 declare global {
   interface Window {
     __tf: unknown;
-    __bench?: { inch: Inch; minutes: number; moved: number; perRobot: number[]; inspected: number; losses: { tv: number; emptyPallet: number }; ms: number };
+    __bench?: { inch: Inch; minutes: number; moved: number; perRobot: number[]; inspected: number; losses: { tv: number; emptyPallet: number }; minClear: number; minClearAt: string; near: string[]; ms: number };
   }
 }
-window.__tf = { world: w, step: (dt: number) => step(w, dt), resetLine: () => resetLine(w), resetStats: () => resetStats(w) };
+window.__tf = {
+  world: w, step: (dt: number) => step(w, dt), resetLine: () => resetLine(w), resetStats: () => resetStats(w),
+  /** Collision check now (smallest clearance and between what), and the joint points of a transfer arm. */
+  measure: () => measureClearance(w),
+  joints: (i: number) => jointPoints(w.robots[i].arm).map(v => v.toArray().map(n => Math.round(n * 1000) / 1000)),
+};
 
 if (benchMinutes) {
   const t0 = performance.now();
+  startClearance(w); // nothing may touch: the bench measures the smallest clearance over the whole run
   for (let i = 0, n = Math.round(benchMinutes * 60 * 30); i < n; i++) step(w, 1 / 30);
   window.__bench = {
     inch: w.params.inch, minutes: benchMinutes, moved: w.stats.moved, perRobot: w.robots.map(r => r.count),
-    inspected: w.stats.inspTV, losses: { ...w.losses }, ms: Math.round(performance.now() - t0),
+    inspected: w.stats.inspTV, losses: { ...w.losses }, minClear: Math.round(w.clear!.min * 1000) / 1000, minClearAt: w.clear!.at,
+    near: [...w.clear!.worst].sort((a, b) => a[1] - b[1]).slice(0, 12).map(([k, v]) => `${Math.round(v * 1000)} mm · ${k}`), ms: Math.round(performance.now() - t0),
   };
   setPlay(false);
 } else {

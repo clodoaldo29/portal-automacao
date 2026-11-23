@@ -1,11 +1,16 @@
 import { expect, test } from '@playwright/test';
 
-// Throughput reference: 10 simulated minutes per model, both arms, automatic work split, no NG.
-// Re-measured when the jig became the Intellifix AI "base colchão" (32"/43" pair across the belt, near TV first).
-// When the line logic is changed on purpose, re-measure and update these numbers in the same commit.
+// Throughput reference: 10 simulated minutes per model, both arms, automatic work split, no NG — and nothing may
+// touch: the bench measures the smallest clearance over the whole run (arms, gripper and the TV they carry against
+// their own arm, the TVs on the jigs and pallets, jigs, pallets, belts, lifts and the other robot).
+// Re-measured with the transfers 12.5 cm toward the test belt, cups 18 cm off the bracket and the grip point scaled to
+// the TV (collision-free in every model). When the line logic is changed on purpose, re-measure and update in the
+// same commit.
 const REFERENCE = [
   { inch: 32, moved: 91, perRobot: [46, 45] },
-  { inch: 43, moved: 90, perRobot: [45, 45] },
+  { inch: 43, moved: 91, perRobot: [46, 45] },
+  { inch: 50, moved: 106, perRobot: [54, 52] },
+  { inch: 55, moved: 106, perRobot: [54, 52] },
   { inch: 65, moved: 106, perRobot: [54, 52] },
   { inch: 75, moved: 106, perRobot: [54, 52] },
 ];
@@ -23,14 +28,15 @@ test.describe('Transfer Flow 3D', () => {
   });
 
   for (const ref of REFERENCE) {
-    test(`${ref.inch}": throughput matches the reference with no losses`, async ({ page }) => {
+    test(`${ref.inch}": throughput matches the reference, no losses, nothing touches`, async ({ page }) => {
       await page.goto(`/projetos/transfer-flow-3d/?bench=10&model=${ref.inch}`);
-      const result = await page.waitForFunction(() => window.__bench, null, { timeout: 200_000 }).then(h => h.jsonValue());
-      console.log(`${ref.inch}": ${result!.moved} TVs (${result!.perRobot.join(' / ')}) in ${result!.ms} ms`);
+      const result = await page.waitForFunction(() => window.__bench, null, { timeout: 300_000 }).then(h => h.jsonValue());
+      console.log(`${ref.inch}": ${result!.moved} TVs (${result!.perRobot.join(' / ')}), folga mínima ${result!.minClear} m (${result!.minClearAt}) in ${result!.ms} ms`);
       expect(result!.inch).toBe(ref.inch);
       expect(result!.moved).toBe(ref.moved);
       expect(result!.perRobot).toEqual(ref.perRobot);
       expect(result!.losses).toEqual({ tv: 0, emptyPallet: 0 });
+      expect(result!.minClear, `nada pode encostar: ${result!.minClearAt}`).toBeGreaterThan(0.005);
     });
   }
 });

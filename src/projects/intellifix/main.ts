@@ -15,9 +15,9 @@ import type { ViewDef } from '../../sim/views';
 import { FONT } from '../memory-flow/config';
 import { bar, num, pct } from '../memory-flow/ui/format';
 import { ASM_PITCH, CELL as TF_CELL, LABELS as TF_LABELS, LINE_X0, VIEWS as TF_VIEWS, Z_ASM } from '../transfer-flow/config';
-import { DEFAULT_PARAMS as TF_DEFAULT, applyArms, createWorld, mountArms, resetLine as tfResetLine, resetStats as tfResetStats, step as tfStep } from '../transfer-flow/world';
+import { DEFAULT_PARAMS as TF_DEFAULT, applyArms, createWorld, mountArms, resetLine as tfResetLine, resetStats as tfResetStats, startClearance, step as tfStep } from '../transfer-flow/world';
 import { DEFAULT_TIMING, plan } from './balance';
-import { LAY, createCell } from './cell';
+import { CABINET, FRL_X, LAY, createCell } from './cell';
 import { CELL, MODELS, SCREW_LIMITS, requiredCycleS, tvsPerPallet } from './model';
 import { CLASSES, DEFAULT_SIM, NOK_HIGH, createSim, modelOf, screwsOf, type Cls, type FeedMode, type SimParams } from './sim';
 
@@ -60,7 +60,7 @@ const save = () => { if (!benchMin) try { localStorage.setItem(PKEY, JSON.string
 // ---------- scene ----------
 let tf: ReturnType<typeof createWorld> | null = null;
 if (INTEGRATED) {
-  tf = createWorld(stage, { ...TF_DEFAULT, inch: modelOf(params.model).inch }, { externalFeed: true });
+  tf = createWorld(stage, { ...TF_DEFAULT, inch: modelOf(params.model).inch }, { externalFeed: true, testX0: OX + LAY.x0 }); // test belt return lift in line with the cell's TV entry lift
 } else {
   buildRoom(stage.scene, { w: 12.5, d: 7.2, x: -0.7, z: 0.2, band: 0x1f5fd6, name: 'LTV01 · parafusamento final', font: FONT });
 }
@@ -250,8 +250,8 @@ const LABELS: LabelDef[] = [
   { lines: ['Célula Intellifix AI · 2× UR10e'], x: OX, y: 2.85, z: OZ },
   { lines: ['Alimentador de parafusos M4'], x: W(0.62, 0, 0)[0], y: 1.6, z: OZ + 1.05 },
   { lines: ['IHM da célula'], x: W(0.75, 0, 0)[0], y: 1.95, z: OZ + cab.z + 0.12 },
-  { lines: ['Quadro elétrico · CLP e', 'controladores de torque'], x: W(-0.55, 0, 0)[0], y: 2.2, z: OZ - cab.z - 0.45 },
-  { lines: ['Unidade de ar (FRL)'], x: W(-0.7, 0, 0)[0], y: 1.6, z: OZ - cab.z - 0.06 },
+  { lines: ['Quadro elétrico · CLP e', 'controladores de torque'], x: W(CABINET.x, 0, 0)[0], y: 2.2, z: OZ + CABINET.z },
+  { lines: ['Unidade de ar (FRL)'], x: W(FRL_X, 0, 0)[0], y: 1.6, z: OZ + cab.z + 0.1 },
   INTEGRATED
     ? { lines: ['Aguardando a inspeção', '(mesma base colchão)'], x: W(X1, 0, 0)[0], y: 1.75, z: OZ }
     : { lines: ['Saída · próximo posto'], x: W(LAY.x1 + 0.15, 0, 0)[0], y: 2.6, z: OZ },
@@ -292,7 +292,7 @@ const run = page.start({
 declare global {
   interface Window {
     __if: unknown;
-    __ifBench?: { model: string; feed: FeedMode; minutes: number; tvs: number; pallets: number; uph: number; cycle: number; planCycle: number; perRobot: number[]; minArmArm: number; minClear: number; minClearAt: string; maxIkErr: number; tfMoved: number | null; ms: number };
+    __ifBench?: { model: string; feed: FeedMode; minutes: number; tvs: number; pallets: number; uph: number; cycle: number; planCycle: number; perRobot: number[]; minArmArm: number; minClear: number; minClearAt: string; maxIkErr: number; tfMoved: number | null; tfMinClear: number | null; tfMinClearAt: string; ms: number };
   }
 }
 window.__if = { sim, params, stage, panel, step, plan, tf, run };
@@ -303,6 +303,7 @@ window.__if = { sim, params, stage, panel, step, plan, tf, run };
 if (benchMin) {
   run.setPlay(false);
   const t0 = performance.now();
+  if (tf) startClearance(tf.world); // integrated: the Transfer Flow robots must not touch anything either
   for (let i = 0, n = Math.round(benchMin * 60 * 30); i < n; i++) step(1 / 30);
   const s = sim.stats, m = modelOf(params.model);
   const r = (x: number, k = 1000) => Math.round(x * k) / k;
@@ -310,7 +311,9 @@ if (benchMin) {
     model: m.id, feed: params.feed, minutes: benchMin, tvs: s.tvs, pallets: s.pallets, uph: r((s.tvs / s.t) * 3600, 10),
     cycle: r(s.pallets ? s.cycleSum / s.pallets : 0, 100), planCycle: r(plan(m, params.timing, screwsOf(params, m)).cycleS, 100),
     perRobot: [...s.screws], minArmArm: r(s.minArmArm), minClear: r(s.minClear), minClearAt: s.minClearAt, maxIkErr: r(s.maxIkErr, 1e4),
-    tfMoved: tf ? tf.world.stats.moved : null, ms: Math.round(performance.now() - t0),
+    tfMoved: tf ? tf.world.stats.moved : null,
+    tfMinClear: tf ? r(tf.world.clear!.min) : null, tfMinClearAt: tf ? tf.world.clear!.at : '',
+    ms: Math.round(performance.now() - t0),
   };
 } else {
   const base = import.meta.env.BASE_URL;

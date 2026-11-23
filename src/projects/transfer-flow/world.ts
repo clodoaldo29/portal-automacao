@@ -14,6 +14,7 @@ import {
 } from './config';
 import { buildInspectionCell, createInspector, drawInsp, resetInspector, updateInspector } from './inspection';
 import { makeJig, makePallet, makeTV, tvPower, type TV } from './products';
+import { measureClearance } from './clearance';
 import { rollerConveyor } from './rollers';
 import { commitJig, createTransfer, dispatchPallets, hasTV, resetTransfer, updateRobots } from './transfers';
 import type { Jig, Pallet, Params, World } from './types';
@@ -23,22 +24,26 @@ export const DEFAULT_PARAMS: Params = { inch: 43, arms: 'both', mode: 'auto', si
 /**
  * `externalFeed`: the Intellifix AI screwdriving cell feeds the assembly belt directly (its roller conveyor ends where
  * this belt starts, same jig): no entry lift on the assembly belt, and jigs only come from the cell (w.inbox).
+ * `testX0`: where the test belt starts (default: with the assembly belt). Integrated, it runs on behind the
+ * screwdriving cell, so its return lift stands in line with the cell's TV entry lift.
  */
-export function createWorld(stage: Stage, params: Params = { ...DEFAULT_PARAMS }, opts: { externalFeed?: boolean } = {}) {
+export function createWorld(stage: Stage, params: Params = { ...DEFAULT_PARAMS }, opts: { externalFeed?: boolean; testX0?: number } = {}) {
   const { scene } = stage;
   const M = createMaterials();
   const andons = createAndons(M);
   const marks = createFloorMarks(scene);
+  const testX0 = opts.testX0 ?? LINE_X0;
 
   // ---------- conveyors ----------
   const asmTrack = new Track([line(LINE_X0, Z_ASM, LINE_X1, Z_ASM)], false);
-  const testTrack = new Track([line(LINE_X0, Z_PAL, LINE_X1, Z_PAL)], false); // pallets ride 30 cm off the belt centre
+  const testTrack = new Track([line(testX0, Z_PAL, LINE_X1, Z_PAL)], false); // pallets ride 30 cm off the belt centre
   // the TV line roller conveyor, the same as in the Intellifix AI screwdriving cell
   rollerConveyor(scene, M, { x0: LINE_X0, x1: LINE_X1, z: Z_ASM, top: TOP, w: BELT_ASM });
-  rollerConveyor(scene, M, { x0: LINE_X0, x1: LINE_X1, z: Z_TEST, top: TOP, w: BELT_TEST });
+  rollerConveyor(scene, M, { x0: testX0, x1: LINE_X1, z: Z_TEST, top: TOP, w: BELT_TEST });
   for (const [lz, bw] of [[Z_ASM, BELT_ASM], [Z_TEST, BELT_TEST]]) for (const sx of [-1, 1] as const) {
     if (opts.externalFeed && lz === Z_ASM && sx < 0) continue; // the screwdriving cell's conveyor comes in here
-    liftUnit(scene, M, { x: (sx < 0 ? LINE_X0 : LINE_X1) + sx * 0.15, z: lz, beltW: bw, side: sx, open: LIFT_OPEN });
+    const x0 = lz === Z_TEST ? testX0 : LINE_X0;
+    liftUnit(scene, M, { x: (sx < 0 ? x0 : LINE_X1) + sx * 0.15, z: lz, beltW: bw, side: sx, open: LIFT_OPEN });
   }
 
   const w = {
@@ -47,6 +52,7 @@ export function createWorld(stage: Stage, params: Params = { ...DEFAULT_PARAMS }
     stats: { ok: 0, ng: 0, okTV: 0, ngTV: 0, inspTV: 0, moved: 0, simT: 0 },
     floorRect: marks.rect,
     inbox: opts.externalFeed ? 0 : undefined,
+    testX0,
   } as unknown as World;
 
   // accumulation belts with stoppers · queued items keep 10 cm apart
@@ -159,7 +165,15 @@ export function step(w: World, dt: number) {
   updateRobots(w, dt);
   dispatchPallets(w);
   updateInspector(w, dt);
+  // collision check, when turned on (bench, tests): every 2nd step, keep the smallest clearance
+  if (w.clear && ++w.clear.n % 2 === 0) {
+    const c = measureClearance(w, w.clear.worst);
+    if (c.min < w.clear.min) { w.clear.min = c.min; w.clear.at = c.at; }
+  }
 }
+
+/** Turn the collision check on (from zero). */
+export const startClearance = (w: World) => { w.clear = { min: Infinity, at: '', n: 0, worst: new Map() }; };
 
 export function resetStats(w: World) {
   Object.assign(w.stats, { ok: 0, ng: 0, okTV: 0, ngTV: 0, inspTV: 0, moved: 0, simT: 0 });

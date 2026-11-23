@@ -14,8 +14,10 @@ export const TV_BACK = 0.06; // back cover (electronics bump) distance from the 
 // conveyors
 export const TOP = 0.88; // belt top height
 export const BELT_ASM = 1.2, BELT_TEST = 1.2; // both belts 1.2 m wide
-export const Z_ASM = 1.05, Z_TEST = -1.05; // belt centres; robots between them at z = 0
-export const ROBOT_Z = 0;
+export const Z_ASM = 1.05, Z_TEST = -1.05; // belt centres; robots between them
+/** Transfers 12.5 cm toward the test belt: picking the near TV of a 32"/43" pair is not too close to the base, and
+ *  placing on the test pallet is not at full stretch (checked with the collision bench: nothing touches). */
+export const ROBOT_Z = -0.125;
 export const LINE_X0 = -8.3, LINE_X1 = 5.1; // 13.4 m of belt; ~15.8 m overall with the lift units
 /** Pallets ride on the robot side of the test belt (30 cm off its centre), so the hook gripper reaches behind the TV. */
 export const Z_PAL = Z_TEST + 0.3;
@@ -33,7 +35,12 @@ export const PAL_W = 1.9, PAL_D = 0.55, SEAT_Y = 0.13;
 export const ITEM_GAP = 0.1; // accumulation: queued items keep 10 cm apart
 
 // transfer robots (UR30) with the hook gripper
-export const HOOK_D = 0.37, CUP_Z = 0.1, GRIP = 0.25; // flange→cup row · bracket axis→cup face · grip point below the TV's top edge
+// flange→cup row · bracket axis→cup face · grip point below the TV's top edge. The cups stand 18 cm off the bracket so
+// the wrist stays clear of the jig while picking (the jig foam is 11 cm high).
+export const HOOK_D = 0.37, CUP_Z = 0.18, GRIP = 0.25;
+/** Grip point below the top edge for this TV: 40% of its height at most, so on a 32" the cup bars stay clear of the
+ *  test pallet's rest rail. */
+export const gripOf = (inch: Inch) => Math.min(GRIP, SIZES[inch][1] * 0.4);
 export const TRANSFER_PED = 1.5; // pedestal height to reach over a 75" (top at ~1.98 m)
 export const ROBOT_X1 = -2.0, ROBOT_X2 = 2.0; // 4.0 m apart: room for one full pallet queued between them
 export const BUFFER_X = ROBOT_X1 - 2.25; // empty-pallet buffer just before Transfer 1

@@ -31,6 +31,10 @@ export const LAY = {
   /** Travel height of the nose above the back cover between screws, and at home. */
   travel: 0.07, homeLift: 0.26,
 };
+/** Control cabinet (PLC, robot and torque controllers), in front of the cell (robot 1 side). */
+export const CABINET = { x: -0.8, z: LAY.cab.z + 0.45 };
+/** Air unit (FRL) on the front panel, between the cabinet and the HMI. */
+export const FRL_X = -0.12;
 /** TV seat (top of the foam) and the back-cover surface of a TV lying screen-down. */
 export const SEAT_Y = LAY.top + JIG_TOP;
 export const BACK_Y = SEAT_Y + TV_T;
@@ -52,6 +56,10 @@ export function createCell(scene: THREE.Scene, M: Materials, font: string, ox: n
   const { top, x0, beltW } = LAY, x1 = opts.x1 ?? LAY.x1, len = x1 - x0, mid = (x0 + x1) / 2;
   rollerConveyor(scene, M, { x0: X(x0), x1: X(x1), z: Z(0), top, w: beltW });
   obstacles.push(obstacleBox('esteira', X(mid), (top - 0.01) / 2, Z(0), len, top - 0.01, beltW + 0.08));
+  // the pallet at the stop with its TV(s), up to the back-cover bump: the arm links must stay clear of it (only the
+  // screwdriver nose touches the screw)
+  const tvTop = BACK_Y + 0.05;
+  obstacles.push(obstacleBox('pallet e TVs', X(LAY.stopX), (top + tvTop) / 2, Z(0), LAY.pal.l, tvTop - top, LAY.pal.w));
   liftUnit(scene, M, { x: X(x0 - 0.15), z: Z(0), beltW: LAY.pal.w, side: -1, open: 1.6 });
   if (opts.exitLift) liftUnit(scene, M, { x: X(x1 + 0.15), z: Z(0), beltW: LAY.pal.w, side: 1, open: 1.6 });
 
@@ -158,9 +166,12 @@ export function createCell(scene: THREE.Scene, M: Materials, font: string, ox: n
   }
   const andons = createAndons(M);
   const andon = andons.make(scene, X(cab.x - 0.25), H + 0.06, Z(cab.z - 0.25));
-  // air preparation unit (FRL) on the back panel
+  // Everything outside the enclosure stands on the front side (robot 1): the back side stays free for the Transfer
+  // Flow test belt, which runs right behind the cell in the integrated line.
+  // air preparation unit (FRL) on the front panel
   const frl = new THREE.Group();
-  frl.position.set(X(-0.7), 1.25, Z(-cab.z - 0.06));
+  frl.position.set(X(FRL_X), 1.25, Z(cab.z + 0.06));
+  frl.rotation.y = Math.PI; // gauge facing out
   scene.add(frl);
   frl.add(at(box(0.3, 0.04, 0.04, M.aluDark), 0, 0.12, 0));
   [-0.09, 0, 0.09].forEach((x, i) => {
@@ -169,20 +180,21 @@ export function createCell(scene: THREE.Scene, M: Materials, font: string, ox: n
   });
   frl.add(at(cyl(0.025, 0.025, 0.012, M.white, 16).rotateX(Math.PI / 2), 0, 0.07, -0.035));
   shadowify(frl);
-  // emergency stops: front (beside the HMI) and back
-  for (const [x, z, s] of [[0.35, cab.z, 1], [-0.35, -cab.z, -1]] as const) {
-    solid('', x, 1.1, z + s * 0.04, 0.09, 0.09, 0.06, M.yellow, false);
-    scene.add(shadowify(at(cyl(0.028, 0.028, 0.03, M.red, 20).rotateX(Math.PI / 2), X(x), 1.1, Z(z + s * 0.085))));
-  }
-  // control cabinet (PLC, robot controllers, torque controllers) behind the cell
-  solid('', -0.55, 0.95, -cab.z - 0.45, 0.9, 1.9, 0.45, M.cabinet, false);
-  solid('', -0.55, 1.2, -cab.z - 0.22, 0.6, 0.3, 0.01, M.dark, false);
-  for (let i = 0; i < 2; i++) solid('', -0.95 + i * 0.25, 0.35, cab.z + 0.35, 0.22, 0.7, 0.32, M.cabinet, false); // UR control boxes, front
-  // floor marking around the enclosure
+  // emergency stops: front (beside the HMI) and on the exit-side panel
+  solid('', 0.35, 1.1, cab.z + 0.04, 0.09, 0.09, 0.06, M.yellow, false);
+  scene.add(shadowify(at(cyl(0.028, 0.028, 0.03, M.red, 20).rotateX(Math.PI / 2), X(0.35), 1.1, Z(cab.z + 0.085))));
+  solid('', cab.x + 0.04, 1.1, 1.0, 0.06, 0.09, 0.09, M.yellow, false);
+  scene.add(shadowify(at(cyl(0.028, 0.028, 0.03, M.red, 20).rotateZ(Math.PI / 2), X(cab.x + 0.085), 1.1, Z(1.0))));
+  // control cabinet (PLC, robot controllers, torque controllers) and the two UR control boxes, in front of the cell
+  solid('', CABINET.x, 0.95, CABINET.z, 0.9, 1.9, 0.45, M.cabinet, false);
+  solid('', CABINET.x, 1.2, CABINET.z + 0.23, 0.6, 0.3, 0.01, M.dark, false);
+  for (let i = 0; i < 2; i++) solid('', 0.0 + i * 0.25, 0.35, cab.z + 0.35, 0.22, 0.7, 0.32, M.cabinet, false);
+  // floor marking around the enclosure (just behind the back panel: the test belt runs there in the integrated line)
   const tape = new THREE.MeshBasicMaterial({ color: 0xf2c230 });
   const strip = (w: number, d: number, x: number, z: number) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), tape); m.rotation.x = -Math.PI / 2; m.position.set(X(x), 0.014, Z(z)); m.userData.noShadow = true; scene.add(m); };
-  const mx = cab.x + 0.5, mz = cab.z + 0.75;
-  strip(2 * mx, 0.08, 0, -mz); strip(2 * mx, 0.08, 0, mz); strip(0.08, 2 * mz - 0.08, -mx, 0); strip(0.08, 2 * mz - 0.08, mx, 0);
+  const mx = cab.x + 0.5, zf = cab.z + 0.85, zb = -cab.z - 0.06;
+  strip(2 * mx, 0.08, 0, zb); strip(2 * mx, 0.08, 0, zf);
+  for (const sx of [-mx, mx]) strip(0.08, zf - zb - 0.08, sx, (zf + zb) / 2);
 
   // ---------- pallets with TVs ----------
   const holeM = std(0x0b0c0e, 0.1, 0.7);

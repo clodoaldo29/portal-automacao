@@ -2,10 +2,11 @@ import { expect, test } from '@playwright/test';
 
 // Intellifix AI: the page opens without errors and fills the panel; the measured pallet cycle matches the plan from
 // balance.ts (capacity test, pallets as fast as the cell takes them), every model meets its cadence, the two arms
-// never come close to each other or touch the cell, and they reach every screw (IK error under 1 cm). In the
-// integrated flow the Transfer Flow moves the TVs the cell hands over.
+// never come close to each other or touch the cell or the pallet with its TVs, and they reach every screw (IK error
+// under 1 cm). In the integrated flow the Transfer Flow moves the TVs the cell hands over, and its robots touch
+// nothing either.
 
-type Bench = { model: string; tvs: number; uph: number; cycle: number; planCycle: number; perRobot: number[]; minArmArm: number; minClear: number; minClearAt: string; maxIkErr: number; tfMoved: number | null; ms: number };
+type Bench = { model: string; tvs: number; uph: number; cycle: number; planCycle: number; perRobot: number[]; minArmArm: number; minClear: number; minClearAt: string; maxIkErr: number; tfMoved: number | null; tfMinClear: number | null; tfMinClearAt: string; ms: number };
 const bench = async (page: import('@playwright/test').Page, q: string) => {
   await page.goto(`/projetos/intellifix-ai/?${q}`);
   return (await page.waitForFunction(() => (window as unknown as { __ifBench?: Bench }).__ifBench, null, { timeout: 200_000 }).then(h => h.jsonValue())) as Bench;
@@ -52,7 +53,9 @@ test.describe('Intellifix AI', () => {
     const errors: string[] = [];
     page.on('pageerror', e => errors.push(e.message));
     const r = await bench(page, 'fluxo=integrado&bench=10');
-    console.log(`intellifix integrado: ${r.tvs} TVs parafusadas, ${r.tfMoved} transferidas pelo Transfer Flow (${r.ms} ms)`);
+    console.log(`intellifix integrado: ${r.tvs} TVs parafusadas, ${r.tfMoved} transferidas pelo Transfer Flow, folga mínima dos transfers ${r.tfMinClear} m (${r.tfMinClearAt}), da célula ${r.minClear} m (${r.minClearAt}) (${r.ms} ms)`);
+    expect(r.tfMinClear!, `transfers não encostam em nada: ${r.tfMinClearAt}`).toBeGreaterThan(0.005);
+    expect(r.minClear, `os UR10e não encostam em nada: ${r.minClearAt}`).toBeGreaterThan(0);
     expect(r.tfMoved).toBeGreaterThan(0);
     expect(Math.abs(r.tfMoved! - r.tvs), 'o Transfer Flow acompanha a célula').toBeLessThanOrEqual(8);
     await expect(page.locator('#b-fluxo')).toHaveText('Só a célula');
