@@ -59,6 +59,58 @@ export function armClearance(arm: Cobot, obstacles: Obstacle[], tool: THREE.Box3
   return { min, name, part };
 }
 
+/** A capsule in world space: segment a–b with radius r, and the link it belongs to (0 base … 6 wrist 3). */
+export interface Capsule { a: THREE.Vector3; b: THREE.Vector3; r: number; link: number }
+
+/**
+ * The arm as it is drawn: one capsule per visual part of every link (joint housings, caps, the link tubes), placed
+ * with the link frames. Unlike the line between joint origins, this follows the real geometry — the UR upper arm and
+ * forearm tubes run up to ~26 cm to the side of that line. `margin` is added to every radius.
+ */
+export function linkCapsules(arm: Cobot, margin = 0.01): Capsule[] {
+  const ur = arm.ur;
+  if (!ur) return [];
+  const out: Capsule[] = [];
+  ur.model.parts.forEach((parts, link) => {
+    const node = ur.visNodes[link];
+    if (!node) return;
+    node.updateWorldMatrix(true, false);
+    for (const [, axis, r, a, b, u, v] of parts) {
+      const p = axis === 'z' ? [new THREE.Vector3(u, v, a), new THREE.Vector3(u, v, b)]
+        : axis === 'x' ? [new THREE.Vector3(a, u, v), new THREE.Vector3(b, u, v)]
+          : [new THREE.Vector3(u, a, v), new THREE.Vector3(u, b, v)];
+      p.forEach(q => q.applyMatrix4(node.matrixWorld));
+      out.push({ a: p[0], b: p[1], r: r * ur.model.S + margin, link });
+    }
+  });
+  return out;
+}
+
+/** Signed gap between a capsule and an obstacle box (negative: inside). */
+export function capsuleBoxGap(c: { a: THREE.Vector3; b: THREE.Vector3; r: number }, o: Obstacle) {
+  let min = Infinity;
+  const n = Math.max(2, Math.ceil(c.a.distanceTo(c.b) / 0.02));
+  for (let k = 0; k <= n; k++) {
+    _p.lerpVectors(c.a, c.b, k / n);
+    const q = o.inv ? _l.copy(_p).applyMatrix4(o.inv) : _p;
+    const d = o.box.containsPoint(q) ? -0.01 : o.box.distanceToPoint(q);
+    if (d - c.r < min) min = d - c.r;
+  }
+  return min;
+}
+
+const _s1 = new THREE.Vector3(), _s2 = new THREE.Vector3(), _sr = new THREE.Vector3(), _sc1 = new THREE.Vector3(), _sc2 = new THREE.Vector3();
+/** Gap between two capsules (negative: they overlap). */
+export function capsuleGap(s: { a: THREE.Vector3; b: THREE.Vector3; r: number }, t: { a: THREE.Vector3; b: THREE.Vector3; r: number }) {
+  _s1.subVectors(s.b, s.a); _s2.subVectors(t.b, t.a); _sr.subVectors(s.a, t.a);
+  const a = _s1.dot(_s1), e = _s2.dot(_s2), f = _s2.dot(_sr), c = _s1.dot(_sr), b = _s1.dot(_s2), den = a * e - b * b;
+  let u = den > 1e-12 ? THREE.MathUtils.clamp((b * f - c * e) / den, 0, 1) : 0;
+  let v = e > 1e-12 ? (b * u + f) / e : 0;
+  if (v < 0) { v = 0; u = a > 1e-12 ? THREE.MathUtils.clamp(-c / a, 0, 1) : 0; } else if (v > 1) { v = 1; u = a > 1e-12 ? THREE.MathUtils.clamp((b - c) / a, 0, 1) : 0; }
+  _sc1.copy(s.a).addScaledVector(_s1, u); _sc2.copy(t.a).addScaledVector(_s2, v);
+  return _sc1.distanceTo(_sc2) - s.r - t.r;
+}
+
 /** Box helper: centre (x, y, z) and size (w, h, d). */
 export const obstacleBox = (name: string, x: number, y: number, z: number, w: number, h: number, d: number): Obstacle =>
   ({ name, box: new THREE.Box3(new THREE.Vector3(x - w / 2, y - h / 2, z - d / 2), new THREE.Vector3(x + w / 2, y + h / 2, z + d / 2)) });

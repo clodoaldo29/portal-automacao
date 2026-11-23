@@ -1,21 +1,21 @@
 // Transfer Flow · collision check over the whole cycle: nothing may touch.
 //
-// Robot parts: the UR30 links as capsules (real kinematics), the hook gripper as capsules, and the TV it carries as an
-// oriented box. Checked against: the robot's own links (the carried TV must not cross its own arm), the TVs lying on
-// the jigs and standing on the test pallets, the jigs, the test pallets, the belts, the lift units, and the other
-// robot with its TV. Intended contact is left out: the cups on the TV being picked or just placed, and the carried TV
-// sliding into the pallet it is placed on.
+// Robot parts: the UR30 as it is drawn (one capsule per visual part of every link: housings, caps and the link tubes,
+// which run well to the side of the joint line), the hook gripper, and the TV it carries as an oriented box. Checked
+// against: the robot's own arm and pedestal (the carried TV must not touch them), the other robot with its pedestal
+// and TV, the TVs on the jigs and test pallets, the jigs, the test pallets, the belts, the lift units; and the
+// inspection UR10e against the jigs and their TVs. Intended contact is left out: the cups on the TV being picked or
+// just placed, the carried TV sliding into its pallet, and each arm's base on its own pedestal.
 import * as THREE from 'three';
-import { jointPoints } from '../../sim/robots/collision';
-import { BELT_ASM, BELT_TEST, HOOK_D, JIG_L, JIG_TOP, JIG_W, LINE_X0, LINE_X1, SIZES, TOP, TV_T, Z_ASM, Z_TEST } from './config';
+import { capsuleGap, linkCapsules, type Capsule } from '../../sim/robots/collision';
+import { BELT_ASM, BELT_TEST, CUP_Z, HOOK_D, JIG_L, JIG_TOP, JIG_W, LINE_X0, LINE_X1, SIZES, TOP, TRANSFER_PED, TV_T, Z_ASM, Z_TEST } from './config';
 import type { TV } from './products';
 import type { Jig, Pallet, Transfer, World } from './types';
 
-/** UR30 housings (bulkier than the UR10e) plus a small margin, base → flange. */
-const RAD = [0.13, 0.12, 0.1, 0.085, 0.075, 0.07];
+const LINK = ['base', 'ombro', 'braço', 'antebraço', 'punho 1', 'punho 2', 'punho 3'];
 
-interface Seg { a: THREE.Vector3; b: THREE.Vector3; r: number; name: string }
-interface Obb { inv: THREE.Matrix4; box: THREE.Box3; name: string; tv?: TV; pallet?: Pallet; jig?: Jig }
+interface Seg { a: THREE.Vector3; b: THREE.Vector3; r: number; name: string; link: number }
+interface Obb { inv: THREE.Matrix4; box: THREE.Box3; name: string; tv?: TV; pallet?: Pallet; jig?: Jig; pedestal?: number }
 
 const _p = new THREE.Vector3(), _q = new THREE.Vector3();
 
@@ -28,25 +28,29 @@ const tvObb = (tv: TV, name: string, pallet?: Pallet): Obb => {
   tv.obj.updateWorldMatrix(true, false);
   return { inv: tv.obj.matrixWorld.clone().invert(), box: tvBox(tv), name, tv, pallet };
 };
-const aabb = (name: string, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, pallet?: Pallet): Obb =>
-  ({ inv: new THREE.Matrix4(), box: new THREE.Box3(new THREE.Vector3(x0, y0, z0), new THREE.Vector3(x1, y1, z1)), name, pallet });
+const aabb = (name: string, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number): Obb =>
+  ({ inv: new THREE.Matrix4(), box: new THREE.Box3(new THREE.Vector3(x0, y0, z0), new THREE.Vector3(x1, y1, z1)), name });
 
-/** Capsules of a transfer robot: links and the hook gripper (bracket, cross bar, cup bars). */
+const label = (r: Transfer, idx: number) => `transfer ${idx + 1} [${r.state} ${r.seq.length}]`;
+
+/** The arm as drawn, and the hook gripper (bracket, cross bar, cup bars, cups). */
 function robotSegs(r: Transfer, idx: number): Seg[] {
-  const segs: Seg[] = [];
-  const pts = jointPoints(r.arm);
-  for (let i = 1; i + 1 < pts.length; i++) segs.push({ a: pts[i], b: pts[i + 1], r: RAD[i], name: `transfer ${idx + 1} [${r.state} ${r.seq.length}] · elo ${i + 1}` });
+  const segs: Seg[] = linkCapsules(r.arm, 0.01).map((c: Capsule) => ({ ...c, name: `${label(r, idx)} · ${LINK[c.link]}` }));
   const m = r.arm.mount;
   m.updateWorldMatrix(true, false);
   const W = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z).applyMatrix4(m.matrixWorld);
-  segs.push({ a: W(0, -0.04, 0), b: W(0, -HOOK_D + 0.02, 0), r: 0.04, name: `transfer ${idx + 1} · garra` });
-  segs.push({ a: W(-0.28, -HOOK_D, 0.035), b: W(0.28, -HOOK_D, 0.035), r: 0.03, name: `transfer ${idx + 1} · garra` });
-  for (const sx of [-0.25, 0.25]) segs.push({ a: W(sx, -HOOK_D - 0.14, 0.035), b: W(sx, -HOOK_D + 0.14, 0.035), r: 0.025, name: `transfer ${idx + 1} · garra` });
+  const g = (a: THREE.Vector3, b: THREE.Vector3, rr: number) => segs.push({ a, b, r: rr, name: `${label(r, idx)} · garra`, link: 7 });
+  g(W(0, -0.04, 0), W(0, -HOOK_D + 0.02, 0), 0.04);
+  g(W(-0.28, -HOOK_D, 0.035), W(0.28, -HOOK_D, 0.035), 0.03);
+  for (const sx of [-0.25, 0.25]) {
+    g(W(sx, -HOOK_D - 0.14, 0.035), W(sx, -HOOK_D + 0.14, 0.035), 0.025);
+    for (const sy of [-0.12, 0.12]) g(W(sx, -HOOK_D + sy, 0.05), W(sx, -HOOK_D + sy, CUP_Z - 0.03), 0.02); // stems
+  }
   return segs;
 }
 
 /** Signed distance from a capsule to a box (negative: inside). */
-function segBox(s: Seg, o: Obb) {
+function segBox(s: { a: THREE.Vector3; b: THREE.Vector3; r: number }, o: Obb) {
   let min = Infinity;
   const n = Math.max(2, Math.ceil(s.a.distanceTo(s.b) / 0.02));
   for (let k = 0; k <= n; k++) {
@@ -56,12 +60,12 @@ function segBox(s: Seg, o: Obb) {
   }
   return min;
 }
-/** Distance between the boxes of two TVs (sampled over the corners and faces of the first). */
+/** Distance between two boxes (sampled over the corners, edges and faces of the first). */
 function boxBox(a: Obb, b: Obb, aM: THREE.Matrix4) {
   let min = Infinity;
   const { min: lo, max: hi } = a.box;
-  for (let i = 0; i <= 4; i++) for (let j = 0; j <= 2; j++) for (let k = 0; k <= 4; k++) {
-    _q.set(lo.x + (hi.x - lo.x) * i / 4, lo.y + (hi.y - lo.y) * j / 2, lo.z + (hi.z - lo.z) * k / 4).applyMatrix4(aM).applyMatrix4(b.inv);
+  for (let i = 0; i <= 6; i++) for (let j = 0; j <= 2; j++) for (let k = 0; k <= 6; k++) {
+    _q.set(lo.x + (hi.x - lo.x) * i / 6, lo.y + (hi.y - lo.y) * j / 2, lo.z + (hi.z - lo.z) * k / 6).applyMatrix4(aM).applyMatrix4(b.inv);
     const d = b.box.containsPoint(_q) ? -0.01 : b.box.distanceToPoint(_q);
     if (d < min) min = d;
   }
@@ -78,19 +82,23 @@ export function measureClearance(w: World, worst?: Map<string, number>): Clearan
     if (worst && d < 0.05) { const k = what.replace(/ \d+\]/g, ']'); worst.set(k, Math.min(worst.get(k) ?? Infinity, d)); }
   };
 
-  // environment: belts (up to the roller top), lift units, jigs and their TVs, test pallets and their TVs
+  // environment: belts (up to the roller top), lift units, the transfer pedestals, jigs and their TVs, test pallets and
+  // their TVs
   const env: Obb[] = [
     aabb('esteira de montagem', LINE_X0, 0, Z_ASM - BELT_ASM / 2 - 0.04, LINE_X1, TOP - 0.005, Z_ASM + BELT_ASM / 2 + 0.04),
     aabb('esteira de teste', w.testX0, 0, Z_TEST - BELT_TEST / 2 - 0.04, LINE_X1, TOP - 0.005, Z_TEST + BELT_TEST / 2 + 0.04),
   ];
   for (const z of [Z_ASM, Z_TEST]) for (const x of [(z === Z_TEST ? w.testX0 : LINE_X0) - 0.15, LINE_X1 + 0.15]) env.push(aabb('elevador', x - 1.3, 0, z - 0.85, x + 1.3, 2.4, z + 0.85));
+  w.robots.forEach((r, i) => {
+    const b = r.arm.root.position;
+    env.push({ ...aabb(`pedestal do transfer ${i + 1}`, b.x - 0.17, 0, b.z - 0.17, b.x + 0.17, TRANSFER_PED, b.z + 0.17), pedestal: i });
+  });
   for (const j of w.asm.items) {
     const p = j.obj.position;
     env.push({ ...aabb('gabarito', p.x - JIG_L / 2, p.y, p.z - JIG_W / 2, p.x + JIG_L / 2, p.y + JIG_TOP, p.z + JIG_W / 2), jig: j });
     j.tvs.forEach(tv => { if (tv) env.push({ ...tvObb(tv, 'TV no gabarito'), jig: j }); });
   }
-  // test pallets: one box per part of the fixture (frame, base rail, lips, side guides …), not one box around it all,
-  // or the tall side guides would wrap the whole pallet
+  // test pallets: one box per part of the fixture (frame, base rail, lips, side guides …)
   for (const pal of w.test.items) {
     pal.obj.updateWorldMatrix(true, true);
     for (const c of pal.obj.children) {
@@ -114,17 +122,18 @@ export function measureClearance(w: World, worst?: Map<string, number>): Clearan
   });
 
   for (const R of robots) {
-    const links = R.segs.filter(s => s.name.includes('elo')), grip = R.segs.filter(s => s.name.includes('garra'));
+    const links = R.segs.filter(s => s.link <= 6), grip = R.segs.filter(s => s.link === 7);
     for (const o of env) {
+      const own = o.pedestal === R.i;
       const touchesTarget = !!o.tv && (o.tv === R.target || o.tv === R.placed);
-      for (const s of links) note(segBox(s, o), `${s.name} × ${o.name}`);
+      for (const s of links) if (!(own && s.link <= 1)) note(segBox(s, o), `${s.name} × ${o.name}`);
       if (!touchesTarget) for (const s of grip) note(segBox(s, o), `${s.name} × ${o.name}`);
     }
     if (R.carried) {
-      // the carried TV against its own arm (wrist links hold the gripper: from the forearm back) …
-      for (const s of links.slice(0, 4)) note(segBox(s, R.carried), `${s.name} × ${R.carried.name}`);
-      // … and against everything around, except the pallet it is sliding into
-      // (the jig it was lying on is only left out at the lift-off, while the TV is still within 1 cm of the foam)
+      // the carried TV against its own arm …
+      for (const s of links) note(segBox(s, R.carried), `${s.name} × ${R.carried.name}`);
+      // … and against everything around (its own pedestal too), except the pallet it is sliding into; the jig it was
+      // lying on only at the lift-off, while the TV is still within 1 cm of the foam
       const cm = R.r.carried!.obj.matrixWorld;
       const liftOff = R.r.state === 'pick' && R.r.carried!.obj.getWorldPosition(_q).y < (R.r.job?.obj.position.y ?? 0) + JIG_TOP + TV_T / 2 + 0.01;
       for (const o of env) {
@@ -138,7 +147,7 @@ export function measureClearance(w: World, worst?: Map<string, number>): Clearan
   if (robots.length === 2) {
     const [A, B] = robots;
     for (const s of A.segs) {
-      for (const t of B.segs) note(segSeg(s, t), `${s.name} × ${t.name}`);
+      for (const t of B.segs) note(capsuleGap(s, t), `${s.name} × ${t.name}`);
       if (B.carried) note(segBox(s, B.carried), `${s.name} × ${B.carried.name}`);
     }
     if (A.carried) {
@@ -146,16 +155,10 @@ export function measureClearance(w: World, worst?: Map<string, number>): Clearan
       if (B.carried) note(boxBox(A.carried, B.carried, A.r.carried!.obj.matrixWorld), `${A.carried.name} × ${B.carried.name}`);
     }
   }
+  // the inspection UR10e against the jigs and the TVs on them
+  for (const s of linkCapsules(w.insp.arm, 0.01)) {
+    if (s.link <= 1) continue; // on its own pedestal
+    for (const o of env) if (o.jig) note(segBox(s, o), `inspeção · ${LINK[s.link]} × ${o.name}`);
+  }
   return { min, at };
-}
-
-const _d1 = new THREE.Vector3(), _d2 = new THREE.Vector3(), _rr = new THREE.Vector3(), _c1 = new THREE.Vector3(), _c2 = new THREE.Vector3();
-function segSeg(s: Seg, t: Seg) {
-  _d1.subVectors(s.b, s.a); _d2.subVectors(t.b, t.a); _rr.subVectors(s.a, t.a);
-  const a = _d1.dot(_d1), e = _d2.dot(_d2), f = _d2.dot(_rr), c = _d1.dot(_rr), b = _d1.dot(_d2), den = a * e - b * b;
-  let u = den > 1e-12 ? THREE.MathUtils.clamp((b * f - c * e) / den, 0, 1) : 0;
-  let v = e > 1e-12 ? (b * u + f) / e : 0;
-  if (v < 0) { v = 0; u = a > 1e-12 ? THREE.MathUtils.clamp(-c / a, 0, 1) : 0; } else if (v > 1) { v = 1; u = a > 1e-12 ? THREE.MathUtils.clamp((b - c) / a, 0, 1) : 0; }
-  _c1.copy(s.a).addScaledVector(_d1, u); _c2.copy(t.a).addScaledVector(_d2, v);
-  return _c1.distanceTo(_c2) - s.r - t.r;
 }

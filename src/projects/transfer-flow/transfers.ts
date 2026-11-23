@@ -9,10 +9,16 @@
 //   so robot 1 lets it go on to robot 2 when it already has its pallet. No pallet leaves empty.
 import { station } from '../../sim/line';
 import { hookGripper } from '../../sim/robots/grippers';
+import * as THREE from 'three';
+import { ease } from '../../sim/math';
+import { capsuleBoxGap, linkCapsules, obstacleBox, type Obstacle } from '../../sim/robots/collision';
 import { LED, makeCobot, poseAt, solve, urTrack } from '../../sim/robots/ur-arm';
-import { runSeq, type Pose } from '../../sim/sequencer';
+import { urFK } from '../../sim/robots/ur-kinematics';
+import { runSeq, type Pose, type Step } from '../../sim/sequencer';
 import {
-  CUP_Z, HOOK_D, gripOf, ITEM_GAP, PAL_W, PICK_Y, ROBOT_Z, SEAT_Y, SIZES, TOP, TRANSFER_PED, TV_BACK, Z_ASM, Z_PAL, slotZ, type Inch,
+  BELT_ASM, BELT_TEST, CUP_Z, HOOK_D, gripOf, ITEM_GAP, JIG_L, JIG_TOP, JIG_W, LINE_X0, LINE_X1, PAL_W, PICK_Y, ROBOT_X1, ROBOT_X2, ROBOT_Z, SEAT_Y, SIZES, TOP,
+  TRANSFER_PED, TV_BACK, TV_T,
+  Z_ASM, Z_PAL, Z_TEST, slotZ, type Inch,
 } from './config';
 import { tvPower } from './products';
 import type { Jig, Mode, Pallet, Transfer, World } from './types';
@@ -60,7 +66,14 @@ export function createTransfer(w: World, x: number, phi: { home: number; wrapPos
   const r: Transfer = {
     arm, x, D: HOOK_D, wrap: p => (phi.wrapPositive && p < 0 ? p + 2 * Math.PI : p),
     enabled: true, count: 0, seq: [], state: 'idle', job: null, pallet: null, need: 0, carried: null, leaving: null, zoneBusy: false,
-    busyT: 0, totT: 0, palT: 0, home, pose: home.slice(),
+    busyT: 0, totT: 0, palT: 0, home, pose: home.slice(), jm: null,
+    // fixed things a move is planned against, besides the belts and the jig: the lift units at the belt ends and the
+    // other transfer's pedestal
+    env: [
+      ...[[LINE_X0, Z_ASM], [LINE_X1, Z_ASM], [w.testX0, Z_TEST], [LINE_X1, Z_TEST]].map(([lx, lz], i) =>
+        obstacleBox('elevador', lx + (i % 2 ? 0.15 : -0.15), 1.2, lz, 2.6 + 0.1, 2.4, 1.7 + 0.1)),
+      ...[ROBOT_X1, ROBOT_X2].filter(px => Math.abs(px - x) > 0.5).map(px => obstacleBox('pedestal do outro transfer', px, TRANSFER_PED / 2, ROBOT_Z, 0.36, TRANSFER_PED, 0.36)),
+    ],
     addNeed: n => { if (n > 0) { r.need += n; w.palletDemand += n; } },
     pickSt: null!, gateSt: null!, placeSt: null!,
   };
@@ -87,8 +100,218 @@ export function createTransfer(w: World, x: number, phi: { home: number; wrapPos
   return r;
 }
 
-/** Via point of every swing: arm pointing downstream, flange high over the gap between the belts, TV half turned. */
-const viaPose = (r: Transfer): Pose => [0, 0.5, 2.3 - r.arm.shoulderY, H / 2, 1.5 * Math.PI];
+/**
+ * Via point of every swing: arm pointing downstream, flange high and 0.8 m out, tool horizontal — a TV in the hook
+ * stays lying flat and away from the robot's own body while the base turns.
+ */
+const viaPose = (r: Transfer): Pose => [0, 0.6, 2.45 - r.arm.shoulderY, H, 1.5 * Math.PI];
+
+// ---------- joint moves (MoveJ), elbow up ----------
+// The big moves run in joint space, like a real robot's MoveJ, always in the ELBOW-UP posture: the arm stays above the
+// TV it carries and away from its own pedestal. Only the short approaches (down to the TV, into the pallet, back off)
+// are straight-line moves (MoveL), which keep the posture they start from.
+
+/**
+ * The equivalent of joint angle q1 nearest q0, within the UR joint range: ±360° for every joint, ±180° for the elbow
+ * (it cannot turn through itself).
+ */
+const wrapTo = (q0: number, q1: number, i = 0) => {
+  if (i === 2) return Math.atan2(Math.sin(q1), Math.cos(q1));
+  let q = q0 + Math.atan2(Math.sin(q1 - q0), Math.cos(q1 - q0));
+  if (q > 2 * Math.PI) q -= 2 * Math.PI;
+  if (q < -2 * Math.PI) q += 2 * Math.PI;
+  return q;
+};
+const elbowY = (r: Transfer, q: number[]) => urFK(r.arm.ur!, q, 3).elements[13];
+function setJoints(r: Transfer, q: number[]) {
+  const ur = r.arm.ur!;
+  ur.q = q.slice();
+  ur.joints.forEach((j, i) => { j.rotation.z = q[i]; });
+}
+
+/**
+ * Clearance of the robot with itself in joints `q`: its arm (from the upper arm on) and its pedestal against the TV
+ * it carries, and the arm against its own pedestal. (Everything else is checked by the cell's collision bench.)
+ */
+function selfClearance(r: Transfer, q: number[]): number {
+  setJoints(r, q);
+  const caps = linkCapsules(r.arm, 0.015), b = r.arm.root.position;
+  const ped: Obstacle = obstacleBox('pedestal', b.x, TRANSFER_PED / 2, b.z, 0.36, TRANSFER_PED, 0.36);
+  let min = Infinity;
+  for (const c of caps) if (c.link >= 2) min = Math.min(min, capsuleBoxGap(c, ped));
+  // the fixed things around: both belts (up to the roller top) and the jig foam at this robot's pick stop; the arm
+  // and the gripper must clear them (the cups only touch the TV)
+  // the TVs lying on the jig at this robot's stop (the cups touch the one being picked; the bracket and bars may not)
+  const tvSlab = obstacleBox('TVs no gabarito', b.x, TOP + JIG_TOP + (TV_T + 0.045) / 2, Z_ASM, JIG_L, TV_T + 0.045, JIG_W);
+  const env: Obstacle[] = [
+    obstacleBox('esteira de montagem', b.x, TOP / 2, Z_ASM, 2.4, TOP, BELT_ASM + 0.08),
+    obstacleBox('esteira de teste', b.x, TOP / 2, Z_TEST, 2.4, TOP, BELT_TEST + 0.08),
+    obstacleBox('gabarito', b.x, TOP + JIG_TOP / 2, Z_ASM, JIG_L, JIG_TOP, JIG_W),
+    ...r.env,
+  ];
+  const m = r.arm.mount;
+  m.updateWorldMatrix(true, false);
+  const W = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z).applyMatrix4(m.matrixWorld);
+  const grip = [{ a: W(0, -0.04, 0), b: W(0, -HOOK_D + 0.02, 0), r: 0.05 }, { a: W(-0.28, -HOOK_D, 0.035), b: W(0.28, -HOOK_D, 0.035), r: 0.04 },
+    ...[-0.25, 0.25].map(sx => ({ a: W(sx, -HOOK_D - 0.14, 0.035), b: W(sx, -HOOK_D + 0.14, 0.035), r: 0.035 }))];
+  for (const o of env) {
+    for (const c of caps) if (c.link >= 2) min = Math.min(min, capsuleBoxGap(c, o));
+    for (const g of grip) min = Math.min(min, capsuleBoxGap(g, o));
+  }
+  for (const g of grip) min = Math.min(min, capsuleBoxGap(g, ped), capsuleBoxGap(g, tvSlab));
+  // the cup stems: not against the TVs (the cups sit on one), against everything else
+  for (const sx of [-0.25, 0.25]) for (const sy of [-0.12, 0.12]) {
+    const s = { a: W(sx, -HOOK_D + sy, 0.05), b: W(sx, -HOOK_D + sy, CUP_Z - 0.03), r: 0.025 };
+    for (const o of [...env, ped]) min = Math.min(min, capsuleBoxGap(s, o));
+  }
+  for (const c of caps) if (c.link >= 2) min = Math.min(min, capsuleBoxGap(c, tvSlab));
+  const tv = r.carried;
+  if (tv) {
+    tv.obj.updateWorldMatrix(true, false);
+    const [w, d] = SIZES[tv.inch];
+    const o: Obstacle = { name: 'TV', box: new THREE.Box3(new THREE.Vector3(-w / 2, -TV_T / 2 - 0.045, -d / 2), new THREE.Vector3(w / 2, TV_T / 2, d / 2)), inv: tv.obj.matrixWorld.clone().invert() };
+    for (const c of caps) if (c.link <= 5) min = Math.min(min, capsuleBoxGap(c, o));
+    // the TV against the pedestal, the lift units and the other pedestal: its corners and edges
+    const box = o.box, M = tv.obj.matrixWorld, p = new THREE.Vector3();
+    for (let i = 0; i <= 4; i++) for (let k = 0; k <= 4; k++) for (const y of [box.min.y, box.max.y]) {
+      p.set(box.min.x + (box.max.x - box.min.x) * i / 4, y, box.min.z + (box.max.z - box.min.z) * k / 4).applyMatrix4(M);
+      for (const e of [ped, ...r.env]) min = Math.min(min, e.box.containsPoint(p) ? -0.01 : e.box.distanceToPoint(p));
+    }
+  }
+  return min;
+}
+
+/** Smallest self-clearance along the straight joint path q0 → q1 (and at q1). */
+function pathClearance(r: Transfer, q0: number[], q1: number[]) {
+  let min = Infinity;
+  for (let k = 1; k <= 10; k++) { const u = k / 10; min = Math.min(min, selfClearance(r, q0.map((v, i) => v + (q1[i] - v) * u))); }
+  return min;
+}
+
+/**
+ * Joints for `pose`: among the IK solutions (many seeds), the one whose joint path from here keeps the arm, the TV it
+ * carries and the pedestal apart, preferring the elbow up and the shortest move.
+ */
+const planCache = new Map<string, number[]>();
+function ikElbowUp(r: Transfer, pose: Pose): number[] {
+  const ur = r.arm.ur!, cur = ur.q.slice(), sh = r.arm.shoulderY;
+  // the cycle repeats: the same move from the same joints is planned once
+  const key = [r.x, r.carried?.inch ?? 0, ...pose.map(v => v.toFixed(3)), ...cur.map(v => v.toFixed(2))].join();
+  const hit = planCache.get(key);
+  if (hit) return hit.slice();
+  const q = planIk(r, pose, cur, sh);
+  if (planCache.size > 4000) planCache.clear();
+  planCache.set(key, q);
+  return q.slice();
+}
+
+function planIk(r: Transfer, pose: Pose, cur: number[], sh: number): number[] {
+  const ur = r.arm.ur!;
+  // the posture it is in already, when it reaches the pose with the elbow up and a clear path
+  ur.q = cur.slice();
+  if (urTrack(r.arm, pose, 140) < 0.004) {
+    const q = ur.q.map((v, i) => wrapTo(cur[i], v, i));
+    if (elbowY(r, q) - sh > 0.1 && pathClearance(r, cur, q) > 0.03) { setJoints(r, cur); return q; }
+  }
+  const seeds = [cur];
+  for (const q0 of [cur[0], cur[0] + Math.PI / 2, cur[0] - Math.PI / 2]) for (const q1 of [-0.9, -1.6, -2.3]) for (const q2 of [-2.2, -1.2, 1.2, 2.2]) for (const q3 of [-2.2, -0.8, 0.8]) for (const q4 of [-1.57, 1.57]) {
+    seeds.push([q0, q1, q2, q3, q4, cur[5]]);
+  }
+  const cands: { score: number; q: number[] }[] = [];
+  for (const s of seeds) {
+    ur.q = s.slice();
+    let err = urTrack(r.arm, pose, 60);
+    if (err > 0.02) continue;
+    err = urTrack(r.arm, pose, 80);
+    if (err > 0.004) continue;
+    const q = ur.q.map((v, i) => wrapTo(cur[i], v, i)), up = elbowY(r, q) - sh;
+    if (cands.some(c => c.q.every((v, i) => Math.abs(v - q[i]) < 0.05))) continue; // same solution
+    const dist = q.reduce((a, v, i) => a + Math.abs(v - cur[i]) * (i < 3 ? 1 : 0.5), 0);
+    cands.push({ score: (up < 0.05 ? 2 : 0) - Math.min(up, 0.5) + 0.12 * dist, q });
+  }
+  cands.sort((a, b) => a.score - b.score);
+  let best: { score: number; q: number[] } | null = null;
+  for (const c of cands.slice(0, 12)) {
+    const clear = pathClearance(r, cur, c.q);
+    const score = c.score + (clear < 0.02 ? 50 + (0.02 - clear) * 100 : 0);
+    if (!best || score < best.score) best = { score, q: c.q };
+  }
+  setJoints(r, cur);
+  return (best ?? { q: cur }).q;
+}
+
+/** Joint move time: big joints ~115°/s, wrist ~170°/s with the TV on the flange (UR30: 120°/s and 210°/s), plus settling. */
+const jointDur = (a: number[], b: number[]) => {
+  let big = 0, small = 0;
+  a.forEach((v, i) => { const d = Math.abs(b[i] - v); if (i < 3) big = Math.max(big, d); else small = Math.max(small, d); });
+  return 0.2 + Math.max(big / 2.0, small / 3.0);
+};
+
+/** The same posture with every joint inside its range (the Cartesian moves can wind the joints past it). */
+const normJoints = (q: number[]) => q.map((v, i) => wrapTo(0, v, i));
+
+/**
+ * Joint path to `pose`: straight in joint space when that is clear; otherwise through one intermediate posture (the
+ * high via point, the arm raised where it is, or the wrist turned first), the one that keeps the most clearance.
+ */
+const pathCache = new Map<string, number[][]>();
+function planPath(r: Transfer, pose: Pose): number[][] {
+  const q0 = r.arm.ur!.q.slice();
+  const key = [r.x, r.carried?.inch ?? 0, ...pose.map(v => v.toFixed(3)), ...q0.map(v => v.toFixed(2))].join();
+  const hit = pathCache.get(key);
+  if (hit) return hit.map(q => q.slice());
+  const q1 = ikElbowUp(r, pose);
+  let best = { clear: pathClearance(r, q0, q1), path: [q1] };
+  if (best.clear < 0.02) {
+    setJoints(r, q0);
+    const mids = [ikElbowUp(r, viaPose(r)), [q0[0], -1.75, 1.9, q0[3], q0[4], q0[5]], [q0[0], q0[1], q0[2], q1[3], q1[4], q1[5]],
+      [(q0[0] + q1[0]) / 2, -1.75, 1.9, (q0[3] + q1[3]) / 2, q0[4], q0[5]]];
+    for (const m of mids) {
+      const c = Math.min(pathClearance(r, q0, m), pathClearance(r, m, q1));
+      if (c > best.clear) best = { clear: c, path: [m, q1] };
+    }
+  }
+  setJoints(r, q0);
+  if (pathCache.size > 4000) pathCache.clear();
+  pathCache.set(key, best.path);
+  return best.path.map(q => q.slice());
+}
+
+/**
+ * MoveJ through `poseFns()` in turn (steps for the sequencer): each leg planned from where the previous one ends, and
+ * the legs blended into one move, like the blend radius of a UR program: the arm does not stop at the via points (the
+ * joint path is the same polyline that was checked for clearance).
+ */
+const moveJ = (r: Transfer, poseFns: (() => Pose) | (() => Pose)[], ready = false): Step[] => [
+  { fn: () => {
+    const q0 = normJoints(r.arm.ur!.q), pts = [q0];
+    setJoints(r, q0);
+    let pose: Pose = r.pose;
+    for (const f of Array.isArray(poseFns) ? poseFns : [poseFns]) {
+      pose = f();
+      for (const q of planPath(r, pose)) { pts.push(q); setJoints(r, q); }
+    }
+    setJoints(r, q0);
+    const legs = pts.slice(1).map((q, i) => jointDur(pts[i], q) - 0.2);
+    r.jm = { pts, legs, t: 0, dur: 0.2 + legs.reduce((a, b) => a + b, 0) };
+    r.pose = pose.slice();
+  }, ready },
+  { until: () => !r.jm, ready },
+];
+
+/** Advance a joint move, or follow the Cartesian pose (MoveL). */
+function driveArm(r: Transfer, dt: number, iters: number) {
+  if (r.jm) {
+    const m = r.jm;
+    m.t += dt;
+    // one ease over the whole move, shared out over the legs by their times
+    let s = ease(Math.min(1, m.t / m.dur)) * m.legs.reduce((a, b) => a + b, 0), k = 0;
+    while (k < m.legs.length - 1 && s > m.legs[k]) { s -= m.legs[k]; k++; }
+    const u = m.legs[k] > 0 ? Math.min(1, s / m.legs[k]) : 1, a = m.pts[k], b = m.pts[k + 1];
+    setJoints(r, a.map((v, i) => v + (b[i] - v) * u));
+    if (m.t >= m.dur) r.jm = null;
+  } else urTrack(r.arm, r.pose, iters);
+}
 
 /**
  * Pick: TV lies screen-down on the jig. Tool horizontal (tilt 90°, yaw 180°): the cups hang CUP_Z below the flange
@@ -113,6 +336,17 @@ function placePose(r: Transfer, inch: Inch, dy: number, dz: number): Pose {
   return [p[0], p[1], p[2], 0, yaw];
 }
 
+/**
+ * Carry: on the test side, the TV still lying flat (tool horizontal, pointing away from the robot), its cups right
+ * over the place where they will be with the TV upright, PLACE_ABOVE + 0.1 higher. From here the TV is stood up by
+ * turning the tool about the cup row: its far part swings down, away from the robot.
+ */
+function carryPose(r: Transfer, inch: Inch): Pose {
+  const d = SIZES[inch][1], cupY = TOP + SEAT_Y + d - gripOf(inch);
+  const p = poseAt(r.arm, r.x, Z_PAL - TV_BACK + r.D, cupY + PLACE_ABOVE + 0.1 + CUP_Z);
+  return [p[0], p[1], p[2], H, 0];
+}
+
 /** Wait hovering over the pick point, not at a far home. */
 export const readyPose = (w: World, r: Transfer) => pickPose(r, w.params.inch, 0, 0.25);
 
@@ -125,10 +359,12 @@ export const moveDur = (a: Pose, b: Pose) =>
 
 function startJob(w: World, r: Transfer) {
   const jig = r.job!, inch = jig.inch, k = jig.tvs.findIndex(Boolean), d = SIZES[inch][1];
-  r.seq.length = 0; // drop a pending move to the ready pose
+  r.seq.length = 0; // drop a pending move to the ready pose (one under way is finished: it was planned clear)
   r.state = 'pick';
   r.seq.push(
-    { toFn: () => pickPose(r, inch, k, 0.2), durFn: moveDur }, { toFn: () => pickPose(r, inch, k, 0), dur: 0.5 }, { dur: 0.3 },
+    { until: () => !r.jm },
+    // over the TV, then down to it (planned too: the wrist must clear the jig at the pick)
+    ...moveJ(r, () => pickPose(r, inch, k, 0.2)), ...moveJ(r, () => pickPose(r, inch, k, 0)), { dur: 0.3 },
     { fn: () => { const tv = jig.tvs[k]!; r.arm.mount.attach(tv.obj); r.carried = tv; jig.tvs[k] = null; } },
     { toFn: () => pickPose(r, inch, k, 0.4), dur: 0.6 },
     { fn: () => {
@@ -138,9 +374,10 @@ function startJob(w: World, r: Transfer) {
     } },
     { until: () => !!r.pallet && r.pallet.hold === r.placeSt },
     { fn: () => { r.state = 'place'; } },
-    { toFn: () => viaPose(r), durFn: moveDur }, // high over the gap between the belts, TV half turned
-    { toFn: () => placePose(r, inch, 0.1, 0.45), durFn: moveDur }, // TV upright 45 cm in front of the pallet
-    { toFn: () => placePose(r, inch, 0, 0), dur: 0.75 }, { dur: 0.3 }, // slide it in over the front lip, between the side guides
+    // one blended move: downstream and high with the TV lying flat and away from the robot; to the test side, still
+    // flat, cups over their place; stood up right above its seat (never toward the pedestal)
+    ...moveJ(r, [() => viaPose(r), () => carryPose(r, inch), () => placePose(r, inch, PLACE_ABOVE, 0)]),
+    { toFn: () => placePose(r, inch, 0, 0), dur: 0.8 }, { dur: 0.3 }, // straight down into the groove, between the side guides
     { fn: () => {
       const tv = r.carried!, pal = r.pallet!;
       pal.obj.attach(tv.obj);
@@ -157,24 +394,27 @@ function startJob(w: World, r: Transfer) {
     { toFn: () => placePose(r, inch, 0, -0.1), dur: 0.3 }, // cups back off the TV
     { until: () => !w.test.items.includes(r.leaving!) || r.leaving!.obj.position.x - SIZES[inch][0] / 2 > r.x + 0.35 },
     { fn: () => { r.state = 'return'; } },
-    { toFn: () => viaPose(r), durFn: moveDur }, // hook back to the front, now that the TV has gone
+    ...moveJ(r, () => viaPose(r)), // hook back to the front, now that the TV has gone
     { fn: () => { r.zoneBusy = false; r.leaving = null; r.state = 'idle'; } },
-    { toFn: () => readyPose(w, r), durFn: moveDur, ready: true },
+    ...moveJ(r, () => readyPose(w, r), true),
   );
 }
+
+/** Height of the TV over its seat before it goes straight down into the pallet. */
+const PLACE_ABOVE = 0.3;
 
 export function updateRobots(w: World, dt: number) {
   for (const r of w.robots) {
     if (!r.zoneBusy) for (const it of w.test.items) if (it.hold === r.gateSt) it.hold = null; // dock clear: let the queue in
     if (!r.enabled) { // switched off: park and stay out of the flow
-      runSeq(r, dt); solve(r.arm, r.pose); urTrack(r.arm, r.pose, 6); r.arm.ledMat.emissive.setHex(LED.off);
+      runSeq(r, dt); solve(r.arm, r.pose); driveArm(r, dt, 6); r.arm.ledMat.emissive.setHex(LED.off);
       continue;
     }
     // the last robot always keeps one empty pallet docked or on its way, so it never waits for one;
     // an upstream robot never parks an empty pallet, which would block the pallets of the robot after it
     if (isLastR(w, r) && r.need === 0) r.addNeed(1);
     if (r.state === 'idle' && r.job && r.seq.every(s => s.ready)) startJob(w, r);
-    runSeq(r, dt); solve(r.arm, r.pose); urTrack(r.arm, r.pose, 14);
+    runSeq(r, dt); solve(r.arm, r.pose); driveArm(r, dt, 14);
     const waiting = r.state === 'waitPallet' || r.state === 'idle';
     r.totT += dt;
     if (!waiting) r.busyT += dt;
@@ -204,6 +444,6 @@ export function dispatchPallets(w: World) {
 /** Put a robot back to its waiting pose with nothing in hand (line restart). */
 export function resetTransfer(w: World, r: Transfer) {
   if (r.carried) { r.carried.obj.parent?.remove(r.carried.obj); r.carried = null; }
-  Object.assign(r, { seq: [], state: 'idle', job: null, pallet: null, need: 0, leaving: null, zoneBusy: false });
-  r.seq.push({ toFn: () => (r.enabled ? readyPose(w, r) : r.home), durFn: moveDur, ready: true });
+  Object.assign(r, { seq: [], state: 'idle', job: null, pallet: null, need: 0, leaving: null, zoneBusy: false, jm: null });
+  r.seq.push(...moveJ(r, () => (r.enabled ? readyPose(w, r) : r.home), true));
 }

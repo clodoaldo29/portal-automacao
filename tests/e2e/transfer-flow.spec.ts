@@ -3,16 +3,16 @@ import { expect, test } from '@playwright/test';
 // Throughput reference: 10 simulated minutes per model, both arms, automatic work split, no NG — and nothing may
 // touch: the bench measures the smallest clearance over the whole run (arms, gripper and the TV they carry against
 // their own arm, the TVs on the jigs and pallets, jigs, pallets, belts, lifts and the other robot).
-// Re-measured with the transfers 12.5 cm toward the test belt, cups 18 cm off the bracket and the grip point scaled to
-// the TV (collision-free in every model). When the line logic is changed on purpose, re-measure and update in the
-// same commit.
+// Re-measured with the collision-planned joint moves (MoveJ with the route checked against the real arm, gripper and
+// TV geometry, legs blended) and the transfers 25 cm toward the test belt: collision-free in every model. When the
+// line logic is changed on purpose, re-measure and update in the same commit.
 const REFERENCE = [
-  { inch: 32, moved: 91, perRobot: [46, 45] },
-  { inch: 43, moved: 91, perRobot: [46, 45] },
-  { inch: 50, moved: 106, perRobot: [54, 52] },
-  { inch: 55, moved: 106, perRobot: [54, 52] },
-  { inch: 65, moved: 106, perRobot: [54, 52] },
-  { inch: 75, moved: 106, perRobot: [54, 52] },
+  { inch: 32, moved: 93, perRobot: [47, 46] },
+  { inch: 43, moved: 86, perRobot: [43, 43] },
+  { inch: 50, moved: 109, perRobot: [55, 54] },
+  { inch: 55, moved: 109, perRobot: [55, 54] },
+  { inch: 65, moved: 109, perRobot: [55, 54] },
+  { inch: 75, moved: 91, perRobot: [48, 43] },
 ];
 
 test.describe('Transfer Flow 3D', () => {
@@ -30,7 +30,7 @@ test.describe('Transfer Flow 3D', () => {
   for (const ref of REFERENCE) {
     test(`${ref.inch}": throughput matches the reference, no losses, nothing touches`, async ({ page }) => {
       await page.goto(`/projetos/transfer-flow-3d/?bench=10&model=${ref.inch}`);
-      const result = await page.waitForFunction(() => window.__bench, null, { timeout: 300_000 }).then(h => h.jsonValue());
+      const result = await page.waitForFunction(() => window.__bench, null, { timeout: 600_000 }).then(h => h.jsonValue());
       console.log(`${ref.inch}": ${result!.moved} TVs (${result!.perRobot.join(' / ')}), folga mínima ${result!.minClear} m (${result!.minClearAt}) in ${result!.ms} ms`);
       expect(result!.inch).toBe(ref.inch);
       expect(result!.moved).toBe(ref.moved);

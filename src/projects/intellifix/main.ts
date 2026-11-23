@@ -304,6 +304,7 @@ if (benchMin) {
   run.setPlay(false);
   const t0 = performance.now();
   if (tf) startClearance(tf.world); // integrated: the Transfer Flow robots must not touch anything either
+  sim.setCheck(true);
   for (let i = 0, n = Math.round(benchMin * 60 * 30); i < n; i++) step(1 / 30);
   const s = sim.stats, m = modelOf(params.model);
   const r = (x: number, k = 1000) => Math.round(x * k) / k;

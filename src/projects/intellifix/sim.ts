@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { createRng } from '../../sim/des';
 import { ease } from '../../sim/math';
 import { makeLine, station, updateLine, type LineItem } from '../../sim/line';
-import { armClearance, jointPoints } from '../../sim/robots/collision';
+import { capsuleBoxGap, capsuleGap, jointPoints, linkCapsules } from '../../sim/robots/collision';
 import { poseAt, urTrack } from '../../sim/robots/ur-arm';
 import { Track, line } from '../../sim/track';
 import { DEFAULT_TIMING, plan, type CyclePlan, type TimingParams } from './balance';
@@ -55,20 +55,6 @@ const newStats = () => ({
   minArmArm: Infinity, minClear: Infinity, minClearAt: '', maxIkErr: 0,
 });
 export type SimStats = ReturnType<typeof newStats>;
-
-// closest distance between segments p1q1 and p2q2
-const _d1 = new THREE.Vector3(), _d2 = new THREE.Vector3(), _r = new THREE.Vector3(), _c1 = new THREE.Vector3(), _c2 = new THREE.Vector3();
-function segDist(p1: THREE.Vector3, q1: THREE.Vector3, p2: THREE.Vector3, q2: THREE.Vector3) {
-  _d1.subVectors(q1, p1); _d2.subVectors(q2, p2); _r.subVectors(p1, p2);
-  const a = _d1.dot(_d1), e = _d2.dot(_d2), f = _d2.dot(_r), c = _d1.dot(_r), b = _d1.dot(_d2), den = a * e - b * b;
-  let s = den > 1e-12 ? THREE.MathUtils.clamp((b * f - c * e) / den, 0, 1) : 0;
-  let t = e > 1e-12 ? (b * s + f) / e : 0;
-  if (t < 0) { t = 0; s = a > 1e-12 ? THREE.MathUtils.clamp(-c / a, 0, 1) : 0; } else if (t > 1) { t = 1; s = a > 1e-12 ? THREE.MathUtils.clamp((b - c) / a, 0, 1) : 0; }
-  _c1.copy(p1).addScaledVector(_d1, s); _c2.copy(p2).addScaledVector(_d2, t);
-  return _c1.distanceTo(_c2);
-}
-/** Capsule radii base→flange, and the screwdriver (flange → nose). */
-const RAD = [0.1, 0.09, 0.08, 0.07, 0.06, 0.055, 0.045];
 
 /** `canExit`: integrated flow, the pallet waits at the end of the conveyor until the Transfer Flow belt can take it. */
 export function createSim(cell: Cell, scene: THREE.Scene, params: SimParams, opts: { onExit?: (tvs: number, model: TvModel) => void; canExit?: () => boolean } = {}) {
@@ -192,7 +178,7 @@ export function createSim(cell: Cell, scene: THREE.Scene, params: SimParams, opt
     return { x: home.x, z: home.z, lift: homeLift, drive: false, flash: false };
   }
   const toolNow: ToolState[] = [toolAt(0, 0), toolAt(1, 0)];
-  let ik = true, ikIters = 12, clearEvery = 0;
+  let ik = true, ikIters = 12, clearEvery = 0, check = false;
   function moveArms(dt: number) {
     const tau = phase === 'work' ? phaseT : 0;
     for (const r of [0, 1] as const) {
@@ -204,20 +190,65 @@ export function createSim(cell: Cell, scene: THREE.Scene, params: SimParams, opt
       if (stats.t > 2 && err > stats.maxIkErr) stats.maxIkErr = err;
       tools[r].spin(dt, ts.drive);
     }
-    if (!ik) return;
-    // the two arms (and screwdrivers) never come close: capsule distance every step
-    const a = jointPoints(arms[0]), b = jointPoints(arms[1]);
-    if (a.length && b.length) {
-      a.push(a[6].clone().setY(a[6].y - TIP)); b.push(b[6].clone().setY(b[6].y - TIP));
-      let min = Infinity;
-      for (let i = 0; i + 1 < a.length; i++) for (let j = 0; j + 1 < b.length; j++) min = Math.min(min, segDist(a[i], a[i + 1], b[j], b[j + 1]) - RAD[i] - RAD[j]);
-      if (min < stats.minArmArm) stats.minArmArm = min;
+    if (!ik || !check) return;
+    // collision check every 2nd step: the arms as drawn and the screwdrivers with their cameras, against each other
+    // and against everything in the cell
+    if (++clearEvery % 2) return;
+    const c = measureClearance();
+    if (c.arm < stats.minArmArm) stats.minArmArm = c.arm;
+    if (c.min < stats.minClear) { stats.minClear = c.min; stats.minClearAt = c.at; }
+  }
+
+  // ---------- collision check ----------
+  const LINK = ['base', 'ombro', 'braço', 'antebraço', 'punho 1', 'punho 2', 'punho 3'];
+  // the back cover itself (the slab of the pallet obstacle reaches the back bumps): the tool body must stay above it
+  const coverTop = BACK_Y + 0.005;
+  const _a = new THREE.Vector3(), _b = new THREE.Vector3();
+  /** Screwdriver in the flange frame: body with transducer, spindle, nose (touches the screw), camera with ring. */
+  const TOOL_PARTS: [string, number, number, number, number, number][] = [
+    ['parafusadeira', 0, -0.01, -0.235, 0.045, 0], ['bico', 0, -0.25, -0.30, 0.024, 1],
+    ['nariz', 0, -0.30, -TIP + 0.012, 0.02, 2], ['câmera', -0.07, -0.17, -0.245, 0.04, 0],
+  ];
+  function robotCaps(r: 0 | 1) {
+    const caps: { a: THREE.Vector3; b: THREE.Vector3; r: number; name: string; link: number; tip: number }[] =
+      linkCapsules(arms[r], 0.01).map(c => ({ ...c, name: `robô ${r + 1} · ${LINK[c.link]}`, tip: 0 }));
+    const m = arms[r].mount;
+    m.updateWorldMatrix(true, false);
+    for (const [name, x, y0, y1, rad, tip] of TOOL_PARTS) {
+      caps.push({ a: _a.set(x, y0, 0).applyMatrix4(m.matrixWorld).clone(), b: _b.set(x, y1, 0).applyMatrix4(m.matrixWorld).clone(), r: rad + 0.005, name: `robô ${r + 1} · ${name}`, link: 7, tip });
     }
-    // and nothing else in the cell: every 3rd step
-    if (++clearEvery % 3 === 0) for (const r of [0, 1] as const) {
-      const c = armClearance(arms[r], cell.obstacles.filter(o => o.name !== `pedestal do robô ${r + 1}`));
-      if (c.min < stats.minClear) { stats.minClear = c.min; stats.minClearAt = `robô ${r + 1} · ${c.part} × ${c.name}`; }
+    return caps;
+  }
+  /** Smallest clearance now: overall, and between the two robots; `worst` keeps every pair below 5 cm. */
+  function measureClearance(worst?: Map<string, number>) {
+    let min = Infinity, at = '', arm = Infinity;
+    const note = (d: number, what: string) => {
+      if (d < min) { min = d; at = what; }
+      if (worst && d < 0.05) worst.set(what, Math.min(worst.get(what) ?? Infinity, d));
+    };
+    const caps = [robotCaps(0), robotCaps(1)];
+    for (const r of [0, 1] as const) for (const c of caps[r]) for (const o of cell.obstacles) {
+      if (o.name === `pedestal do robô ${r + 1}` && c.link <= 1) continue; // its own base on its own pedestal
+      if (o.name === 'pallet e TVs' && c.link === 7) { // the tool: only the nose touches the screw head
+        if (c.tip === 2) continue;
+        const top = o.box.max.y;
+        o.box.max.y = coverTop;
+        note(capsuleBoxGap(c, o), `${c.name} × tampa traseira da TV`);
+        o.box.max.y = top;
+        continue;
+      }
+      note(capsuleBoxGap(c, o), `${c.name} × ${o.name}`);
     }
+    // each arm against itself: links that are not neighbours, and the screwdriver against the base, shoulder, arms
+    for (const r of [0, 1] as const) for (const s of caps[r]) for (const t of caps[r]) {
+      if (s.link < t.link && t.link - s.link >= 3 && (t.link < 7 || s.link <= 3)) note(capsuleGap(s, t), `${s.name} × ${t.name}`);
+    }
+    for (const s of caps[0]) for (const t of caps[1]) {
+      const d = capsuleGap(s, t);
+      if (d < arm) arm = d;
+      note(d, `${s.name} × ${t.name}`);
+    }
+    return { min, at, arm };
   }
 
   // ---------- feeding ----------
@@ -286,10 +317,15 @@ export function createSim(cell: Cell, scene: THREE.Scene, params: SimParams, opt
     cell.sensorLeds[1].material = atStop ? cell.sensorOn : cell.sensorOff;
     for (const r of [0, 1] as const) {
       tools[r].flash(toolNow[r].flash);
-      // feed hose: feeder outlet → over the pedestal → screwdriver nose
+      // feed hose: feeder outlet → up the pedestal → clipped along the upper arm and the forearm → screwdriver nose
+      // (as on a real cell: a loose hose would sweep through the other arm)
       tools[r].port.getWorldPosition(_pt);
-      const f = cell.feeders[r], base = arms[r].root.position;
-      const curve = new THREE.CatmullRomCurve3([f.clone(), new THREE.Vector3(f.x * 0.5 + base.x * 0.5, LAY.ped + 0.55, f.z * 0.5 + base.z * 0.5), new THREE.Vector3((base.x + _pt.x) / 2, Math.max(_pt.y, LAY.ped) + 0.45, (base.z + _pt.z) / 2), _pt.clone()]);
+      const f = cell.feeders[r], base = arms[r].root.position, j = jointPoints(arms[r]);
+      const up = (p: THREE.Vector3, dy: number) => p.clone().setY(p.y + dy);
+      const pts = [f.clone(), new THREE.Vector3(f.x * 0.4 + base.x * 0.6, LAY.ped - 0.1, f.z * 0.4 + base.z * 0.6)];
+      if (j.length) pts.push(up(j[1], 0.12), up(j[2].clone().lerp(j[3], 0.5), 0.1), up(j[3], 0.1), up(j[4], 0.08), up(j[5], 0.03));
+      pts.push(_pt.clone());
+      const curve = new THREE.CatmullRomCurve3(pts, false, 'centripetal');
       hoses[r].geometry.dispose();
       hoses[r].geometry = new THREE.TubeGeometry(curve, 24, 0.006, 6, false);
     }
@@ -335,6 +371,9 @@ export function createSim(cell: Cell, scene: THREE.Scene, params: SimParams, opt
     get phase() { return phase; },
     get job() { return job; },
     setIk(on: boolean, iters = 12) { ik = on; ikIters = iters; },
+    /** Collision check during the run (bench, tests); `measure` checks now. */
+    setCheck(on: boolean) { check = on; },
+    measure: (worst?: Map<string, number>) => measureClearance(worst),
   };
 }
 export type Sim = ReturnType<typeof createSim>;

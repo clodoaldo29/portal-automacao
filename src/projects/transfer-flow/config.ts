@@ -17,7 +17,7 @@ export const BELT_ASM = 1.2, BELT_TEST = 1.2; // both belts 1.2 m wide
 export const Z_ASM = 1.05, Z_TEST = -1.05; // belt centres; robots between them
 /** Transfers 12.5 cm toward the test belt: picking the near TV of a 32"/43" pair is not too close to the base, and
  *  placing on the test pallet is not at full stretch (checked with the collision bench: nothing touches). */
-export const ROBOT_Z = -0.125;
+export const ROBOT_Z = -0.25;
 export const LINE_X0 = -8.3, LINE_X1 = 5.1; // 13.4 m of belt; ~15.8 m overall with the lift units
 /** Pallets ride on the robot side of the test belt (30 cm off its centre), so the hook gripper reaches behind the TV. */
 export const Z_PAL = Z_TEST + 0.3;

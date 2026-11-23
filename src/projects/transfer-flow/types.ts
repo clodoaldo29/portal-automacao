@@ -2,6 +2,7 @@ import type * as THREE from 'three';
 import type { Andon } from '../../sim/andon';
 import type { Line, LineItem, Station } from '../../sim/line';
 import type { Materials } from '../../sim/materials';
+import type { Obstacle } from '../../sim/robots/collision';
 import type { Cobot } from '../../sim/robots/ur-arm';
 import type { Pose, Step } from '../../sim/sequencer';
 import type { Stage } from '../../sim/stage';
@@ -52,6 +53,10 @@ export interface Transfer {
   /** Pallets this robot still needs (TVs committed to it). */
   need: number;
   carried: TV | null;
+  /** Fixed obstacles its moves are planned against (lift units, the other transfer's pedestal). */
+  env: Obstacle[];
+  /** Joint move in progress (MoveJ): joints at the start and at every via point, time of each leg, time, duration. */
+  jm: { pts: number[][]; legs: number[]; t: number; dur: number } | null;
   /** Pallet that just left with a TV; the hook stays behind until it has moved away. */
   leaving: Pallet | null;
   zoneBusy: boolean;
