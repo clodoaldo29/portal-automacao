@@ -91,7 +91,7 @@ export function createWorld(stage: Stage, params: Params = { ...DEFAULT_PARAMS }
 
 /** Swap the planner rigs for the UR arms: transfers UR30 · inspection UR10e. */
 export function mountArms(w: World) {
-  w.robots.forEach(r => upgradeArm(w.scene, r.arm, r.pose, UR30));
+  w.robots.forEach(r => { upgradeArm(w.scene, r.arm, r.pose, UR30); resetTransfer(w, r); }); // straight into its posture
   upgradeArm(w.scene, w.insp.arm, w.insp.pose, UR10E);
 }
 
@@ -127,7 +127,7 @@ function addPallet(w: World, s: number, inch: Inch | null) {
     const tv = makeTV(w.M, inch);
     obj.add(tv.obj);
     tv.obj.position.set(0, SEAT_Y + SIZES[inch][1] / 2, 0);
-    tv.obj.rotation.set(-Math.PI / 2, 0, Math.PI);
+    tv.obj.rotation.set(Math.PI / 2, 0, Math.PI); // standing, screen toward the aisle, back toward the robots
     tvPower(tv, 'swoosh');
     it.tvs.push(tv);
   }

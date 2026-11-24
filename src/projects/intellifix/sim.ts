@@ -9,7 +9,7 @@ import { capsuleBoxGap, capsuleGap, jointPoints, linkCapsules } from '../../sim/
 import { poseAt, urTrack } from '../../sim/robots/ur-arm';
 import { Track, line } from '../../sim/track';
 import { DEFAULT_TIMING, plan, type CyclePlan, type TimingParams } from './balance';
-import { BACK_Y, LAY, type Cell, type PalletObj } from './cell';
+import { BACK_Y, LAY, TOOL_YAW, type Cell, type PalletObj } from './cell';
 import { MODELS, requiredCycleS, robotHome, screwPoints, tvsPerPallet, type ScrewPoint, type TvModel } from './model';
 import { TIP } from './tool';
 
@@ -186,7 +186,7 @@ export function createSim(cell: Cell, scene: THREE.Scene, params: SimParams, opt
       toolNow[r] = ts;
       if (!ik) continue;
       const arm = arms[r];
-      const err = urTrack(arm, [...poseAt(arm, X(LAY.stopX + ts.x), Z(ts.z), BACK_Y + TIP + ts.lift), 0, 0], ikIters);
+      const err = urTrack(arm, [...poseAt(arm, X(LAY.stopX + ts.x), Z(ts.z), BACK_Y + TIP + ts.lift), 0, TOOL_YAW[r]], ikIters);
       if (stats.t > 2 && err > stats.maxIkErr) stats.maxIkErr = err;
       tools[r].spin(dt, ts.drive);
     }

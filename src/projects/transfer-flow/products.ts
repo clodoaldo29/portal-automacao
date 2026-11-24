@@ -74,14 +74,13 @@ export function makeJig(M: Materials) {
 }
 
 /**
- * Standard test pallet (all models, one TV): 1.9 × 0.55 m. The TV stands in a grooved base rail, screen toward +z
- * (robots / viewer), back toward -z on a low rest rail. Side guides at ±0.90 m leave ~4.5 cm per side for the 75",
+ * Standard test pallet (all models, one TV): 1.9 × 0.55 m. The TV stands in a grooved base rail, screen toward -z
+ * (the test aisle), back toward +z (the robots, whose vacuum plate holds it there) on a low rest rail. Side guides at ±0.90 m leave ~4.5 cm per side for the 75",
  * with chamfered lead-ins.
  */
 export function makePallet(M: Materials) {
-  // parts are laid out with the screen side on local -z, then the fixture is turned to face +z
+  // parts are laid out with the screen side on local -z (the aisle behind the test belt), back rest on the robot side
   const g0 = new THREE.Group(), g = new THREE.Group();
-  g.rotation.y = Math.PI;
   g0.add(g);
   const W = PAL_W, D = PAL_D, T = 0.06, H = 0.08;
   g.add(at(box(W - 0.002, H, T, M.blue), 0, H / 2, D / 2 - T / 2)); g.add(at(box(W - 0.002, H, T, M.blue), 0, H / 2, -D / 2 + T / 2));

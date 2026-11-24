@@ -1,5 +1,5 @@
-// Transfer 1 and Transfer 2 (UR30 with the hook gripper): take TVs from the assembly jigs and stand them,
-// screen toward the robots, on the test pallets.
+// Transfer 1 and Transfer 2 (UR30 with a vacuum plate): take TVs from the assembly jigs and stand them, screen toward
+// the test aisle, on the test pallets.
 //
 // Line logic (one TV per robot cycle, one TV per test pallet):
 // · Robot 1 (upstream) takes one TV from a jig only when the work-split rule gives it one, then lets the jig go on.
@@ -8,16 +8,17 @@
 // · Pallets are not addressed: an empty pallet stops at the first robot that still needs one,
 //   so robot 1 lets it go on to robot 2 when it already has its pallet. No pallet leaves empty.
 import { station } from '../../sim/line';
-import { hookGripper } from '../../sim/robots/grippers';
+import { vacuumPlate } from '../../sim/robots/grippers';
 import * as THREE from 'three';
 import { ease } from '../../sim/math';
-import { capsuleBoxGap, linkCapsules, obstacleBox, type Obstacle } from '../../sim/robots/collision';
+import { capsuleBoxGap, capsuleGap, linkCapsules, obstacleBox, type Obstacle } from '../../sim/robots/collision';
+import { gripperCaps, robotSegs } from './clearance';
 import { LED, makeCobot, poseAt, solve, urTrack } from '../../sim/robots/ur-arm';
 import { urFK } from '../../sim/robots/ur-kinematics';
 import { runSeq, type Pose, type Step } from '../../sim/sequencer';
 import {
-  BELT_ASM, BELT_TEST, CUP_Z, HOOK_D, gripOf, ITEM_GAP, JIG_L, JIG_TOP, JIG_W, LINE_X0, LINE_X1, PAL_W, PICK_Y, ROBOT_X1, ROBOT_X2, ROBOT_Z, SEAT_Y, SIZES, TOP,
-  TRANSFER_PED, TV_BACK, TV_T,
+  ARM_DX, BELT_ASM, BELT_TEST, gripOf, ITEM_GAP, JIG_L, JIG_TOP, JIG_W, LINE_X0, LINE_X1, PAL_W, PICK_Y, ROBOT_X1, ROBOT_X2, ROBOT_Z, SEAT_Y, SIZES, TOP,
+  TRANSFER_PED, TV_BACK, TV_T, VAC_D, VAC_L, VAC_W,
   Z_ASM, Z_PAL, Z_TEST, slotZ, type Inch,
 } from './config';
 import { tvPower } from './products';
@@ -29,7 +30,7 @@ export const hasTV = (it: Jig | Pallet) => !!it.tvs && it.tvs.some(Boolean);
 export const tvCount = (it: Jig) => it.tvs.filter(Boolean).length;
 
 /** 'auto': pair jigs (32"/43") → 'B' (jigs alternate, each robot empties its own); single-TV jigs → 'free'. */
-export const modeOf = (w: World, it: Jig): Exclude<Mode, 'auto'> => (w.params.mode === 'auto' ? (it.tvs.length === 2 ? 'B' : 'free') : w.params.mode);
+export const modeOf = (w: World, it: Jig): Exclude<Mode, 'auto'> => (w.params.mode === 'auto' ? 'B' : w.params.mode);
 
 /** The last ENABLED robot along the belt takes everything left and holds the jig until it is empty. */
 export const lastEnabled = (w: World) => {
@@ -57,14 +58,14 @@ export function commitJig(w: World, it: Jig) {
 
 export function createTransfer(w: World, x: number, phi: { home: number; wrapPositive?: boolean }): Transfer {
   const { asm, test } = w;
-  // slim 1.5 m column: the UR30 shoulder sits ~1.74 m high, enough to lower a 75" from above and still pick at the belt
-  const arm = makeCobot(w.scene, w.M, { x, z: ROBOT_Z, L1: 0.64, L2: 0.5, ped: TRANSFER_PED, pedW: 0.3 });
-  hookGripper(arm.mount, w.M, { hookD: HOOK_D, cupZ: CUP_Z });
+  // 1.0 m column: the UR30 shoulder near the height of the work (TVs lying on the jig, standing in the pallet)
+  const arm = makeCobot(w.scene, w.M, { x: x - ARM_DX, z: ROBOT_Z, L1: 0.64, L2: 0.5, ped: TRANSFER_PED, pedW: 0.3 });
+  vacuumPlate(arm.mount, w.M, { w: VAC_W, d: VAC_D, drop: VAC_L, nx: 3, nz: 2 });
   arm.tool.rotation.order = 'YXZ';
-  w.floorRect(x - 0.4, ROBOT_Z - 0.4, x + 0.4, ROBOT_Z + 0.4, 0.04);
-  const home: Pose = [phi.home, 0.55, -0.45, H, Math.PI];
+  w.floorRect(x - ARM_DX - 0.4, ROBOT_Z - 0.4, x - ARM_DX + 0.4, ROBOT_Z + 0.4, 0.04);
+  const home: Pose = [phi.home, 0.75, 0.05, H, Math.PI]; // parked (arm switched off): half open, plate level
   const r: Transfer = {
-    arm, x, D: HOOK_D, wrap: p => (phi.wrapPositive && p < 0 ? p + 2 * Math.PI : p),
+    arm, x, D: VAC_L, wrap: p => (phi.wrapPositive && p < 0 ? p + 2 * Math.PI : p),
     enabled: true, count: 0, seq: [], state: 'idle', job: null, pallet: null, need: 0, carried: null, leaving: null, zoneBusy: false,
     busyT: 0, totT: 0, palT: 0, home, pose: home.slice(), jm: null,
     // fixed things a move is planned against, besides the belts and the jig: the lift units at the belt ends and the
@@ -72,7 +73,7 @@ export function createTransfer(w: World, x: number, phi: { home: number; wrapPos
     env: [
       ...[[LINE_X0, Z_ASM], [LINE_X1, Z_ASM], [w.testX0, Z_TEST], [LINE_X1, Z_TEST]].map(([lx, lz], i) =>
         obstacleBox('elevador', lx + (i % 2 ? 0.15 : -0.15), 1.2, lz, 2.6 + 0.1, 2.4, 1.7 + 0.1)),
-      ...[ROBOT_X1, ROBOT_X2].filter(px => Math.abs(px - x) > 0.5).map(px => obstacleBox('pedestal do outro transfer', px, TRANSFER_PED / 2, ROBOT_Z, 0.36, TRANSFER_PED, 0.36)),
+      ...[ROBOT_X1, ROBOT_X2].filter(px => Math.abs(px - x) > 0.5).map(px => obstacleBox('pedestal do outro transfer', px - ARM_DX, TRANSFER_PED / 2, ROBOT_Z, 0.36, TRANSFER_PED, 0.36)),
     ],
     addNeed: n => { if (n > 0) { r.need += n; w.palletDemand += n; } },
     pickSt: null!, gateSt: null!, placeSt: null!,
@@ -91,7 +92,7 @@ export function createTransfer(w: World, x: number, phi: { home: number; wrapPos
     giveToLast(w, it, tvCount(it)); // not for robot 1: the whole jig goes straight on to robot 2
     return false;
   }, it => { r.job = it; if (!isLastR(w, r)) r.addNeed(modeOf(w, it) === 'B' ? tvCount(it) : 1); });
-  // interlock: while the hook is still behind the TV plane, the next pallet waits one slot before the dock
+  // interlock: while the plate is still at the TV just placed, the next pallet waits one slot before the dock
   r.gateSt = station(test, test.track.sAtX(0, x) - (PAL_W + ITEM_GAP) + 0.02, it => !!r.zoneBusy && it !== r.leaving, () => {});
   r.placeSt = station(test, test.track.sAtX(0, x), it => {
     if (r.enabled && it.released && !it.tvs.length && r.need > 0 && !r.pallet) { r.pallet = it; return true; }
@@ -100,29 +101,6 @@ export function createTransfer(w: World, x: number, phi: { home: number; wrapPos
   return r;
 }
 
-/**
- * Via point of every swing: arm pointing downstream, flange high and 0.8 m out, tool horizontal — a TV in the hook
- * stays lying flat and away from the robot's own body while the base turns.
- */
-const viaPose = (r: Transfer): Pose => [0, 0.6, 2.45 - r.arm.shoulderY, H, 1.5 * Math.PI];
-
-// ---------- joint moves (MoveJ), elbow up ----------
-// The big moves run in joint space, like a real robot's MoveJ, always in the ELBOW-UP posture: the arm stays above the
-// TV it carries and away from its own pedestal. Only the short approaches (down to the TV, into the pallet, back off)
-// are straight-line moves (MoveL), which keep the posture they start from.
-
-/**
- * The equivalent of joint angle q1 nearest q0, within the UR joint range: ±360° for every joint, ±180° for the elbow
- * (it cannot turn through itself).
- */
-const wrapTo = (q0: number, q1: number, i = 0) => {
-  if (i === 2) return Math.atan2(Math.sin(q1), Math.cos(q1));
-  let q = q0 + Math.atan2(Math.sin(q1 - q0), Math.cos(q1 - q0));
-  if (q > 2 * Math.PI) q -= 2 * Math.PI;
-  if (q < -2 * Math.PI) q += 2 * Math.PI;
-  return q;
-};
-const elbowY = (r: Transfer, q: number[]) => urFK(r.arm.ur!, q, 3).elements[13];
 function setJoints(r: Transfer, q: number[]) {
   const ur = r.arm.ur!;
   ur.q = q.slice();
@@ -133,15 +111,18 @@ function setJoints(r: Transfer, q: number[]) {
  * Clearance of the robot with itself in joints `q`: its arm (from the upper arm on) and its pedestal against the TV
  * it carries, and the arm against its own pedestal. (Everything else is checked by the cell's collision bench.)
  */
+let clearWhat = '';
 function selfClearance(r: Transfer, q: number[]): number {
   setJoints(r, q);
   const caps = linkCapsules(r.arm, 0.015), b = r.arm.root.position;
   const ped: Obstacle = obstacleBox('pedestal', b.x, TRANSFER_PED / 2, b.z, 0.36, TRANSFER_PED, 0.36);
   let min = Infinity;
-  for (const c of caps) if (c.link >= 2) min = Math.min(min, capsuleBoxGap(c, ped));
+  const mn = (v: number, what: string) => { if (v < min) { min = v; clearWhat = what; } };
+  for (const c of caps) if (c.link >= 2) mn(capsuleBoxGap(c, ped), `elo ${c.link} × pedestal`);
   // the fixed things around: both belts (up to the roller top) and the jig foam at this robot's pick stop; the arm
   // and the gripper must clear them (the cups only touch the TV)
   // the TVs lying on the jig at this robot's stop (the cups touch the one being picked; the bracket and bars may not)
+  const plateSlab = obstacleBox('TVs no gabarito', b.x, (TOP + JIG_TOP + PICK_Y) / 2, Z_ASM, JIG_L, PICK_Y - TOP - JIG_TOP - 0.003, JIG_W);
   const tvSlab = obstacleBox('TVs no gabarito', b.x, TOP + JIG_TOP + (TV_T + 0.045) / 2, Z_ASM, JIG_L, TV_T + 0.045, JIG_W);
   const env: Obstacle[] = [
     obstacleBox('esteira de montagem', b.x, TOP / 2, Z_ASM, 2.4, TOP, BELT_ASM + 0.08),
@@ -152,93 +133,73 @@ function selfClearance(r: Transfer, q: number[]): number {
   const m = r.arm.mount;
   m.updateWorldMatrix(true, false);
   const W = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z).applyMatrix4(m.matrixWorld);
-  const grip = [{ a: W(0, -0.04, 0), b: W(0, -HOOK_D + 0.02, 0), r: 0.05 }, { a: W(-0.28, -HOOK_D, 0.035), b: W(0.28, -HOOK_D, 0.035), r: 0.04 },
-    ...[-0.25, 0.25].map(sx => ({ a: W(sx, -HOOK_D - 0.14, 0.035), b: W(sx, -HOOK_D + 0.14, 0.035), r: 0.035 }))];
+  const grip = gripperCaps().map(c => ({ a: W(...c.a), b: W(...c.b), r: c.r + 0.005 }));
   for (const o of env) {
-    for (const c of caps) if (c.link >= 2) min = Math.min(min, capsuleBoxGap(c, o));
-    for (const g of grip) min = Math.min(min, capsuleBoxGap(g, o));
+    for (const c of caps) if (c.link >= 2) mn(capsuleBoxGap(c, o), `elo ${c.link} × ${o.name}`);
+    for (const g of grip) mn(capsuleBoxGap(g, o), `garra × ${o.name}`);
   }
-  for (const g of grip) min = Math.min(min, capsuleBoxGap(g, ped), capsuleBoxGap(g, tvSlab));
-  // the cup stems: not against the TVs (the cups sit on one), against everything else
-  for (const sx of [-0.25, 0.25]) for (const sy of [-0.12, 0.12]) {
-    const s = { a: W(sx, -HOOK_D + sy, 0.05), b: W(sx, -HOOK_D + sy, CUP_Z - 0.03), r: 0.025 };
-    for (const o of [...env, ped]) min = Math.min(min, capsuleBoxGap(s, o));
+  // the gripper against the pedestal; against the TVs on the jig only the stem (the plate sits on the one it picks)
+  for (const g of grip) mn(capsuleBoxGap(g, ped), 'garra × pedestal');
+  mn(capsuleBoxGap(grip[0], plateSlab), 'haste da garra × TVs no gabarito');
+  // the plate over the TVs: it rests on the one it picks (2 cm of credit for that), but sweeps over none
+  for (const g of grip.slice(1)) mn(capsuleBoxGap(g, plateSlab) + 0.02, 'placa × TVs no gabarito');
+  for (const c of caps) if (c.link >= 2) mn(capsuleBoxGap(c, plateSlab), `elo ${c.link} × TVs no gabarito`);
+  // the test pallets around (with their TVs), except the one the carried TV is going into
+  for (const o of [...dyn, ...dock]) {
+    for (const c of caps) if (c.link >= 2) mn(capsuleBoxGap(c, o), `elo ${c.link} × pallet`);
+    for (const g of grip) mn(capsuleBoxGap(g, o), 'garra × pallet');
   }
-  for (const c of caps) if (c.link >= 2) min = Math.min(min, capsuleBoxGap(c, tvSlab));
+  // the arm against itself (links that are not neighbours) and the whole gripper against the base, shoulder and upper
+  // arm: the same parts as the collision bench
+  const segs = robotSegs(r, 0);
+  for (const s of segs) for (const t of segs) if (t.link - s.link >= 3 && (t.link < 7 || s.link <= 2)) mn(capsuleGap(s, t) - 0.005, `próprio braço: ${s.name.split('· ')[1]} × ${t.name.split('· ')[1]}`);
   const tv = r.carried;
   if (tv) {
     tv.obj.updateWorldMatrix(true, false);
     const [w, d] = SIZES[tv.inch];
     const o: Obstacle = { name: 'TV', box: new THREE.Box3(new THREE.Vector3(-w / 2, -TV_T / 2 - 0.045, -d / 2), new THREE.Vector3(w / 2, TV_T / 2, d / 2)), inv: tv.obj.matrixWorld.clone().invert() };
-    for (const c of caps) if (c.link <= 5) min = Math.min(min, capsuleBoxGap(c, o));
-    // the TV against the pedestal, the lift units and the other pedestal: its corners and edges
+    for (const c of caps) if (c.link <= 5) mn(capsuleBoxGap(c, o), `elo ${c.link} × TV carregada`);
+    // the TV against the pedestal, the belts, the lift units, the other pedestal, the test pallets and (once it is off
+    // them) the TVs still on the jig: its corners and edges
+    const offJig = tv.obj.getWorldPosition(new THREE.Vector3()).y > tvSlab.box.max.y + 0.12;
+    const corners = [ped, env[0], env[1], ...r.env, ...dyn, ...(offJig ? [tvSlab] : [])];
     const box = o.box, M = tv.obj.matrixWorld, p = new THREE.Vector3();
     for (let i = 0; i <= 4; i++) for (let k = 0; k <= 4; k++) for (const y of [box.min.y, box.max.y]) {
       p.set(box.min.x + (box.max.x - box.min.x) * i / 4, y, box.min.z + (box.max.z - box.min.z) * k / 4).applyMatrix4(M);
-      for (const e of [ped, ...r.env]) min = Math.min(min, e.box.containsPoint(p) ? -0.01 : e.box.distanceToPoint(p));
+      for (const e of corners) mn(e.box.containsPoint(p) ? -0.01 : e.box.distanceToPoint(p), `TV carregada × ${e.name}`);
     }
   }
   return min;
 }
 
+// (the taught program is checked without the test pallets: they move; the bench checks them every step)
+const dyn: Obstacle[] = [], dock: Obstacle[] = [];
+
 /** Smallest self-clearance along the straight joint path q0 → q1 (and at q1). */
+let worstWhat = '';
 function pathClearance(r: Transfer, q0: number[], q1: number[]) {
   let min = Infinity;
-  for (let k = 1; k <= 10; k++) { const u = k / 10; min = Math.min(min, selfClearance(r, q0.map((v, i) => v + (q1[i] - v) * u))); }
+  // a sample every ~3° of the joint that moves most (a long base turn sweeps the TV a long way)
+  const n = Math.max(8, Math.ceil(Math.max(...q0.map((v, i) => Math.abs(q1[i] - v))) / 0.05));
+  for (let k = 1; k <= n; k++) {
+    const u = k / n, c = selfClearance(r, q0.map((v, i) => v + (q1[i] - v) * u));
+    if (c < min) { min = c; worstWhat = clearWhat; }
+  }
   return min;
 }
 
-/**
- * Joints for `pose`: among the IK solutions (many seeds), the one whose joint path from here keeps the arm, the TV it
- * carries and the pedestal apart, preferring the elbow up and the shortest move.
- */
-const planCache = new Map<string, number[]>();
-function ikElbowUp(r: Transfer, pose: Pose): number[] {
-  const ur = r.arm.ur!, cur = ur.q.slice(), sh = r.arm.shoulderY;
-  // the cycle repeats: the same move from the same joints is planned once
-  const key = [r.x, r.carried?.inch ?? 0, ...pose.map(v => v.toFixed(3)), ...cur.map(v => v.toFixed(2))].join();
-  const hit = planCache.get(key);
-  if (hit) return hit.slice();
-  const q = planIk(r, pose, cur, sh);
-  if (planCache.size > 4000) planCache.clear();
-  planCache.set(key, q);
-  return q.slice();
-}
+// ---------- the taught program ----------
+// Like a real robot cell, each transfer runs a fixed program per TV size: the same joint positions every cycle, all in
+// one posture (shoulder toward the work, elbow and wrist 2 on the positive side), checked for clearance once when it
+// is taught. Pick: over the TV, down, lift. Swing: the base alone turns to the test side, then the wrist stands the
+// TV up over its seat. Place: down into the groove, release, back off, up over the TVs. Return: the base turns back
+// the same way, the arm settles over the jig.
 
-function planIk(r: Transfer, pose: Pose, cur: number[], sh: number): number[] {
-  const ur = r.arm.ur!;
-  // the posture it is in already, when it reaches the pose with the elbow up and a clear path
-  ur.q = cur.slice();
-  if (urTrack(r.arm, pose, 140) < 0.004) {
-    const q = ur.q.map((v, i) => wrapTo(cur[i], v, i));
-    if (elbowY(r, q) - sh > 0.1 && pathClearance(r, cur, q) > 0.03) { setJoints(r, cur); return q; }
-  }
-  const seeds = [cur];
-  for (const q0 of [cur[0], cur[0] + Math.PI / 2, cur[0] - Math.PI / 2]) for (const q1 of [-0.9, -1.6, -2.3]) for (const q2 of [-2.2, -1.2, 1.2, 2.2]) for (const q3 of [-2.2, -0.8, 0.8]) for (const q4 of [-1.57, 1.57]) {
-    seeds.push([q0, q1, q2, q3, q4, cur[5]]);
-  }
-  const cands: { score: number; q: number[] }[] = [];
-  for (const s of seeds) {
-    ur.q = s.slice();
-    let err = urTrack(r.arm, pose, 60);
-    if (err > 0.02) continue;
-    err = urTrack(r.arm, pose, 80);
-    if (err > 0.004) continue;
-    const q = ur.q.map((v, i) => wrapTo(cur[i], v, i)), up = elbowY(r, q) - sh;
-    if (cands.some(c => c.q.every((v, i) => Math.abs(v - q[i]) < 0.05))) continue; // same solution
-    const dist = q.reduce((a, v, i) => a + Math.abs(v - cur[i]) * (i < 3 ? 1 : 0.5), 0);
-    cands.push({ score: (up < 0.05 ? 2 : 0) - Math.min(up, 0.5) + 0.12 * dist, q });
-  }
-  cands.sort((a, b) => a.score - b.score);
-  let best: { score: number; q: number[] } | null = null;
-  for (const c of cands.slice(0, 12)) {
-    const clear = pathClearance(r, cur, c.q);
-    const score = c.score + (clear < 0.02 ? 50 + (0.02 - clear) * 100 : 0);
-    if (!best || score < best.score) best = { score, q: c.q };
-  }
-  setJoints(r, cur);
-  return (best ?? { q: cur }).q;
-}
+/**
+ * The one posture family of the whole cycle (the arm never flips between configurations): shoulder toward the work
+ * (the upper arm not thrown back over the base), elbow joint positive; the wrist kept as it was from point to point.
+ */
+const inFamily = (q: number[]) => q[2] >= 0.12 && q[1] < 0.4 && q[1] > -Math.PI + 0.15;
 
 /** Joint move time: big joints ~115°/s, wrist ~170°/s with the TV on the flange (UR30: 120°/s and 210°/s), plus settling. */
 const jointDur = (a: number[], b: number[]) => {
@@ -247,54 +208,128 @@ const jointDur = (a: number[], b: number[]) => {
   return 0.2 + Math.max(big / 2.0, small / 3.0);
 };
 
-/** The same posture with every joint inside its range (the Cartesian moves can wind the joints past it). */
-const normJoints = (q: number[]) => q.map((v, i) => wrapTo(0, v, i));
-
-/**
- * Joint path to `pose`: straight in joint space when that is clear; otherwise through one intermediate posture (the
- * high via point, the arm raised where it is, or the wrist turned first), the one that keeps the most clearance.
- */
-const pathCache = new Map<string, number[][]>();
-function planPath(r: Transfer, pose: Pose): number[][] {
-  const q0 = r.arm.ur!.q.slice();
-  const key = [r.x, r.carried?.inch ?? 0, ...pose.map(v => v.toFixed(3)), ...q0.map(v => v.toFixed(2))].join();
-  const hit = pathCache.get(key);
-  if (hit) return hit.map(q => q.slice());
-  const q1 = ikElbowUp(r, pose);
-  let best = { clear: pathClearance(r, q0, q1), path: [q1] };
-  if (best.clear < 0.02) {
-    setJoints(r, q0);
-    const mids = [ikElbowUp(r, viaPose(r)), [q0[0], -1.75, 1.9, q0[3], q0[4], q0[5]], [q0[0], q0[1], q0[2], q1[3], q1[4], q1[5]],
-      [(q0[0] + q1[0]) / 2, -1.75, 1.9, (q0[3] + q1[3]) / 2, q0[4], q0[5]]];
-    for (const m of mids) {
-      const c = Math.min(pathClearance(r, q0, m), pathClearance(r, m, q1));
-      if (c > best.clear) best = { clear: c, path: [m, q1] };
-    }
-  }
-  setJoints(r, q0);
-  if (pathCache.size > 4000) pathCache.clear();
-  pathCache.set(key, best.path);
-  return best.path.map(q => q.slice());
+/** The arm faces the work: seen from above, the elbow is on the flange's side of the shoulder (no reaching back over
+ *  the top with the base turned the other way). */
+const _fs = new THREE.Vector3(), _fe = new THREE.Vector3(), _ff = new THREE.Vector3();
+function facing(r: Transfer, q: number[]) {
+  const ur = r.arm.ur!;
+  _fs.setFromMatrixPosition(urFK(ur, q, 2)); _fe.setFromMatrixPosition(urFK(ur, q, 3)); _ff.setFromMatrixPosition(urFK(ur, q, 6));
+  // (a little lean back is fine: the work close to the base)
+  const reach = Math.hypot(_ff.x - _fs.x, _ff.z - _fs.z);
+  return (_fe.x - _fs.x) * (_ff.x - _fs.x) + (_fe.z - _fs.z) * (_ff.z - _fs.z) > -0.15 * reach;
 }
 
-/**
- * MoveJ through `poseFns()` in turn (steps for the sequencer): each leg planned from where the previous one ends, and
- * the legs blended into one move, like the blend radius of a UR program: the arm does not stop at the via points (the
- * joint path is the same polyline that was checked for clearance).
- */
-const moveJ = (r: Transfer, poseFns: (() => Pose) | (() => Pose)[], ready = false): Step[] => [
-  { fn: () => {
-    const q0 = normJoints(r.arm.ur!.q), pts = [q0];
-    setJoints(r, q0);
-    let pose: Pose = r.pose;
-    for (const f of Array.isArray(poseFns) ? poseFns : [poseFns]) {
-      pose = f();
-      for (const q of planPath(r, pose)) { pts.push(q); setJoints(r, q); }
+const angDiff = (a: number, b: number) => Math.atan2(Math.sin(b - a), Math.cos(b - a));
+/** `q` with every joint but the base moved to the equivalent nearest `ref` (the base is set by the program). */
+const near = (ref: number[], q: number[]) => q.map((v, i) => (i === 0 ? v : ref[i] + angDiff(ref[i], v)));
+
+interface Key { q: number[]; pose: Pose }
+interface Program {
+  /** Back over the jig, high (the return ends here; the next pick goes down from it). */
+  home: Key;
+  /** Per TV slot on the jig: over it, at it, lifted with it; and the base turn from there to the test side. */
+  above: Key[]; pick: Key[]; lift: Key[]; turn: number[];
+  /** Per slot (the grip point differs): over the seat, in the seat, backed off, up over the TVs. */
+  over: Key[]; seat: Key[]; back: Key[]; up: Key[];
+}
+const programs = new Map<string, Program>();
+
+/** Joints for `pose` in the posture family, nearest `ref` (or with the most clearance, without one). */
+function teach(r: Transfer, pose: Pose, ref: number[] | null): number[] {
+  const ur = r.arm.ur!;
+  let best: { score: number; q: number[] } | null = null;
+  const seeds: number[][] = ref ? [ref] : [];
+  for (const q0 of [-0.9, -0.4, 0.1].map(o => pose[0] + o)) for (const q1 of [-0.2, -0.7, -1.3, -1.9]) for (const q2 of [0.5, 1.2, 2.0, 2.6]) for (const q3 of [-2.0, -0.6, 0.8]) for (const q4 of [0.9, 1.6]) seeds.push([q0, q1, q2, q3, q4, ref ? ref[5] : 0]);
+  let minErr = Infinity, outFam: number[] | null = null;
+  const outAll: number[][] = [];
+  for (const s of seeds) {
+    ur.q = s.slice();
+    const e0 = urTrack(r.arm, pose, 60);
+    minErr = Math.min(minErr, e0);
+    if (e0 > 0.02 || urTrack(r.arm, pose, 100) > 0.003) continue;
+    let q = ur.q.map(v => Math.atan2(Math.sin(v), Math.cos(v)));
+    if (!inFamily(q) || !facing(r, q)) { if (!outAll.some(o => o.every((v, i) => Math.abs(v - q[i]) < 0.05))) outAll.push(q); outFam = q; continue; }
+    if (ref) q = near(ref, q);
+    const clear = selfClearance(r, q);
+    const dist = ref ? q.reduce((a, v, i) => a + (i === 0 ? 0 : Math.abs(v - ref[i])), 0) : 0;
+    const score = (clear < 0.02 ? 100 - clear * 100 : 0) + dist - (ref ? 0 : Math.min(clear, 0.2) * 10);
+    if (!best || score < best.score) best = { score, q };
+  }
+  if (!best) { console.warn(`transfer: sem postura para a pose ${pose.map(v => v.toFixed(2)).join(' ')} (erro mín. ${minErr.toFixed(3)}, fora da família: ${outAll.map(o => '[' + o.map(v => v.toFixed(2)).join(' ') + ']').join(' ')})`); void outFam; return ref ?? ur.q.slice(); }
+  return best.q;
+}
+
+/** The program for this robot and TV size (taught once, then reused). */
+function programOf(r: Transfer, inch: Inch): Program {
+  const id = `${r.x}:${inch}`;
+  const hit = programs.get(id);
+  if (hit) return hit;
+  const ur = r.arm.ur!, keep = ur.q.slice(), carried = r.carried;
+  r.carried = null;
+  const key = (pose: Pose, ref: number[] | null): Key => ({ q: teach(r, pose, ref), pose });
+  // a stand-in for the TV in the cups, so the points taught with a TV in hand keep it clear of the arm
+  const fake = { obj: new THREE.Group(), inch, screen: null as unknown as THREE.Mesh };
+  const scene = r.arm.root.parent!;
+  scene.add(fake.obj);
+  const grab = (k: number, q: number[]) => {
+    setJoints(r, q);
+    r.arm.mount.updateWorldMatrix(true, false);
+    scene.attach(fake.obj);
+    fake.obj.position.set(r.x, TOP + JIG_TOP + TV_T / 2, Z_ASM + slotZ(inch, k));
+    fake.obj.rotation.set(Math.PI, 0, 0);
+    fake.obj.updateMatrixWorld();
+    r.arm.mount.attach(fake.obj);
+    r.carried = fake;
+  };
+  const above: Key[] = [], pick: Key[] = [], lift: Key[] = [], turn: number[] = [];
+  const over: Key[] = [], seat: Key[] = [], back: Key[] = [], up: Key[] = [];
+  for (let k = 0; k < (inch <= 43 ? 2 : 1); k++) {
+    r.carried = null;
+    above.push(key(pickPose(r, inch, k, 0.2), k ? above[0].q : null));
+    pick.push(key(pickPose(r, inch, k, 0), above[k].q));
+    grab(k, pick[k].q);
+    lift.push(key(pickPose(r, inch, k, 0.4), pick[k].q));
+    over.push(key(placePose(r, inch, k, PLACE_ABOVE, 0), k ? over[0].q : lift[k].q));
+    seat.push(key(placePose(r, inch, k, 0, 0), over[k].q));
+    // the base turn: through the downstream side (the pallets queued for the dock wait upstream; the ones that left
+    // are on their way), unless only the other way is clear
+    const d = angDiff(lift[k].q[0], over[k].q[0]);
+    let best: { score: number; turn: number } | null = null;
+    for (const tt of [d, d > 0 ? d - 2 * Math.PI : d + 2 * Math.PI]) {
+      const mid = [lift[k].q[0] + tt, ...lift[k].q.slice(1)], end = [lift[k].q[0] + tt, ...near(mid, over[k].q).slice(1)];
+      const clear = Math.min(pathClearance(r, lift[k].q, mid), pathClearance(r, mid, end));
+      setJoints(r, [lift[k].q[0] + tt / 2, ...lift[k].q.slice(1)]);
+      const downstream = r.arm.mount.getWorldPosition(new THREE.Vector3()).x > r.arm.root.position.x;
+      const score = (clear < 0.02 ? 100 - clear * 100 : 0) + (downstream ? 0 : 5) + 0.1 * Math.abs(tt);
+      if (!best || score < best.score) best = { score, turn: tt };
     }
-    setJoints(r, q0);
-    const legs = pts.slice(1).map((q, i) => jointDur(pts[i], q) - 0.2);
-    r.jm = { pts, legs, t: 0, dur: 0.2 + legs.reduce((a, b) => a + b, 0) };
-    r.pose = pose.slice();
+    turn.push(best!.turn);
+    r.carried = null;
+    back.push(key(placePose(r, inch, k, 0, -0.15), seat[k].q));
+    // out of the test belt toward the robot and up: the turn back then passes over neither the TVs on the test belt nor
+    // those on the jig
+    up.push(key(placePose(r, inch, k, 0.35, -0.45), back[k].q));
+  }
+  scene.attach(fake.obj);
+  fake.obj.parent?.remove(fake.obj);  r.carried = carried;
+  setJoints(r, keep);
+  const home = key(pickPose(r, inch, 0, 0.45), above[0].q);
+  const p: Program = { home, above, pick, lift, turn, over, seat, back, up };
+  programs.set(id, p);
+  return p;
+}
+/** Joint move through `pts` (the first is where the arm is); `dur` overrides the time of a single leg. */
+function startJm(r: Transfer, pts: number[][], pose: Pose, dur?: number) {
+  const legs = pts.slice(1).map((q, i) => (dur != null && pts.length === 2 ? dur : jointDur(pts[i], q) - 0.2));
+  r.jm = { pts, legs, t: 0, dur: (dur != null && pts.length === 2 ? 0 : 0.2) + legs.reduce((a, c) => a + c, 0) };
+  r.pose = pose.slice();
+}
+/** Swing: the base alone turns by `turn`, then the arm settles into the taught point `k`. */
+const swing = (r: Transfer, k: () => Key, turn: () => number, ready = false): Step[] => [
+  { fn: () => {
+    const q0 = r.arm.ur!.q.slice(), b = q0[0] + turn(), mid = [b, ...q0.slice(1)], end = near(mid, k().q);
+    end[0] = b;
+    startJm(r, [q0, mid, end], k().pose);
   }, ready },
   { until: () => !r.jm, ready },
 ];
@@ -314,41 +349,30 @@ function driveArm(r: Transfer, dt: number, iters: number) {
 }
 
 /**
- * Pick: TV lies screen-down on the jig. Tool horizontal (tilt 90°, yaw 180°): the cups hang CUP_Z below the flange
- * and sit D beyond it, on the back cover, GRIP from the TV edge nearest the robot (that edge becomes the top).
- * A 32"/43" pair lies across the jig: the robots take the near TV first, then the far one over the empty seat.
+ * Pick: TV lies screen-down on the jig. Tool pointing down (yaw 180°: the plate's +z toward the robot), the cups on the
+ * back cover GRIP from the TV edge nearest the robot. A 32"/43" pair lies across the jig: the robots take the near TV
+ * first, then the far one over the empty seat.
  */
 function pickPose(r: Transfer, inch: Inch, k: number, dy: number): Pose {
   const d = SIZES[inch][1];
-  const p = poseAt(r.arm, r.x, Z_ASM + slotZ(inch, k) - (d / 2 - gripOf(inch)) - r.D, PICK_Y + CUP_Z + dy);
-  return [r.wrap(p[0]), p[1], p[2], H, Math.PI];
-}
-
-/** Place: TV upright in the pallet, screen toward the robots (+z). Tool pointing down behind the TV. */
-function placePose(r: Transfer, inch: Inch, dy: number, dz: number): Pose {
-  const d = SIZES[inch][1], cupY = TOP + SEAT_Y + d - gripOf(inch);
-  const p = poseAt(r.arm, r.x, Z_PAL - TV_BACK - CUP_Z + dz, cupY + r.D + dy);
-  // The tool must end facing the same world direction (yaw 0 ≡ 2π). Pick the equivalent that keeps the
-  // tool's yaw relative to the arm what it was at the pick, so the base swing does the turning and the
-  // wrist does not add a full 360° spin.
-  const relPick = Math.PI - pickPose(r, 50, 0, 0)[0];
-  const yaw = [0, 2 * Math.PI, -2 * Math.PI].reduce((best, y) => (Math.abs(y - p[0] - relPick) < Math.abs(best - p[0] - relPick) ? y : best));
-  return [p[0], p[1], p[2], 0, yaw];
+  const p = poseAt(r.arm, r.x, Z_ASM + slotZ(inch, k) - (d / 2 - gripOf(inch, k)), PICK_Y + VAC_L + dy);
+  return [r.wrap(p[0]), p[1], p[2], 0, Math.PI];
 }
 
 /**
- * Carry: on the test side, the TV still lying flat (tool horizontal, pointing away from the robot), its cups right
- * over the place where they will be with the TV upright, PLACE_ABOVE + 0.1 higher. From here the TV is stood up by
- * turning the tool about the cup row: its far part swings down, away from the robot.
+ * Place: TV upright in the pallet, screen toward the aisle, back toward the robot. Tool horizontal pointing away from
+ * the robot (tilt 90°): the wrist has turned the TV up by 90° on the way, its near edge (at the pick) now at the bottom,
+ * GRIP below the cups. dz backs the plate off toward the robot.
  */
-function carryPose(r: Transfer, inch: Inch): Pose {
-  const d = SIZES[inch][1], cupY = TOP + SEAT_Y + d - gripOf(inch);
-  const p = poseAt(r.arm, r.x, Z_PAL - TV_BACK + r.D, cupY + PLACE_ABOVE + 0.1 + CUP_Z);
+function placePose(r: Transfer, inch: Inch, k: number, dy: number, dz: number): Pose {
+  const cupY = TOP + SEAT_Y + gripOf(inch, k);
+  const p = poseAt(r.arm, r.x, Z_PAL + TV_BACK + VAC_L - dz, cupY + dy);
   return [p[0], p[1], p[2], H, 0];
 }
 
+
 /** Wait hovering over the pick point, not at a far home. */
-export const readyPose = (w: World, r: Transfer) => pickPose(r, w.params.inch, 0, 0.25);
+export const readyPose = (w: World, r: Transfer) => pickPose(r, w.params.inch, 0, 0.2); // = over the first TV: no extra move
 
 /**
  * Move time from joint distance — collaborative speeds with up to ~30 kg on the flange (all axes move together,
@@ -358,48 +382,46 @@ export const moveDur = (a: Pose, b: Pose) =>
   0.3 + Math.max(Math.abs(b[0] - a[0]) * 0.55, Math.abs(b[1] - a[1]) * 1.0, Math.abs(b[2] - a[2]) * 1.0, Math.abs((b[3] || 0) - (a[3] || 0)) * 0.45, Math.abs((b[4] || 0) - (a[4] || 0)) * 0.3);
 
 function startJob(w: World, r: Transfer) {
-  const jig = r.job!, inch = jig.inch, k = jig.tvs.findIndex(Boolean), d = SIZES[inch][1];
-  r.seq.length = 0; // drop a pending move to the ready pose (one under way is finished: it was planned clear)
+  const jig = r.job!, inch = jig.inch, k = jig.tvs.findIndex(Boolean), d = SIZES[inch][1], P = programOf(r, inch);
+  let base0 = 0;
+  r.seq.length = 0; // drop a pending move to the ready pose (one under way is finished first)
   r.state = 'pick';
   r.seq.push(
     { until: () => !r.jm },
-    // over the TV, then down to it (planned too: the wrist must clear the jig at the pick)
-    ...moveJ(r, () => pickPose(r, inch, k, 0.2)), ...moveJ(r, () => pickPose(r, inch, k, 0)), { dur: 0.3 },
+    // over the TV, down onto it, lift it
+    // (the short approaches are straight-line moves, MoveL; the big ones joint moves)
+    { toFn: () => P.above[k].pose, dur: 0.6 }, { toFn: () => P.pick[k].pose, dur: 0.5 }, { dur: 0.3 },
     { fn: () => { const tv = jig.tvs[k]!; r.arm.mount.attach(tv.obj); r.carried = tv; jig.tvs[k] = null; } },
-    { toFn: () => pickPose(r, inch, k, 0.4), dur: 0.6 },
+    { toFn: () => P.lift[k].pose, dur: 0.6 },
     { fn: () => {
       if (!hasTV(jig)) { jig.ledMat.emissive.setHex(0x000000); jig.hold = null; r.job = null; }
       else if (!isLastR(w, r) && modeOf(w, jig) !== 'B') { giveToLast(w, jig, tvCount(jig)); jig.hold = null; r.job = null; } // the other TV goes on to robot 2
       r.state = 'waitPallet';
     } },
     { until: () => !!r.pallet && r.pallet.hold === r.placeSt },
-    { fn: () => { r.state = 'place'; } },
-    // one blended move: downstream and high with the TV lying flat and away from the robot; to the test side, still
-    // flat, cups over their place; stood up right above its seat (never toward the pedestal)
-    ...moveJ(r, [() => viaPose(r), () => carryPose(r, inch), () => placePose(r, inch, PLACE_ABOVE, 0)]),
-    { toFn: () => placePose(r, inch, 0, 0), dur: 0.8 }, { dur: 0.3 }, // straight down into the groove, between the side guides
+    { fn: () => { r.state = 'place'; base0 = r.arm.ur!.q[0]; } },
+    // the base turns to the test side with the TV lying flat, the wrist stands it up over its seat; straight down
+    ...swing(r, () => P.over[k], () => P.turn[k]),
+    { toFn: () => P.seat[k].pose, dur: 0.8 }, { dur: 0.3 },
     { fn: () => {
       const tv = r.carried!, pal = r.pallet!;
       pal.obj.attach(tv.obj);
-      tv.obj.position.set(0, SEAT_Y + d / 2, 0);
-      tv.obj.rotation.set(-Math.PI / 2, 0, Math.PI);
+      tv.obj.position.set(0, SEAT_Y + d / 2, 0); // seated (its turn is the one the gripper gave it)
       pal.tvs.push(tv);
       r.carried = null;
       tvPower(tv, 'swoosh');
       w.stats.moved++;
       r.count++;
-      // the pallet leaves at once and carries the TV away from the hook; nothing else may enter the dock meanwhile
+      // the pallet leaves at once; nothing else enters the dock until the plate has backed off
       r.leaving = pal; r.zoneBusy = true; pal.hold = null; r.pallet = null; r.need--;
     } },
-    { toFn: () => placePose(r, inch, 0, -0.1), dur: 0.3 }, // cups back off the TV
-    { until: () => !w.test.items.includes(r.leaving!) || r.leaving!.obj.position.x - SIZES[inch][0] / 2 > r.x + 0.35 },
-    { fn: () => { r.state = 'return'; } },
-    ...moveJ(r, () => viaPose(r)), // hook back to the front, now that the TV has gone
-    { fn: () => { r.zoneBusy = false; r.leaving = null; r.state = 'idle'; } },
-    ...moveJ(r, () => readyPose(w, r), true),
+    { toFn: () => P.back[k].pose, dur: 0.3 }, // the plate backs off the TV, toward the robot
+    { fn: () => { r.leaving = null; r.zoneBusy = false; r.state = 'idle'; } },
+    { toFn: () => P.up[k].pose, dur: 0.6, ready: true }, // out of the test belt and up
+    // back the same way round, over the jig
+    ...swing(r, () => P.home, () => base0 + angDiff(P.lift[k].q[0], P.home.q[0]) - r.arm.ur!.q[0], true),
   );
 }
-
 /** Height of the TV over its seat before it goes straight down into the pallet. */
 const PLACE_ABOVE = 0.3;
 
@@ -441,9 +463,63 @@ export function dispatchPallets(w: World) {
   }
 }
 
-/** Put a robot back to its waiting pose with nothing in hand (line restart). */
+/** Put a robot back to its waiting pose with nothing in hand (line restart): straight into the taught posture. */
 export function resetTransfer(w: World, r: Transfer) {
   if (r.carried) { r.carried.obj.parent?.remove(r.carried.obj); r.carried = null; }
   Object.assign(r, { seq: [], state: 'idle', job: null, pallet: null, need: 0, leaving: null, zoneBusy: false, jm: null });
-  r.seq.push(...moveJ(r, () => (r.enabled ? readyPose(w, r) : r.home), true));
+  if (!r.arm.ur) return;
+  const k = r.enabled ? programOf(r, w.params.inch).home : { q: teach(r, r.home, null), pose: r.home };
+  setJoints(r, k.q);
+  r.pose = k.pose.slice();
+}
+/**
+ * Clearance of every leg of the taught program (with a stand-in TV on the legs that carry one), robot by robot and
+ * slot by slot: the smallest gap along each leg and between what. For the bench and the tests.
+ */
+export function programReport(w: World): string[] {
+  const t0 = performance.now(), out: string[] = [];
+  const inch = w.params.inch;
+  w.robots.forEach((r, ri) => {
+    const P = programOf(r, inch), ur = r.arm.ur!, keep = ur.q.slice(), carried = r.carried;
+    const scene = r.arm.root.parent!, fake = { obj: new THREE.Group(), inch, screen: null as unknown as THREE.Mesh };
+    scene.add(fake.obj);
+    const leg = (name: string, a: number[], b: number[]) => out.push(`T${ri + 1} ${name}: ${(pathClearance(r, a, b) * 1000).toFixed(0)} mm — ${worstWhat}`);
+    P.lift.forEach((_, k) => {
+      const s = `[TV ${k + 1}]`;
+      r.carried = null;
+      if (k) leg(`${s} espera → sobre a TV`, P.above[0].q, near(P.above[0].q, P.above[k].q));
+      leg(`${s} sobre → pega`, P.above[k].q, P.pick[k].q);
+      setJoints(r, P.pick[k].q);
+      r.arm.mount.updateWorldMatrix(true, false);
+      scene.attach(fake.obj);
+      fake.obj.position.set(r.x, TOP + JIG_TOP + TV_T / 2, Z_ASM + slotZ(inch, k));
+      fake.obj.rotation.set(Math.PI, 0, 0);
+      fake.obj.updateMatrixWorld();
+      r.arm.mount.attach(fake.obj);
+      r.carried = fake;
+      leg(`${s} pega → sobe (com TV)`, P.pick[k].q, P.lift[k].q);
+      const b = P.lift[k].q[0] + P.turn[k], mid = [b, ...P.lift[k].q.slice(1)], over = [b, ...near(mid, P.over[k].q).slice(1)];
+      leg(`${s} giro da base (com TV)`, P.lift[k].q, mid);
+      leg(`${s} punho põe de pé (com TV)`, mid, over);
+      const seat = [b, ...near(over, P.seat[k].q).slice(1)];
+      leg(`${s} desce no suporte (com TV)`, over, seat);
+      leg(`${s} ponto: no suporte (com TV)`, seat, seat);
+      leg(`${s} ponto: sobre o suporte (com TV)`, over, over);
+      r.carried = null;
+      scene.attach(fake.obj);
+      const back = [b, ...near(seat, P.back[k].q).slice(1)], up = [b, ...near(back, P.up[k].q).slice(1)];
+      leg(`${s} recua`, seat, back);
+      leg(`${s} sobe`, back, up);
+      const b0 = P.lift[k].q[0] + angDiff(P.lift[k].q[0], P.home.q[0]);
+      const mid2 = [b0, ...up.slice(1)], home = [b0, ...near(mid2, P.home.q).slice(1)];
+      leg(`${s} volta: giro da base`, up, mid2);
+      leg(`${s} volta: assenta alto sobre o gabarito`, mid2, home);
+      leg(`${s} desce para a próxima pega`, home, near(home, P.above[0].q));
+    });
+    fake.obj.parent?.remove(fake.obj);
+    r.carried = carried;
+    setJoints(r, keep);
+  });
+  out.push(`(relatório em ${Math.round(performance.now() - t0)} ms)`);
+  return out;
 }

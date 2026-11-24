@@ -3,16 +3,16 @@ import { expect, test } from '@playwright/test';
 // Throughput reference: 10 simulated minutes per model, both arms, automatic work split, no NG — and nothing may
 // touch: the bench measures the smallest clearance over the whole run (arms, gripper and the TV they carry against
 // their own arm, the TVs on the jigs and pallets, jigs, pallets, belts, lifts and the other robot).
-// Re-measured with the collision-planned joint moves (MoveJ with the route checked against the real arm, gripper and
-// TV geometry, legs blended) and the transfers 25 cm toward the test belt: collision-free in every model. When the
-// line logic is changed on purpose, re-measure and update in the same commit.
+// Re-measured with the vacuum-plate transfers running their taught program (pick from above, the base turns, the wrist
+// stands the TV up, straight down into the pallet) and the jigs alternated between them in every size: collision-free
+// in every model. When the line logic is changed on purpose, re-measure and update in the same commit.
 const REFERENCE = [
-  { inch: 32, moved: 93, perRobot: [47, 46] },
-  { inch: 43, moved: 86, perRobot: [43, 43] },
-  { inch: 50, moved: 109, perRobot: [55, 54] },
-  { inch: 55, moved: 109, perRobot: [55, 54] },
-  { inch: 65, moved: 109, perRobot: [55, 54] },
-  { inch: 75, moved: 91, perRobot: [48, 43] },
+  { inch: 32, moved: 131, perRobot: [66, 65] },
+  { inch: 43, moved: 131, perRobot: [66, 65] },
+  { inch: 50, moved: 104, perRobot: [52, 52] },
+  { inch: 55, moved: 104, perRobot: [52, 52] },
+  { inch: 65, moved: 104, perRobot: [52, 52] },
+  { inch: 75, moved: 104, perRobot: [52, 52] },
 ];
 
 test.describe('Transfer Flow 3D', () => {

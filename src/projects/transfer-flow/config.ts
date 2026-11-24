@@ -17,11 +17,11 @@ export const LINE_UPH: Record<Inch, number> = { 32: 230, 43: 220, 50: 115, 55: 1
 export const TOP = 0.88; // belt top height
 export const BELT_ASM = 1.2, BELT_TEST = 1.2; // both belts 1.2 m wide
 export const Z_ASM = 1.05, Z_TEST = -1.05; // belt centres; robots between them
-/** Transfers 25 cm toward the test belt: picking the near TV of a 32"/43" pair is not too close to the base, and
- *  placing on the test pallet is not at full stretch (checked with the collision bench: nothing touches). */
-export const ROBOT_Z = -0.25;
+/** Transfers 24 cm toward the assembly belt: the vacuum plate picks from above, so the far TV of a 32"/43" pair is
+ *  within reach, and the test pallet (30 cm off the test belt centre) is a short reach the other way. */
+export const ROBOT_Z = 0.24;
 export const LINE_X0 = -8.3, LINE_X1 = 5.1; // 13.4 m of belt; ~15.8 m overall with the lift units
-/** Pallets ride on the robot side of the test belt (30 cm off its centre), so the hook gripper reaches behind the TV. */
+/** Pallets ride on the robot side of the test belt (30 cm off its centre): a shorter reach for the transfers. */
 export const Z_PAL = Z_TEST + 0.3;
 export const SPEED_ASM = 0.6, SPEED_TEST = 0.8; // m/s
 export const LIFT_OPEN = 2.1; // clear height: a 75" standing on a pallet reaches ~1.98 m
@@ -36,15 +36,18 @@ export const ASM_PITCH = 2.4;
 export const PAL_W = 1.9, PAL_D = 0.55, SEAT_Y = 0.13;
 export const ITEM_GAP = 0.1; // accumulation: queued items keep 10 cm apart
 
-// transfer robots (UR30) with the hook gripper
-// flange→cup row · bracket axis→cup face · grip point below the TV's top edge. The cups stand 18 cm off the bracket so
-// the wrist stays clear of the jig while picking (the jig foam is 11 cm high).
-export const HOOK_D = 0.37, CUP_Z = 0.18, GRIP = 0.25;
-/** Grip point below the top edge for this TV: 40% of its height at most, so on a 32" the cup bars stay clear of the
- *  test pallet's rest rail. */
-export const gripOf = (inch: Inch) => Math.min(GRIP, SIZES[inch][1] * 0.4);
-export const TRANSFER_PED = 1.5; // pedestal height to reach over a 75" (top at ~1.98 m)
-export const ROBOT_X1 = -2.0, ROBOT_X2 = 2.0; // 4.0 m apart: room for one full pallet queued between them
+// transfer robots (UR30) with a vacuum plate on the flange: it picks the TV lying screen-down from above (tool down),
+// the wrist turns it upright on the way and it goes into the test pallet with its back toward the robot.
+// flange → cup faces · plate size (along the TV width, along its height) · grip point from the TV's near edge
+export const VAC_L = 0.2, VAC_W = 0.56, VAC_D = 0.12, GRIP = 0.13;
+/** Grip point from the TV's near edge (the edge that ends at the bottom in the pallet): close to it, so the TV hardly
+ *  lies under the arm that reaches over it, and the plate still clears the pallet's rest rail. */
+export const gripOf = (inch: Inch, k = 0) => { void inch; void k; return GRIP; };
+export const TRANSFER_PED = 1.0; // pedestal height: the shoulder near the work, which is all within ~0.5 m above the belts
+export const ROBOT_X1 = -2.0, ROBOT_X2 = 2.0; // work stations (pick stop, pallet dock), 4.0 m apart: room for one full pallet queued between them
+/** Each transfer stands this far upstream of its stations: the TV nearest the robot is not right over the pedestal,
+ *  the far one is within reach, and the base turns less than half a turn between the jig and the pallet. */
+export const ARM_DX = 0.45;
 export const BUFFER_X = ROBOT_X1 - 2.25; // empty-pallet buffer just before Transfer 1
 /** Back-cover height of a TV lying screen-down on the jig. */
 export const PICK_Y = TOP + JIG_TOP + TV_T / 2 + TV_BACK;
@@ -79,8 +82,8 @@ export const LABELS: LabelDef[] = [
   { lines: ['Esteira de Montagem'], x: LINE_X1 - 1.2, y: 1.7, z: Z_ASM + 0.2 },
   { lines: ['Esteira de Teste'], x: LINE_X0 + 1.0, y: 1.9, z: Z_TEST },
   { lines: ['Inspeção Visual', 'com Robô (IA) · UR10e'], x: CELL.x, y: 2.75, z: CELL.z + 0.3 },
-  { lines: ['Transfer 1 · UR30', 'Telas 32” a 75”'], x: ROBOT_X1, y: 3.25, z: ROBOT_Z },
-  { lines: ['Transfer 2 · UR30', 'Telas 32” a 75”'], x: ROBOT_X2, y: 3.25, z: ROBOT_Z },
+  { lines: ['Transfer 1 · UR30', 'Telas 32” a 75”'], x: ROBOT_X1 - ARM_DX, y: 3.25, z: ROBOT_Z },
+  { lines: ['Transfer 2 · UR30', 'Telas 32” a 75”'], x: ROBOT_X2 - ARM_DX, y: 3.25, z: ROBOT_Z },
   { lines: ['Pulmão de pallets'], x: BUFFER_X - 1.2, y: 2.3, z: Z_TEST - 0.3 },
 ];
 

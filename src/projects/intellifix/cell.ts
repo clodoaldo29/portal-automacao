@@ -26,10 +26,12 @@ export const LAY = {
   preX: -2.1,
   /** The pallet is the Transfer Flow assembly jig ("base colchão"): it goes on to the transfers as it is. */
   pal: { l: JIG_L, w: JIG_W },
-  ped: TOP + 0.25, pedW: 0.22,
+  // base a little above the TV backs: the screw points are close to the base (a higher base folds the arm on itself),
+  // and the upper arm still clears the pallet edge when it reaches out low for the far points
+  ped: TOP + 0.15, pedW: 0.22,
   cab: { x: 1.35, z: 1.4, h: 2.3 },
   /** Travel height of the nose above the back cover between screws, and at home. */
-  travel: 0.07, homeLift: 0.26,
+  travel: 0.07, homeLift: 0.3,
 };
 /** Control cabinet (PLC, robot and torque controllers), in front of the cell (robot 1 side). */
 export const CABINET = { x: -0.8, z: LAY.cab.z + 0.45 };
@@ -38,6 +40,9 @@ export const FRL_X = -0.12;
 /** TV seat (top of the foam) and the back-cover surface of a TV lying screen-down. */
 export const SEAT_Y = LAY.top + JIG_TOP;
 export const BACK_Y = SEAT_Y + TV_T;
+/** Tool turn about its axis, per robot: the two face each other, so the screwdrivers are mirrored and each camera is on
+ *  the outer side, away from its own arm. */
+export const TOOL_YAW = [Math.PI, 0] as const;
 
 export interface PalletObj { g: THREE.Group; tvs: TV[]; holes: THREE.Group; screws: THREE.Mesh[]; marks: THREE.Mesh[] }
 
@@ -117,7 +122,7 @@ export function createCell(scene: THREE.Scene, M: Materials, font: string, ox: n
   const arms: Cobot[] = [], tools: Screwdriver[] = [];
   const idlePose = (r: 0 | 1, arm: Cobot): Pose => {
     const h = robotHome(r);
-    return [...poseAt(arm, X(LAY.stopX + h.x), Z(h.z), BACK_Y + TIP + LAY.homeLift), 0, 0];
+    return [...poseAt(arm, X(LAY.stopX + h.x), Z(h.z), BACK_Y + TIP + LAY.homeLift), 0, TOOL_YAW[r]];
   };
   for (const r of [0, 1] as const) {
     const z = r === 0 ? CELL.robotZ : -CELL.robotZ;

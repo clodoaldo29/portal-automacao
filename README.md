@@ -17,7 +17,7 @@ src/
     sequencer.ts                    fila de movimentos dos robôs
     robots/ur-kinematics.ts         cinemática e IK numérico do UR10e e UR30
     robots/ur-arm.ts                braço na cena, modelos 3D originais, HDRI
-    robots/grippers.ts              garra em gancho, cabeça de câmera
+    robots/grippers.ts              garras (gancho, placa de ventosas), cabeça de câmera
     andon.ts · labels.ts · views.ts torre de sinalização, etiquetas, câmeras e tour
     kpi.ts                          UPH e OEE (funções puras)
     shot.ts                         PNG em alta resolução

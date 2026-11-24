@@ -1,14 +1,14 @@
 // Transfer Flow · collision check over the whole cycle: nothing may touch.
 //
 // Robot parts: the UR30 as it is drawn (one capsule per visual part of every link: housings, caps and the link tubes,
-// which run well to the side of the joint line), the hook gripper, and the TV it carries as an oriented box. Checked
+// which run well to the side of the joint line), the vacuum plate, and the TV it carries as an oriented box. Checked
 // against: the robot's own arm and pedestal (the carried TV must not touch them), the other robot with its pedestal
 // and TV, the TVs on the jigs and test pallets, the jigs, the test pallets, the belts, the lift units; and the
 // inspection UR10e against the jigs and their TVs. Intended contact is left out: the cups on the TV being picked or
 // just placed, the carried TV sliding into its pallet, and each arm's base on its own pedestal.
 import * as THREE from 'three';
 import { capsuleGap, linkCapsules, type Capsule } from '../../sim/robots/collision';
-import { BELT_ASM, BELT_TEST, CUP_Z, HOOK_D, JIG_L, JIG_TOP, JIG_W, LINE_X0, LINE_X1, SIZES, TOP, TRANSFER_PED, TV_T, Z_ASM, Z_TEST } from './config';
+import { BELT_ASM, BELT_TEST, JIG_L, JIG_TOP, JIG_W, LINE_X0, LINE_X1, SIZES, TOP, TRANSFER_PED, TV_T, VAC_D, VAC_L, VAC_W, Z_ASM, Z_TEST } from './config';
 import type { TV } from './products';
 import type { Jig, Pallet, Transfer, World } from './types';
 
@@ -33,19 +33,21 @@ const aabb = (name: string, x0: number, y0: number, z0: number, x1: number, y1: 
 
 const label = (r: Transfer, idx: number) => `transfer ${idx + 1} [${r.state} ${r.seq.length}]`;
 
-/** The arm as drawn, and the hook gripper (bracket, cross bar, cup bars, cups). */
-function robotSegs(r: Transfer, idx: number): Seg[] {
+/** Vacuum plate in the flange frame (tool axis local −y): stem with the vacuum generator, the plate (two bars along its
+ *  width), the cups. */
+export const gripperCaps = (): { a: [number, number, number]; b: [number, number, number]; r: number }[] => [
+  { a: [0, -0.02, 0], b: [0, -VAC_L + 0.05, 0], r: 0.045 },
+  ...[-1, 1].map(s => ({ a: [-VAC_W / 2, -VAC_L + 0.03, s * (VAC_D / 2 - 0.03)] as [number, number, number], b: [VAC_W / 2, -VAC_L + 0.03, s * (VAC_D / 2 - 0.03)] as [number, number, number], r: 0.025 })),
+];
+
+/** The arm as drawn, and the vacuum plate. */
+export function robotSegs(r: Transfer, idx: number): Seg[] {
   const segs: Seg[] = linkCapsules(r.arm, 0.01).map((c: Capsule) => ({ ...c, name: `${label(r, idx)} · ${LINK[c.link]}` }));
   const m = r.arm.mount;
   m.updateWorldMatrix(true, false);
   const W = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z).applyMatrix4(m.matrixWorld);
   const g = (a: THREE.Vector3, b: THREE.Vector3, rr: number) => segs.push({ a, b, r: rr, name: `${label(r, idx)} · garra`, link: 7 });
-  g(W(0, -0.04, 0), W(0, -HOOK_D + 0.02, 0), 0.04);
-  g(W(-0.28, -HOOK_D, 0.035), W(0.28, -HOOK_D, 0.035), 0.03);
-  for (const sx of [-0.25, 0.25]) {
-    g(W(sx, -HOOK_D - 0.14, 0.035), W(sx, -HOOK_D + 0.14, 0.035), 0.025);
-    for (const sy of [-0.12, 0.12]) g(W(sx, -HOOK_D + sy, 0.05), W(sx, -HOOK_D + sy, CUP_Z - 0.03), 0.02); // stems
-  }
+  for (const c of gripperCaps()) g(W(...c.a), W(...c.b), c.r);
   return segs;
 }
 
@@ -142,6 +144,10 @@ export function measureClearance(w: World, worst?: Map<string, number>): Clearan
         note(boxBox(R.carried, o, cm), `${R.carried.name} [${R.r.state} ${R.r.seq.length}] × ${o.name}`);
       }
     }
+  }
+  // each arm against itself: links that are not neighbours, and the gripper against the base, shoulder and upper arm
+  for (const R of robots) for (const s of R.segs) for (const t of R.segs) {
+    if (t.link - s.link >= 3 && (t.link < 7 || s.link <= 2)) note(capsuleGap(s, t), `${s.name} × ${t.name}`);
   }
   // the two robots and their TVs
   if (robots.length === 2) {

@@ -42,7 +42,7 @@ export const CELL = {
   /** Useful horizontal reach of a UR10e with the screwdriver pointing down (nominal 1.3 m). */
   reach: 1.2,
   /** Tool home (clear of the TV, over the belt edge on the robot's side). */
-  homeZ: 0.55,
+  homeZ: 0.35,
   /** Gap between the two TVs of a 32"/43" pallet (the Transfer Flow jig). */
   tvGap: TV_GAP,
   /** Screws sit this far in from the back-cover edge. */

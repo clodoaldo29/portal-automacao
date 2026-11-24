@@ -39,7 +39,7 @@ export type TransferState = 'idle' | 'pick' | 'waitPallet' | 'place' | 'return';
 export interface Transfer {
   arm: Cobot;
   x: number;
-  /** Flange → cup row of the hook gripper. */
+  /** Flange → cup faces of the vacuum plate. */
   D: number;
   wrap: (phi: number) => number;
   enabled: boolean;
@@ -57,7 +57,7 @@ export interface Transfer {
   env: Obstacle[];
   /** Joint move in progress (MoveJ): joints at the start and at every via point, time of each leg, time, duration. */
   jm: { pts: number[][]; legs: number[]; t: number; dur: number } | null;
-  /** Pallet that just left with a TV; the hook stays behind until it has moved away. */
+  /** Pallet that just left with a TV (until the plate has backed off it). */
   leaving: Pallet | null;
   zoneBusy: boolean;
   addNeed: (n: number) => void;
