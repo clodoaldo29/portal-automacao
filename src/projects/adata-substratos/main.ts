@@ -135,7 +135,6 @@ page.start({
   },
   tour: { positions: [[1.3, 1.8, 2.0], [-1.7, 1.5, 0.9], [0.2, 1.25, 0.6], [1.8, 1.5, 0.9], [0.4, 2.0, -1.6]], targets: [[0, 1, 0], [-1.1, 1, 0], [0.1, 0.97, 0], [1.2, 1, 0.1], [0, 1, 0]], seconds: 40 },
   labels: LABELS,
-  speeds: [1, 2, 4, 8],
   step: dt => cell.step(dt),
   frame: () => cell.andons.update(performance.now() / 1000),
   panel,

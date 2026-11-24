@@ -8,6 +8,9 @@ import * as THREE from 'three';
 import { createLabels, type LabelDef, type Labels } from '../labels';
 import { createStage, type StageOptions } from '../stage';
 import { createViews, type ViewDef } from '../views';
+
+/** Simulation speeds of every cell page (the same everywhere): 1×, 2×, 4×, 8×, 16× and 32×. */
+export const SPEEDS = [1, 2, 4, 8, 16, 32];
 import { createShotModal } from './shot-modal';
 
 export interface PageSetup {
@@ -79,7 +82,7 @@ export function createPage(setup: PageSetup) {
 
     // controls
     let playing = !reduced, speedI = 0;
-    const speeds = run.speeds ?? [1, 2, 4];
+    const speeds = run.speeds ?? SPEEDS;
     const speedLabel = run.speedLabel ?? ((s: number) => `${s}×`);
     const playBtn = $opt('b-play');
     const setPlay = (p: boolean) => { playing = p; if (playBtn) { playBtn.textContent = p ? 'Pausar' : 'Animar'; playBtn.setAttribute('aria-pressed', String(!p)); } };

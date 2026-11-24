@@ -278,7 +278,6 @@ const run = page.start({
     seconds: 45,
   },
   labels: LABELS,
-  speeds: [1, 2, 4, 8],
   step,
   frame: dt => {
     const t = performance.now() / 1000;

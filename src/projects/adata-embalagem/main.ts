@@ -127,7 +127,6 @@ page.start({
   },
   tour: { positions: [[3.6, 2.6, 4.2], [-3.8, 2, 2.2], [-2.6, 2.3, -2.6], [3.6, 2.2, -2.8], [1.4, 1.9, 2.8]], targets: [[0, 0.9, 0.2], [-1.6, 0.9, 0.1], [0, 1, 0], [1.8, 0.8, -0.6], [0.4, 1, 0.8]], seconds: 45 },
   labels: LABELS,
-  speeds: [1, 2, 4, 8],
   step: dt => cell.step(dt),
   frame: () => { cell.andons.update(performance.now() / 1000); if (room) room.ceiling.visible = stage.camera.position.y < room.h - 0.1; },
   panel,

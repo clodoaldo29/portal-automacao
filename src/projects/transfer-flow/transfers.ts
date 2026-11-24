@@ -294,7 +294,9 @@ function programOf(r: Transfer, inch: Inch): Program {
     above.push(key(pickPose(r, inch, k, 0.2), k ? above[0].q : null));
     pick.push(key(pickPose(r, inch, k, 0), above[k].q));
     grab(k, pick[k].q);
-    lift.push(key(pickPose(r, inch, k, 0.4), pick[k].q));
+    // lifted so the TV, lying flat, swings over the standing TVs of the pallets near the dock (32"/43": they come
+    // one after the other)
+    lift.push(key(pickPose(r, inch, k, liftDy(inch)), pick[k].q));
     over.push(key(placePose(r, inch, k, PLACE_ABOVE, 0), k ? over[0].q : lift[k].q));
     seat.push(key(placePose(r, inch, k, 0, 0), over[k].q));
     high.push(Math.sign(over[k].q[4]) === Math.sign(lift[k].q[4]) ? over[k] : key(placePose(r, inch, k, PLACE_ABOVE + 0.5, 0), over[k].q));
@@ -313,8 +315,8 @@ function programOf(r: Transfer, inch: Inch): Program {
     turn.push(best!.turn);
     r.carried = null;
     back.push(key(placePose(r, inch, k, 0, -0.1), seat[k].q)); // cups off the TV back
-    // a little up (the TV has gone on with its pallet by then): the turn back passes over the TVs on the test belt
-    up.push(key(placePose(r, inch, k, 0.3, -0.1), back[k].q));
+    // up until the cup bars are over the TV's top edge: the turn back passes over every TV on the test belt
+    up.push(key(placePose(r, inch, k, gripOf(inch) + 0.2, -0.1), back[k].q));
   }
   scene.attach(fake.obj);
   fake.obj.parent?.remove(fake.obj);  r.carried = carried;
@@ -330,6 +332,16 @@ function startJm(r: Transfer, pts: number[][], pose: Pose, dur?: number) {
   r.jm = { pts, legs, t: 0, dur: (dur != null && pts.length === 2 ? 0 : 0.2) + legs.reduce((a, c) => a + c, 0) };
   r.pose = pose.slice();
 }
+/** Joint move to a taught point (the base keeps its winding). */
+const jto = (r: Transfer, k: () => Key, dur?: number, ready = false): Step[] => [
+  { fn: () => {
+    const q0 = r.arm.ur!.q.slice(), t = k(), q1 = near(q0, t.q);
+    q1[0] = q0[0] + angDiff(q0[0], t.q[0]);
+    startJm(r, [q0, q1], t.pose, dur);
+  }, ready },
+  { until: () => !r.jm, ready },
+];
+
 /** Swing: the base alone turns by `turn`, then the arm settles into the taught point `k`. */
 const swing = (r: Transfer, k: () => Key, turn: () => number, ready = false): Step[] => [
   { fn: () => {
@@ -395,11 +407,10 @@ function startJob(w: World, r: Transfer) {
   r.state = 'pick';
   r.seq.push(
     { until: () => !r.jm },
-    // over the TV, down onto it, lift it
-    // (the short approaches are straight-line moves, MoveL; the big ones joint moves)
-    { toFn: () => P.above[k].pose, dur: 0.6 }, { toFn: () => P.pick[k].pose, dur: 0.5 }, { dur: 0.3 },
+    // over the TV, down onto it, lift it (every move goes to a taught point, the way the program was checked)
+    ...jto(r, () => P.above[k], 0.6), ...jto(r, () => P.pick[k], 0.5), { dur: 0.3 },
     { fn: () => { const tv = jig.tvs[k]!; r.arm.mount.attach(tv.obj); r.carried = tv; jig.tvs[k] = null; } },
-    { toFn: () => P.lift[k].pose, dur: 0.6 },
+    { toFn: () => P.lift[k].pose, dur: 0.6 }, // straight up (MoveL): the TV clears the other one of the pair
     { fn: () => {
       if (!hasTV(jig)) { jig.ledMat.emissive.setHex(0x000000); jig.hold = null; r.job = null; }
       else if (!isLastR(w, r) && modeOf(w, jig) !== 'B') { giveToLast(w, jig, tvCount(jig)); jig.hold = null; r.job = null; } // the other TV goes on to robot 2
@@ -409,8 +420,8 @@ function startJob(w: World, r: Transfer) {
     { fn: () => { r.state = 'place'; base0 = r.arm.ur!.q[0]; } },
     // the base turns to the test side with the TV lying flat, the wrist stands it up over its seat; straight down
     ...swing(r, () => P.high[k], () => P.turn[k]),
-    ...(P.high[k] !== P.over[k] ? [{ toFn: () => P.over[k].pose, dur: 0.6 }] : []),
-    { toFn: () => P.seat[k].pose, dur: 0.8 }, { dur: 0.3 },
+    ...(P.high[k] !== P.over[k] ? jto(r, () => P.over[k], 0.6) : []),
+    ...jto(r, () => P.seat[k], 0.8), { dur: 0.3 },
     { fn: () => {
       const tv = r.carried!, pal = r.pallet!;
       pal.obj.attach(tv.obj);
@@ -423,15 +434,19 @@ function startJob(w: World, r: Transfer) {
       // the pallet leaves at once; nothing else enters the dock until the plate has backed off
       r.leaving = pal; r.zoneBusy = true; pal.hold = null; r.pallet = null; r.need--;
     } },
-    { toFn: () => P.back[k].pose, dur: 0.3 }, // the cups back off the TV
+    ...jto(r, () => P.back[k], 0.3), // the cups back off the TV
     // the hook stays behind the TV until its pallet has taken it on (the next pallet waits one slot before the dock)
     { until: () => !w.test.items.includes(r.leaving!) || r.leaving!.obj.position.x - SIZES[inch][0] / 2 > r.x + 0.35 },
     { fn: () => { r.leaving = null; r.zoneBusy = false; r.state = 'idle'; } },
-    { toFn: () => P.up[k].pose, dur: 0.6, ready: true }, // out of the test belt and up
+    // (the return is not cut short by the next job: the arm always comes back the way it was taught)
+    ...jto(r, () => P.up[k], 0.6), // up, the hook over the top of the TVs
     // back the same way round, over the jig
-    ...swing(r, () => P.home, () => base0 + angDiff(P.lift[k].q[0], P.home.q[0]) - r.arm.ur!.q[0], true),
+    ...swing(r, () => P.home, () => base0 + angDiff(P.lift[k].q[0], P.home.q[0]) - r.arm.ur!.q[0]),
   );
 }
+/** Lift over the jig before the swing: for the pairs, the TV's underside clears a TV of the same size standing on a pallet. */
+const liftDy = (inch: Inch) => (inch <= 43 ? Math.max(0.4, TOP + SEAT_Y + SIZES[inch][1] + 0.06 - (PICK_Y - TV_T - 0.045)) : 0.4);
+
 /** Height of the TV over its seat before it goes straight down into the pallet. */
 const PLACE_ABOVE = 0.15;
 
@@ -497,7 +512,7 @@ export function programReport(w: World): string[] {
     P.lift.forEach((_, k) => {
       const s = `[TV ${k + 1}]`;
       r.carried = null;
-      if (k) leg(`${s} espera → sobre a TV`, P.above[0].q, near(P.above[0].q, P.above[k].q));
+      leg(`${s} espera no alto → sobre a TV`, P.home.q, near(P.home.q, P.above[k].q));
       leg(`${s} sobre → pega`, P.above[k].q, P.pick[k].q);
       setJoints(r, P.pick[k].q);
       r.arm.mount.updateWorldMatrix(true, false);

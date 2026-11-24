@@ -149,7 +149,6 @@ page.start({
   },
   tour: { positions: [[0, 2.3, 3.5], [-2.4, 1.8, 1.4], [-0.2, 1.6, 1.4], [2.4, 1.8, 1.4], [1.0, 1.55, 0.9]], targets: [[0, 1, 0], [-1.1, 1, 0], [-1.1, 1.1, 0], [1.1, 1, 0], [0.68, 1.36, -0.22]], seconds: 40 },
   labels: LABELS,
-  speeds: [1, 2, 4, 8, 16],
   step: dt => st.step(dt),
   panel,
   shotName: (w, h) => `adata-01-microscopia-${w}x${h}.png`,

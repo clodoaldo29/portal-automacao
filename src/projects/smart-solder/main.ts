@@ -219,7 +219,6 @@ page.start({
   views: VIEWS,
   tour: { positions: [[-3.4, 2.6, 3.4], [-0.4, 2.6, 3.4], [3.4, 2.3, 3.0], [3.6, 3.6, 6.4], [1.2, 5.8, 9.2]], targets: [[-4.4, 1, -0.2], [0, 1, -0.4], [3.2, 1, 0], [6.6, 0.6, 0.9], [1.0, 0.8, 0]], seconds: 50 },
   labels: LABELS,
-  speeds: [1, 2, 4, 8, 16],
   step,
   frame: () => { line.andons.update(performance.now() / 1000); },
   panel,
