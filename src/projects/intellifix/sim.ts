@@ -11,7 +11,7 @@ import { urFK } from '../../sim/robots/ur-kinematics';
 import { Track, line } from '../../sim/track';
 import { DEFAULT_TIMING, plan, type CyclePlan, type TimingParams } from './balance';
 import { BACK_Y, LAY, TOOL_YAW, type Cell, type PalletObj } from './cell';
-import { MODELS, requiredCycleS, robotHome, screwPoints, tvsPerPallet, type ScrewPoint, type TvModel } from './model';
+import { MODELS, requiredCycleS, robotBase, robotHome, screwPoints, tvsPerPallet, type ScrewPoint, type TvModel } from './model';
 import { TIP } from './tool';
 
 export type FeedMode = 'linha' | 'max';
@@ -147,6 +147,13 @@ export function createSim(cell: Cell, scene: THREE.Scene, params: SimParams, opt
   const travel = LAY.travel, homeLift = LAY.homeLift;
   const feederLocal = cell.feeders.map(f => ({ x: f.x - X(LAY.stopX), z: f.z - Z(0) }));
   interface ToolState { x: number; z: number; lift: number; drive: boolean; flash: boolean }
+  /** Point  (0–1) of the way from (x0, z0) to (x1, z1) around robot 's base: angle and reach change together. */
+  function arc(r: 0 | 1, x0: number, z0: number, x1: number, z1: number, v: number) {
+    const b = robotBase(r), a0 = Math.atan2(z0 - b.z, x0 - b.x), a1 = Math.atan2(z1 - b.z, x1 - b.x);
+    const r0 = Math.hypot(x0 - b.x, z0 - b.z), r1 = Math.hypot(x1 - b.x, z1 - b.z);
+    const a = a0 + Math.atan2(Math.sin(a1 - a0), Math.cos(a1 - a0)) * v, rr = r0 + (r1 - r0) * v;
+    return { x: b.x + rr * Math.cos(a), z: b.z + rr * Math.sin(a) };
+  }
   function toolAt(r: 0 | 1, tau: number): ToolState {
     const home = robotHome(r);
     if (!job || phase !== 'work' || tau <= 0) return { x: home.x, z: home.z, lift: homeLift, drive: false, flash: phase === 'vision' && phaseT > params.timing.visionS * 0.3 && phaseT < params.timing.visionS * 0.7 };
@@ -158,9 +165,10 @@ export function createSim(cell: Cell, scene: THREE.Scene, params: SimParams, opt
         const u = ease((tau - t.moveStart) / (t.arrive - t.moveStart));
         if (params.timing.feed === 'pick') { // via the feeder outlet
           const f = feederLocal[r];
-          if (u < 0.5) { const v = u * 2; return { x: px + (f.x - px) * v, z: pz + (f.z - pz) * v, lift: pl + (homeLift + 0.1 - pl) * v, drive: false, flash: false }; }
-          const v = (u - 0.5) * 2;
-          return { x: f.x + (t.p.x - f.x) * v, z: f.z + (t.p.z - f.z) * v, lift: homeLift + 0.1 + (travel - homeLift - 0.1) * v, drive: false, flash: false };
+          // around the robot's base (an arc, as the base turns), never straight over the arm itself
+          if (u < 0.5) { const v = u * 2, a = arc(r, px, pz, f.x, f.z, v); return { x: a.x, z: a.z, lift: pl + (homeLift + 0.1 - pl) * v, drive: false, flash: false }; }
+          const v = (u - 0.5) * 2, a = arc(r, f.x, f.z, t.p.x, t.p.z, v);
+          return { x: a.x, z: a.z, lift: homeLift + 0.1 + (travel - homeLift - 0.1) * v, drive: false, flash: false };
         }
         return { x: px + (t.p.x - px) * u, z: pz + (t.p.z - pz) * u, lift: pl + (travel - pl) * u + 0.04 * Math.sin(Math.PI * u), drive: false, flash: false };
       }
