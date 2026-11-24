@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { UR10E, UR30, solve6, urFK, urIK, type URModel, type URState } from '../../src/sim/robots/ur-kinematics';
+import { UR10E, UR30, ZU50, solve6, urFK, urIK, type URModel, type URState } from '../../src/sim/robots/ur-kinematics';
 
 // deterministic pseudo-random numbers so a failure can be reproduced
 function rng(seed: number) {
@@ -19,7 +19,7 @@ describe('solve6', () => {
   });
 });
 
-describe.each([UR10E, UR30])('%s kinematics', model => {
+describe.each([UR10E, UR30, ZU50])('%s kinematics', model => {
   it('puts the zero-pose flange where the DH parameters say', () => {
     // all joints at zero: arm stretched along x (a2 + a3), wrist offsets d4 + d6 sideways, height d1 - d5
     const p = new THREE.Vector3().setFromMatrixPosition(urFK(state(model, [0, 0, 0, 0, 0, 0]), [0, 0, 0, 0, 0, 0]));

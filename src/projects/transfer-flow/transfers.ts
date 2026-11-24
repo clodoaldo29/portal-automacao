@@ -1,4 +1,4 @@
-// Transfer 1 and Transfer 2 (UR30 with the hook gripper): take TVs from the assembly jigs and stand them,
+// Transfer 1 and Transfer 2 (JAKA Zu 50 with the hook gripper): take TVs from the assembly jigs and stand them,
 // screen toward the robots, on the test pallets.
 //
 // Line logic (one TV per robot cycle, one TV per test pallet):
@@ -16,7 +16,7 @@ import { capsuleGap, linkCapsules } from '../../sim/robots/collision';
 import { ease } from '../../sim/math';
 import { runSeq, type Pose } from '../../sim/sequencer';
 import {
-  ARM_DX, CUP_Z, gripOf, HOOK_D, ITEM_GAP, PAL_W, PICK_Y, ROBOT_Z, SEAT_Y, SIZES, TOP, TRANSFER_PED, TV_BACK, Z_ASM, Z_PAL, slotZ, type Inch,
+  ARM_DX, CUP_Z, gripOf, HOOK_D, ITEM_GAP, PAL_W, PICK_Y, ROBOT_Z, SEAT_Y, SIZES, TOP_TEST, TRANSFER_PED, TV_BACK, Z_ASM, Z_PAL, slotZ, type Inch,
 } from './config';
 import { TV_STANDING, tvPower } from './products';
 import type { Jig, Mode, Pallet, Transfer, World } from './types';
@@ -55,7 +55,7 @@ export function commitJig(w: World, it: Jig) {
 
 export function createTransfer(w: World, x: number, phi: { home: number; wrapPositive?: boolean }): Transfer {
   const { asm, test } = w;
-  // slim 1.5 m column: the UR30 shoulder sits ~1.74 m high, enough to lower a 75" from above and still pick at the belt
+  // slim 1.5 m column: the Zu 50 shoulder sits ~1.80 m high, enough to lower a 75" from above and still pick at the belt
   const arm = makeCobot(w.scene, w.M, { x: x - ARM_DX, z: ROBOT_Z, L1: 0.64, L2: 0.5, ped: TRANSFER_PED, pedW: 0.3 });
   hookGripper(arm.mount, w.M, { hookD: HOOK_D, cupZ: CUP_Z });
   arm.tool.rotation.order = 'YXZ';
@@ -109,7 +109,7 @@ function pickPose(r: Transfer, inch: Inch, k: number, dy: number): Pose {
 
 /** Place: TV upright in the pallet, screen toward the robots (+z). Tool pointing down behind the TV. */
 function placePose(r: Transfer, inch: Inch, dy: number, dz: number): Pose {
-  const d = SIZES[inch][1], cupY = TOP + SEAT_Y + d - gripOf(inch);
+  const d = SIZES[inch][1], cupY = TOP_TEST + SEAT_Y + d - gripOf(inch);
   // the tool pitched back by PICK_TILT (the TV was taken with the tool pitched forward): the TV stands exactly upright
   const s = Math.sin(tiltOf(inch)), c = Math.cos(tiltOf(inch));
   const p = poseAt(r.arm, r.x, Z_PAL - TV_BACK - r.D * s - CUP_Z * c + dz, cupY + r.D * c - CUP_Z * s + dy);

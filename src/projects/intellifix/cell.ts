@@ -20,7 +20,7 @@ import { TIP, screwdriver, type Screwdriver } from './tool';
 export const LAY = {
   top: TOP, // roller top: the same height as the Transfer Flow belts
   x0: -4.7, x1: 3.3, // conveyor ends
-  beltW: 1.2,
+  beltW: 1.195, // the assembly belt as measured (inside width)
   stopX: 0,
   /** Pre-stop: the next pallet waits here, one pallet length (+ 0.3 m) before the stop. */
   preX: -2.1,

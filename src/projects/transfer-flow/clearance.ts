@@ -1,6 +1,6 @@
 // Transfer Flow · collision check over the whole cycle: nothing may touch.
 //
-// Robot parts: the UR30 as it is drawn (one capsule per visual part of every link: housings, caps and the link tubes,
+// Robot parts: the transfer arm as it is drawn (one capsule per visual part of every link: housings, caps and the link tubes,
 // which run well to the side of the joint line), the hook gripper, and the TV it carries as an oriented box. Checked
 // against: the robot's own arm and pedestal (the carried TV must not touch them), the other robot with its pedestal
 // and TV, the TVs on the jigs and test pallets, the jigs, the test pallets, the belts, the lift units; and the
@@ -8,7 +8,7 @@
 // just placed, the carried TV sliding into its pallet, and each arm's base on its own pedestal.
 import * as THREE from 'three';
 import { capsuleGap, linkCapsules, type Capsule } from '../../sim/robots/collision';
-import { BELT_ASM, BELT_TEST, JIG_L, JIG_TOP, JIG_W, LINE_X0, LINE_X1, SIZES, TOP, TRANSFER_PED, TV_T, CUP_Z, HOOK_D, Z_ASM, Z_TEST } from './config';
+import { BELT_ASM, BELT_TEST, JIG_L, JIG_TOP, JIG_W, LINE_X0, LINE_X1, SIZES, TOP, TOP_TEST, TRANSFER_PED, TV_T, CUP_Z, HOOK_D, Z_ASM, Z_TEST } from './config';
 import type { TV } from './products';
 import { elbowLift } from './transfers';
 import type { Jig, Pallet, Transfer, World } from './types';
@@ -92,7 +92,7 @@ export function measureClearance(w: World, worst?: Map<string, number>): Clearan
   // their TVs
   const env: Obb[] = [
     aabb('esteira de montagem', LINE_X0, 0, Z_ASM - BELT_ASM / 2 - 0.04, LINE_X1, TOP - 0.005, Z_ASM + BELT_ASM / 2 + 0.04),
-    aabb('esteira de teste', w.testX0, 0, Z_TEST - BELT_TEST / 2 - 0.04, LINE_X1, TOP - 0.005, Z_TEST + BELT_TEST / 2 + 0.04),
+    aabb('esteira de teste', w.testX0, 0, Z_TEST - BELT_TEST / 2 - 0.04, LINE_X1, TOP_TEST - 0.005, Z_TEST + BELT_TEST / 2 + 0.04),
   ];
   for (const z of [Z_ASM, Z_TEST]) for (const x of [(z === Z_TEST ? w.testX0 : LINE_X0) - 0.15, LINE_X1 + 0.15]) env.push(aabb('elevador', x - 1.3, 0, z - 0.85, x + 1.3, 2.4, z + 0.85));
   w.robots.forEach((r, i) => {
@@ -149,9 +149,10 @@ export function measureClearance(w: World, worst?: Map<string, number>): Clearan
       }
     }
   }
-  // each arm against itself: links that are not neighbours, and the gripper against the base, shoulder and upper arm
+  // each arm against itself: links that are not neighbours, and the gripper against the base, shoulder, upper arm and
+  // forearm
   for (const R of robots) for (const s of R.segs) for (const t of R.segs) {
-    if (t.link - s.link >= 3 && (t.link < 7 || s.link <= 2)) note(capsuleGap(s, t), `${s.name} × ${t.name}`);
+    if (t.link - s.link >= 3 && (t.link < 7 || s.link <= 3)) note(capsuleGap(s, t), `${s.name} × ${t.name}`);
   }
   // the two robots and their TVs
   if (robots.length === 2) {

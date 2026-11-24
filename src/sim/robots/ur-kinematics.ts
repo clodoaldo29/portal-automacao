@@ -78,6 +78,38 @@ export const UR30: URModel = {
   ],
 };
 
+/**
+ * JAKA Zu 50 (50 kg payload, 2.1 m reach): link lengths from JAKA's own URDF (github.com/JAKARobotics/jaka_ros2,
+ * jaka_description/urdf/jaka_zu50.urdf): shoulder height 303.5 mm, upper arm 1066 mm, forearm 852 mm, wrist offsets
+ * 234.5 / 182 / 165 mm. The same 6-axis layout as the UR arms, written in their frames (joint zeros and signs as in a
+ * UR, not JAKA's). The housings are drawn from the UR30 ones scaled to these offsets (Ø290 mm base); the real shapes
+ * are JAKA's STL meshes.
+ */
+export const ZU50: URModel = {
+  name: 'JAKA Zu 50',
+  S: 1,
+  O: [
+    urM(0, 0, 0.3035, 0, 0, 0), urM(0, 0, 0, Math.PI / 2, 0, 0), urM(-1.066, 0, 0, 0, 0, 0),
+    urM(-0.852, 0, 0.2345, 0, 0, 0), urM(0, -0.182, 0, Math.PI / 2, 0, 0), urM(0, 0.165, 0, Math.PI / 2, Math.PI, Math.PI),
+  ],
+  parts: [
+    [['J', 'z', 0.145, 0, 0.14, 0, 0], ['K', 'z', 0.118, 0.14, 0.163, 0, 0]], // base (Ø290 mm)
+    [['J', 'z', 0.118, -0.14, 0.05, 0, 0], ['J', 'y', 0.118, -0.165, 0.115, 0, 0], ['B', 'z', 0.12, 0.048, 0.155, 0, 0],
+      ['K', 'y', 0.118, -0.182, -0.165, 0, 0]], // shoulder
+    [['J', 'z', 0.118, 0.18, 0.35, 0, 0], ['B', 'z', 0.12, 0.348, 0.445, 0, 0], ['K', 'x', 0.11, -0.14, -0.12, 0, 0.3],
+      ['L', 'x', 0.11, -0.96, -0.14, 0, 0.3], ['K', 'x', 0.088, -0.976, -0.96, 0, 0.3],
+      ['J', 'z', 0.088, 0.18, 0.32, -1.066, 0], ['B', 'z', 0.09, 0.318, 0.41, -1.066, 0]], // upper arm
+    [['J', 'z', 0.088, -0.023, 0.18, 0, 0], ['K', 'x', 0.088, -0.115, -0.096, 0, 0.05],
+      ['L', 'x', 0.088, -0.765, -0.115, 0, 0.05], ['K', 'x', 0.07, -0.78, -0.765, 0, 0.05],
+      ['J', 'z', 0.07, 0.041, 0.132, -0.852, 0], ['B', 'z', 0.072, -0.027, 0.041, -0.852, 0], ['K', 'z', 0.068, 0.132, 0.147, -0.852, 0]], // forearm
+    [['J', 'y', 0.068, -0.083, 0.015, 0, 0], ['J', 'z', 0.068, -0.1, 0, 0, 0], ['B', 'y', 0.07, 0.015, 0.086, 0, 0],
+      ['K', 'y', 0.068, -0.1, -0.083, 0, 0]], // wrist 1
+    [['J', 'y', 0.068, -0.014, 0.079, 0, 0], ['J', 'z', 0.068, -0.074, 0, 0, 0], ['B', 'y', 0.07, -0.079, -0.014, 0, 0],
+      ['K', 'y', 0.068, 0.079, 0.094, 0, 0]], // wrist 2
+    [['L', 'z', 0.068, -0.068, 0, 0, 0], ['K', 'z', 0.05, -0.072, -0.068, 0, 0]], // wrist 3 / tool flange
+  ],
+};
+
 /** Minimal state the solver needs: the model, joint angles and where the base sits in the world. */
 export interface URState {
   model: URModel;

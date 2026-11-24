@@ -4,13 +4,13 @@ import { liftUnit } from '../../sim/conveyor';
 import { buildHall, createFloorMarks } from '../../sim/hall';
 import { makeLine, station, updateLine } from '../../sim/line';
 import { createMaterials } from '../../sim/materials';
-import { UR10E, UR30 } from '../../sim/robots/ur-kinematics';
+import { UR10E, ZU50 } from '../../sim/robots/ur-kinematics';
 import { upgradeArm } from '../../sim/robots/ur-arm';
 import type { Stage } from '../../sim/stage';
 import { Track, line } from '../../sim/track';
 import {
   ASM_PITCH, BELT_ASM, BELT_TEST, BUFFER_X, ITEM_GAP, JIG_L, JIG_TOP, LIFT_OPEN, LINE_X0, LINE_X1, PAL_W, ROBOT_X1, ROBOT_X2, SEAT_Y, SIZES,
-  SPEED_ASM, SPEED_TEST, TOP, TV_T, Z_ASM, Z_PAL, Z_TEST, slotZ, slotsFor, type Inch,
+  SPEED_ASM, SPEED_TEST, TOP, TOP_TEST, TV_T, Z_ASM, Z_PAL, Z_TEST, slotZ, slotsFor, type Inch,
 } from './config';
 import { buildInspectionCell, createInspector, drawInsp, resetInspector, updateInspector } from './inspection';
 import { TV_ON_JIG, TV_STANDING, makeJig, makePallet, makeTV, tvPower, type TV } from './products';
@@ -36,10 +36,10 @@ export function createWorld(stage: Stage, params: Params = { ...DEFAULT_PARAMS }
 
   // ---------- conveyors ----------
   const asmTrack = new Track([line(LINE_X0, Z_ASM, LINE_X1, Z_ASM)], false);
-  const testTrack = new Track([line(testX0, Z_PAL, LINE_X1, Z_PAL)], false); // pallets ride 30 cm off the belt centre
+  const testTrack = new Track([line(testX0, Z_PAL, LINE_X1, Z_PAL)], false); // pallets ride in the middle of the belt
   // the TV line roller conveyor, the same as in the Intellifix AI screwdriving cell
   rollerConveyor(scene, M, { x0: LINE_X0, x1: LINE_X1, z: Z_ASM, top: TOP, w: BELT_ASM });
-  rollerConveyor(scene, M, { x0: testX0, x1: LINE_X1, z: Z_TEST, top: TOP, w: BELT_TEST });
+  rollerConveyor(scene, M, { x0: testX0, x1: LINE_X1, z: Z_TEST, top: TOP_TEST, w: BELT_TEST });
   for (const [lz, bw] of [[Z_ASM, BELT_ASM], [Z_TEST, BELT_TEST]]) for (const sx of [-1, 1] as const) {
     if (opts.externalFeed && lz === Z_ASM && sx < 0) continue; // the screwdriving cell's conveyor comes in here
     const x0 = lz === Z_TEST ? testX0 : LINE_X0;
@@ -61,7 +61,7 @@ export function createWorld(stage: Stage, params: Params = { ...DEFAULT_PARAMS }
     onExit: it => { if (hasTV(it) && !it.ng) w.losses.tv++; scene.remove(it.obj); },
   });
   w.test = makeLine<Pallet>({
-    track: testTrack, speed: SPEED_TEST, gap: PAL_W + ITEM_GAP, tex: null, y: TOP,
+    track: testTrack, speed: SPEED_TEST, gap: PAL_W + ITEM_GAP, tex: null, y: TOP_TEST,
     onExit: it => { if (!it.tvs.length) w.losses.emptyPallet++; scene.remove(it.obj); },
   });
 
@@ -89,9 +89,9 @@ export function createWorld(stage: Stage, params: Params = { ...DEFAULT_PARAMS }
   return { world: w, andons, ceiling };
 }
 
-/** Swap the planner rigs for the UR arms: transfers UR30 · inspection UR10e. */
+/** Swap the planner rigs for the UR arms: transfers JAKA Zu 50 · inspection UR10e. */
 export function mountArms(w: World) {
-  w.robots.forEach(r => upgradeArm(w.scene, r.arm, r.pose, UR30));
+  w.robots.forEach(r => upgradeArm(w.scene, r.arm, r.pose, ZU50));
   upgradeArm(w.scene, w.insp.arm, w.insp.pose, UR10E);
 }
 

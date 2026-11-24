@@ -14,13 +14,17 @@ export const TV_BACK = 0.06; // back cover (electronics bump) distance from the 
 export const LINE_UPH: Record<Inch, number> = { 32: 230, 43: 220, 50: 115, 55: 110, 65: 90, 75: 75 };
 
 // conveyors
-export const TOP = 0.88; // belt top height
-export const BELT_ASM = 1.2, BELT_TEST = 1.2; // both belts 1.2 m wide
-export const Z_ASM = 1.05, Z_TEST = -1.05; // belt centres; robots between them
+// conveyors as measured on the line: assembly 1195 mm inside / 1318 mm outside, 890 mm high; test 720 / 750 mm, 850 mm
+// high (40 mm lower); 1545 mm between them, where the transfers stand
+export const TOP = 0.89; // assembly belt top (also the screwdriving cell's conveyor)
+export const TOP_TEST = 0.85; // test belt top
+export const BELT_ASM = 1.195, BELT_TEST = 0.72; // inside widths
+export const ASM_OUT = 1.318, TEST_OUT = 0.75, BELT_GAP = 1.545;
+/** Belt centres: the gap as measured, the transfers (z = 0) where the far TV of a pair and the test pallet are equally far. */
+export const Z_ASM = (ASM_OUT / 2 + BELT_GAP + TEST_OUT / 2 + 0.352) / 2, Z_TEST = Z_ASM - (ASM_OUT / 2 + BELT_GAP + TEST_OUT / 2);
 export const ROBOT_Z = 0; // transfers midway between the belts (as in the first, validated version)
 export const LINE_X0 = -8.3, LINE_X1 = 5.1; // 13.4 m of belt; ~15.8 m overall with the lift units
-/** Pallets ride on the robot side of the test belt (30 cm off its centre): within the transfers' reach. */
-export const Z_PAL = Z_TEST + 0.3;
+export const Z_PAL = Z_TEST; // in the middle of the (720 mm) test belt
 export const SPEED_ASM = 0.6, SPEED_TEST = 0.8; // m/s
 export const LIFT_OPEN = 2.1; // clear height: a 75" standing on a pallet reaches ~1.98 m
 
@@ -34,11 +38,11 @@ export const ASM_PITCH = 2.4;
 export const PAL_W = 1.9, PAL_D = 0.55, SEAT_Y = 0.13;
 export const ITEM_GAP = 0.1; // accumulation: queued items keep 10 cm apart
 
-// transfer robots (UR30) with the hook gripper: a bracket along the tool axis to a row of cups that face sideways. It
+// transfer robots (JAKA Zu 50) with the hook gripper: a bracket along the tool axis to a row of cups that face sideways. It
 // picks the TV lying screen-down with the tool horizontal and stands it in the test pallet screen toward the robots,
 // the hook reaching over the TV to hold its back.
 // flange → cup row · bracket axis → cup face · grip point below the TV's top edge (the edge nearest the robot at the pick)
-export const HOOK_D = 0.37, CUP_Z = 0.24, GRIP = 0.2; // cups 18 cm off the bracket: the wrist stays over the jig foam at the pick
+export const HOOK_D = 0.37, CUP_Z = 0.28, GRIP = 0.2; // cups 28 cm off the bracket: the wrist stays over the jig foam at the pick
 /** Grip point below the top edge for this TV: 40% of its height at most, so on a 32" the cup bars stay clear of the
  *  test pallet's rest rail. */
 export const gripOf = (inch: Inch) => (inch >= 75 ? 0.25 : Math.min(GRIP, SIZES[inch][1] * 0.4)); // the 75": a little lower, its top edge clear of the arm
@@ -81,8 +85,8 @@ export const LABELS: LabelDef[] = [
   { lines: ['Esteira de Montagem'], x: LINE_X1 - 1.2, y: 1.7, z: Z_ASM + 0.2 },
   { lines: ['Esteira de Teste'], x: LINE_X0 + 1.0, y: 1.9, z: Z_TEST },
   { lines: ['Inspeção Visual', 'com Robô (IA) · UR10e'], x: CELL.x, y: 2.75, z: CELL.z + 0.3 },
-  { lines: ['Transfer 1 · UR30', 'Telas 32” a 75”'], x: ROBOT_X1 - ARM_DX, y: 3.25, z: ROBOT_Z },
-  { lines: ['Transfer 2 · UR30', 'Telas 32” a 75”'], x: ROBOT_X2 - ARM_DX, y: 3.25, z: ROBOT_Z },
+  { lines: ['Transfer 1 · JAKA Zu 50', 'Telas 32” a 75”'], x: ROBOT_X1 - ARM_DX, y: 3.25, z: ROBOT_Z },
+  { lines: ['Transfer 2 · JAKA Zu 50', 'Telas 32” a 75”'], x: ROBOT_X2 - ARM_DX, y: 3.25, z: ROBOT_Z },
   { lines: ['Pulmão de pallets'], x: BUFFER_X - 1.2, y: 2.3, z: Z_TEST - 0.3 },
 ];
 

@@ -4,8 +4,8 @@
     "client": "Grupo Multilaser",
     "name": "Transfer Flow 3D",
     "status": "validacao",
-    "description": "Transferência robotizada e inspeção inteligente de televisores (32\" a 75\"). As TVs chegam na mesma base colchão do parafusamento (Intellifix AI), em esteira de roletes igual em toda a linha; nos modelos de 32\" e 43\" são duas TVs lado a lado na largura. Inspeção visual com IA (UR10e) na Esteira de Montagem e dois transfers UR30 que pegam a TV de tela para baixo e a colocam em pé, com a tela para frente, nos pallets da Esteira de Teste. Simulação 3D em escala real com parâmetros e indicadores (UPH por célula e OEE).",
-    "metrics": { "uph": "530–640 TV/h", "robots": "2× UR30 + UR10e", "models": "TVs 32″–75″", "stations": "3 células" },
+    "description": "Transferência robotizada e inspeção inteligente de televisores (32\" a 75\"). As TVs chegam na mesma base colchão do parafusamento (Intellifix AI), em esteira de roletes igual em toda a linha; nos modelos de 32\" e 43\" são duas TVs lado a lado na largura. Inspeção visual com IA (UR10e) na Esteira de Montagem e dois transfers JAKA Zu 50 que pegam a TV de tela para baixo e a colocam em pé, com a tela para frente, nos pallets da Esteira de Teste. Simulação 3D em escala real com parâmetros e indicadores (UPH por célula e OEE).",
+    "metrics": { "uph": "530–640 TV/h", "robots": "2× JAKA Zu 50 + UR10e", "models": "TVs 32″–75″", "stations": "3 células" },
     "cover": "capas/transfer-flow-3d.png",
     "url": "projetos/transfer-flow-3d/",
     "updatedAt": "2026-11-20"

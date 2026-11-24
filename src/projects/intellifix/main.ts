@@ -145,7 +145,7 @@ const rowsOf = (id: string, names: string[], cols: number) => {
 const robRows = rowsOf('rob-rows', ['Robô 1', 'Robô 2'], 4);
 const NOK_CLS = (Object.keys(CLASSES) as Cls[]).filter(c => c !== 'C01');
 const clsRows = rowsOf('cls-rows', NOK_CLS.map(c => `${c} · ${CLASSES[c]}`), 2);
-const tfRows = INTEGRATED ? rowsOf('tf-rows', ['Inspeção com IA (UR10e)', 'Transfer 1 (UR30)', 'Transfer 2 (UR30)'], 3) : [];
+const tfRows = INTEGRATED ? rowsOf('tf-rows', ['Inspeção com IA (UR10e)', 'Transfer 1 (JAKA Zu 50)', 'Transfer 2 (JAKA Zu 50)'], 3) : [];
 const cycBody = $<HTMLTableSectionElement>('cyc-rows'), logBody = $<HTMLTableSectionElement>('log-rows'), ptsBody = $<HTMLTableSectionElement>('pts-rows');
 let lastKey = '', lastLog = '';
 const cm = (m: number) => (Number.isFinite(m) ? `${num(m * 100, 0)} cm` : '—');
