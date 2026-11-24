@@ -13,7 +13,7 @@ import {
   SPEED_ASM, SPEED_TEST, TOP, TV_T, Z_ASM, Z_PAL, Z_TEST, slotZ, slotsFor, type Inch,
 } from './config';
 import { buildInspectionCell, createInspector, drawInsp, resetInspector, updateInspector } from './inspection';
-import { makeJig, makePallet, makeTV, tvPower, type TV } from './products';
+import { TV_ON_JIG, TV_STANDING, makeJig, makePallet, makeTV, tvPower, type TV } from './products';
 import { measureClearance } from './clearance';
 import { rollerConveyor } from './rollers';
 import { commitJig, createTransfer, dispatchPallets, hasTV, resetTransfer, updateRobots } from './transfers';
@@ -108,7 +108,7 @@ function addAsmItem(w: World, s: number, inspected: boolean) {
   const inch = w.params.inch, tvs: TV[] = [];
   for (let k = 0; k < slotsFor(inch); k++) { // screen down, side by side across the jig for 32"/43"
     const tv = makeTV(w.M, inch);
-    tv.obj.rotation.x = Math.PI;
+    tv.obj.rotation.copy(TV_ON_JIG);
     tv.obj.position.set(0, JIG_TOP + TV_T / 2, slotZ(inch, k));
     j.g.add(tv.obj);
     tvs.push(tv);
@@ -127,7 +127,7 @@ function addPallet(w: World, s: number, inch: Inch | null) {
     const tv = makeTV(w.M, inch);
     obj.add(tv.obj);
     tv.obj.position.set(0, SEAT_Y + SIZES[inch][1] / 2, 0);
-    tv.obj.rotation.set(-Math.PI / 2, 0, Math.PI); // standing, screen toward the robots
+    tv.obj.quaternion.copy(TV_STANDING); // standing, screen toward the robots, top up
     tvPower(tv, 'swoosh');
     it.tvs.push(tv);
   }

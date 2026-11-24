@@ -11,7 +11,7 @@ import { makeCobot, poseAt, upgradeArm, type Cobot } from '../../sim/robots/ur-a
 import { UR10E } from '../../sim/robots/ur-kinematics';
 import type { Pose } from '../../sim/sequencer';
 import { JIG_L, JIG_TOP, JIG_W, SIZES, TOP, TV_T } from '../transfer-flow/config';
-import { makeJig, makeTV, type TV } from '../transfer-flow/products';
+import { TV_ON_JIG, makeJig, makeTV, type TV } from '../transfer-flow/products';
 import { rollerConveyor } from '../transfer-flow/rollers';
 import { CELL, robotHome, tvCentersZ, type TvModel } from './model';
 import { TIP, screwdriver, type Screwdriver } from './tool';
@@ -211,7 +211,7 @@ export function createCell(scene: THREE.Scene, M: Materials, font: string, ox: n
     const g = makeJig(M).g;
     const tvs = tvCentersZ(model.inch).map(cz => {
       const tv = makeTV(M, model.inch);
-      tv.obj.rotation.x = Math.PI; // screen down, back cover up
+      tv.obj.rotation.copy(TV_ON_JIG); // screen down, back cover up, top edge toward the robots of the Transfer Flow
       tv.obj.position.set(0, JIG_TOP + TV_T / 2, cz);
       g.add(tv.obj);
       return tv;

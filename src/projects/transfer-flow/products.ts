@@ -54,6 +54,15 @@ export function makeTV(M: Materials, inch: Inch): TV {
   return { obj: g, inch, screen: scr };
 }
 
+/**
+ * How a TV lies on the jig: screen down, its top edge toward the robots (the transfers' hook takes it by that edge,
+ * which is the top again when it stands in the test pallet).
+ */
+export const TV_ON_JIG = new THREE.Euler(0, 0, Math.PI);
+/** How a TV stands in the test pallet: screen toward the robots, top edge up. */
+export const TV_STANDING = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.PI)
+  .multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, Math.PI)));
+
 export const tvPower = (tv: TV, pat: ScreenPattern | null) => { tv.screen.material = pat ? getScreenMats()[pat] : screenOff; };
 
 const jigFrame = new THREE.MeshStandardMaterial({ color: 0x3a4047, metalness: 0.4, roughness: 0.45 });

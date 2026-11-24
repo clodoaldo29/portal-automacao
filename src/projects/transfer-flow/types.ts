@@ -52,6 +52,11 @@ export interface Transfer {
   /** Pallets this robot still needs (TVs committed to it). */
   need: number;
   carried: TV | null;
+  /** Joints and pose at each point of the way to the pallet (TV lifted, high via, in front of the pallet): the way back
+   *  goes through them in reverse. */
+  path: { q: number[]; pose: Pose }[];
+  /** Joint move under way (the way back): start, end, time, duration. */
+  jm: { q0: number[]; q1: number[]; t: number; dur: number } | null;
   /** Pallet that just left with a TV (until the plate has backed off it). */
   leaving: Pallet | null;
   zoneBusy: boolean;

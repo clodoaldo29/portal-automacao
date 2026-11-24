@@ -12,11 +12,12 @@ import { hookGripper } from '../../sim/robots/grippers';
 import * as THREE from 'three';
 import { LED, makeCobot, poseAt, solve, urTrack } from '../../sim/robots/ur-arm';
 import { urFK } from '../../sim/robots/ur-kinematics';
-import { runSeq, type Pose } from '../../sim/sequencer';
+import { ease } from '../../sim/math';
+import { runSeq, type Pose, type Step } from '../../sim/sequencer';
 import {
   CUP_Z, gripOf, HOOK_D, ITEM_GAP, PAL_W, PICK_Y, ROBOT_Z, SEAT_Y, SIZES, TOP, TRANSFER_PED, TV_BACK, Z_ASM, Z_PAL, slotZ, type Inch,
 } from './config';
-import { tvPower } from './products';
+import { TV_STANDING, tvPower } from './products';
 import type { Jig, Mode, Pallet, Transfer, World } from './types';
 
 const H = Math.PI / 2;
@@ -61,7 +62,7 @@ export function createTransfer(w: World, x: number, phi: { home: number; wrapPos
   const home: Pose = [phi.home, 0.55, -0.45, H, Math.PI];
   const r: Transfer = {
     arm, x, D: HOOK_D, wrap: p => (phi.wrapPositive && p < 0 ? p + 2 * Math.PI : p),
-    enabled: true, count: 0, seq: [], state: 'idle', job: null, pallet: null, need: 0, carried: null, leaving: null, zoneBusy: false,
+    enabled: true, count: 0, seq: [], state: 'idle', job: null, pallet: null, need: 0, carried: null, leaving: null, zoneBusy: false, path: [], jm: null,
     busyT: 0, totT: 0, palT: 0, home, pose: home.slice(),
     addNeed: n => { if (n > 0) { r.need += n; w.palletDemand += n; } },
     pickSt: null!, gateSt: null!, placeSt: null!,
@@ -125,14 +126,30 @@ export const readyPose = (w: World, r: Transfer) => pickPose(r, w.params.inch, 0
 export const moveDur = (a: Pose, b: Pose) =>
   0.3 + Math.max(Math.abs(b[0] - a[0]) * 0.55, Math.abs(b[1] - a[1]) * 1.0, Math.abs(b[2] - a[2]) * 1.0, Math.abs((b[3] || 0) - (a[3] || 0)) * 0.45, Math.abs((b[4] || 0) - (a[4] || 0)) * 0.3);
 
+/**
+ * The program of each transfer, taught by its first cycle for each TV size and slot (the motion of the first version:
+ * over the TV, down, lift, the high via, in front of the pallet, into it, back off): the joints at each of those points
+ * are recorded, and every later cycle goes through the same joints. The way back is the way there in reverse.
+ */
+const taught = new Map<string, { q: number[]; pose: Pose }[]>();
+const TAUGHT = ['above', 'pick', 'lift', 'via', 'front', 'seat', 'back'] as const;
+const pt = (name: (typeof TAUGHT)[number]) => TAUGHT.indexOf(name);
+
 function startJob(w: World, r: Transfer) {
   const jig = r.job!, inch = jig.inch, k = jig.tvs.findIndex(Boolean), d = SIZES[inch][1];
+  const id = `${r.x}:${inch}:${k}`, prog = taught.get(id);
   r.seq.length = 0; // drop a pending move to the ready pose
   r.state = 'pick';
+  const rec: { q: number[]; pose: Pose }[] = [];
+  // move to point `name`: the first time by its pose (and recorded), then by the recorded joints
+  const to = (name: (typeof TAUGHT)[number], pose: () => Pose, dur?: number): Step[] => (prog
+    ? retraceTo(r, () => prog[pt(name)], dur)
+    : [{ toFn: pose, ...(dur ? { dur } : { durFn: moveDur }) }, { fn: () => { rec[pt(name)] = snap(r); } }]);
   r.seq.push(
-    { toFn: () => pickPose(r, inch, k, 0.2), durFn: moveDur }, { toFn: () => pickPose(r, inch, k, 0), dur: 0.5 }, { dur: 0.3 },
+    { until: () => !r.jm },
+    ...to('above', () => pickPose(r, inch, k, 0.2)), ...to('pick', () => pickPose(r, inch, k, 0), 0.5), { dur: 0.3 },
     { fn: () => { const tv = jig.tvs[k]!; r.arm.mount.attach(tv.obj); r.carried = tv; jig.tvs[k] = null; } },
-    { toFn: () => pickPose(r, inch, k, 0.4), dur: 0.6 },
+    ...to('lift', () => pickPose(r, inch, k, 0.4), 0.6),
     { fn: () => {
       if (!hasTV(jig)) { jig.ledMat.emissive.setHex(0x000000); jig.hold = null; r.job = null; }
       else if (!isLastR(w, r) && modeOf(w, jig) !== 'B') { giveToLast(w, jig, tvCount(jig)); jig.hold = null; r.job = null; } // the other TV goes on to robot 2
@@ -140,14 +157,14 @@ function startJob(w: World, r: Transfer) {
     } },
     { until: () => !!r.pallet && r.pallet.hold === r.placeSt },
     { fn: () => { r.state = 'place'; } },
-    { toFn: () => viaPose(r), durFn: moveDur }, // high over the gap between the belts, TV half turned
-    { toFn: () => placePose(r, inch, 0.1, 0.45), durFn: moveDur }, // TV upright 45 cm in front of the pallet
-    { toFn: () => placePose(r, inch, 0, 0), dur: 0.75 }, { dur: 0.3 }, // slide it in over the front lip, between the side guides
+    ...to('via', () => viaPose(r)), // high over the gap between the belts, TV half turned
+    ...to('front', () => placePose(r, inch, 0.1, 0.45)), // TV upright 45 cm in front of the pallet
+    ...to('seat', () => placePose(r, inch, 0, 0), 0.75), { dur: 0.3 }, // slide it in over the front lip, between the side guides
     { fn: () => {
       const tv = r.carried!, pal = r.pallet!;
       pal.obj.attach(tv.obj);
       tv.obj.position.set(0, SEAT_Y + d / 2, 0);
-      tv.obj.rotation.set(-Math.PI / 2, 0, Math.PI);
+      tv.obj.quaternion.copy(TV_STANDING);
       pal.tvs.push(tv);
       r.carried = null;
       tvPower(tv, 'swoosh');
@@ -156,27 +173,55 @@ function startJob(w: World, r: Transfer) {
       // the pallet leaves at once and carries the TV away from the hook; nothing else may enter the dock meanwhile
       r.leaving = pal; r.zoneBusy = true; pal.hold = null; r.pallet = null; r.need--;
     } },
-    { toFn: () => placePose(r, inch, 0, -0.1), dur: 0.3 }, // cups back off the TV
+    ...to('back', () => placePose(r, inch, 0, -0.1), 0.3), // cups back off the TV
+    { fn: () => { if (!prog && rec.length === TAUGHT.length && rec.every(Boolean)) taught.set(id, rec); } },
     { until: () => !w.test.items.includes(r.leaving!) || r.leaving!.obj.position.x - SIZES[inch][0] / 2 > r.x + 0.35 },
     { fn: () => { r.state = 'return'; } },
-    { toFn: () => viaPose(r), durFn: moveDur }, // hook back to the front, now that the TV has gone
+    // the way back is the way there in reverse (the same joints): in front of the pallet, the high via, over the jig
+    ...retraceTo(r, () => (prog ?? rec)[pt('front')]), ...retraceTo(r, () => (prog ?? rec)[pt('via')]),
     { fn: () => { r.zoneBusy = false; r.leaving = null; r.state = 'idle'; } },
-    { toFn: () => readyPose(w, r), durFn: moveDur, ready: true },
+    ...retraceTo(r, () => (prog ?? rec)[pt('lift')], undefined, true),
+    ...retraceTo(r, () => (prog ?? rec)[pt('above')], undefined, true),
   );
+}
+const snap = (r: Transfer) => ({ q: r.arm.ur ? r.arm.ur.q.slice() : [], pose: r.pose.slice() });
+/** Joint move to a recorded point (steps for the sequencer); each joint takes the turn nearest to where it is. */
+const retraceTo = (r: Transfer, p: () => { q: number[]; pose: Pose } | undefined, dur?: number, ready = false): Step[] => [
+  { fn: () => {
+    const target = p();
+    if (!target || !r.arm.ur || !target.q.length) return;
+    const q0 = r.arm.ur.q.slice(), q1 = target.q.map((v, j) => q0[j] + Math.atan2(Math.sin(v - q0[j]), Math.cos(v - q0[j])));
+    let big = 0, small = 0;
+    q0.forEach((v, j) => { const dq = Math.abs(q1[j] - v); if (j < 3) big = Math.max(big, dq); else small = Math.max(small, dq); });
+    r.jm = { q0, q1, t: 0, dur: dur ?? 0.3 + Math.max(big / 1.8, small / 2.6) };
+    r.pose = target.pose.slice();
+  }, ready },
+  { until: () => !r.jm, ready },
+];
+/** Follow the pose, or play the joint move under way. */
+function drive(r: Transfer, dt: number, iters: number) {
+  const m = r.jm, ur = r.arm.ur;
+  if (m && ur) {
+    m.t += dt;
+    const u = ease(Math.min(1, m.t / m.dur));
+    ur.q = m.q0.map((v, j) => v + (m.q1[j] - v) * u);
+    ur.joints.forEach((jn, j) => { jn.rotation.z = ur.q[j]; });
+    if (m.t >= m.dur) r.jm = null;
+  } else { r.jm = null; track(r, iters); }
 }
 
 export function updateRobots(w: World, dt: number) {
   for (const r of w.robots) {
     if (!r.zoneBusy) for (const it of w.test.items) if (it.hold === r.gateSt) it.hold = null; // dock clear: let the queue in
     if (!r.enabled) { // switched off: park and stay out of the flow
-      runSeq(r, dt); solve(r.arm, r.pose); track(r, 6); r.arm.ledMat.emissive.setHex(LED.off);
+      runSeq(r, dt); solve(r.arm, r.pose); drive(r, dt, 6); r.arm.ledMat.emissive.setHex(LED.off);
       continue;
     }
     // the last robot always keeps one empty pallet docked or on its way, so it never waits for one;
     // an upstream robot never parks an empty pallet, which would block the pallets of the robot after it
     if (isLastR(w, r) && r.need === 0) r.addNeed(1);
     if (r.state === 'idle' && r.job && r.seq.every(s => s.ready)) startJob(w, r);
-    runSeq(r, dt); solve(r.arm, r.pose); track(r, 14);
+    runSeq(r, dt); solve(r.arm, r.pose); drive(r, dt, 14);
     const waiting = r.state === 'waitPallet' || r.state === 'idle';
     r.totT += dt;
     if (!waiting) r.busyT += dt;
@@ -206,7 +251,7 @@ export function dispatchPallets(w: World) {
 /** Put a robot back to its waiting pose with nothing in hand (line restart). */
 export function resetTransfer(w: World, r: Transfer) {
   if (r.carried) { r.carried.obj.parent?.remove(r.carried.obj); r.carried = null; }
-  Object.assign(r, { seq: [], state: 'idle', job: null, pallet: null, need: 0, leaving: null, zoneBusy: false });
+  Object.assign(r, { seq: [], state: 'idle', job: null, pallet: null, need: 0, leaving: null, zoneBusy: false, path: [], jm: null });
   r.seq.push({ toFn: () => (r.enabled ? readyPose(w, r) : r.home), durFn: moveDur, ready: true });
 }
 
