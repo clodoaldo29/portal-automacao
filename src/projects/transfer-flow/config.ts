@@ -46,7 +46,7 @@ export const TRANSFER_PED = 1.5; // pedestal height: the hook reaches over a 75"
 export const ROBOT_X1 = -2.0, ROBOT_X2 = 2.0; // work stations (pick stop, pallet dock), 4.0 m apart: room for one full pallet queued between them
 /** Each transfer's pedestal stands this far upstream of its stations: the TV of a 32"/43" pair nearest the robot is
  *  not right over the pedestal, so the arm reaches it without folding on itself. */
-export const ARM_DX = 0.3;
+export const ARM_DX = 0.5;
 export const BUFFER_X = ROBOT_X1 - 2.25; // empty-pallet buffer just before Transfer 1
 /** Back-cover height of a TV lying screen-down on the jig. */
 export const PICK_Y = TOP + JIG_TOP + TV_T / 2 + TV_BACK;
