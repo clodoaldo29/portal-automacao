@@ -190,9 +190,10 @@ export function createSim(cell: Cell, scene: THREE.Scene, params: SimParams, opt
   function reseedElbowUp(r: 0 | 1, pose: number[]) {
     const ur = arms[r].ur!, keep = ur.q.slice();
     let best: { lift: number; err: number; q: number[] } | null = null;
-    for (const q1 of [-0.6, -1.0, -1.5, -2.0]) for (const q2 of [-2.2, -1.4, 1.4, 2.2]) for (const q3 of [-1.6, 0, 1.6]) {
+    const [, a, b, c] = keep;
+    for (const [q1, q2, q3] of [[a + b, -b, c + b], [a, -b, c], [-1.2, 1.6, c], [-1.8, 1.0, c]]) {
       ur.q = [keep[0], q1, q2, q3, keep[4], keep[5]];
-      const err = urTrack(arms[r], pose, 80), lift = elbowLift(r);
+      const err = urTrack(arms[r], pose, 60), lift = elbowLift(r);
       if (err < 0.003 && lift > 0.05 && (!best || lift > best.lift)) best = { lift, err, q: ur.q.slice() };
     }
     ur.q = best ? best.q : keep;
@@ -200,6 +201,8 @@ export function createSim(cell: Cell, scene: THREE.Scene, params: SimParams, opt
     return best ? best.err : 1;
   }
   const _sh = new THREE.Vector3(), _el = new THREE.Vector3(), _wr = new THREE.Vector3();
+  // (light on purpose: only when the elbow is really down, a few seeds, at most every 15 steps per robot)
+  const cool = [0, 0];
 
   function moveArms(dt: number) {
     const tau = phase === 'work' ? phaseT : 0;
@@ -211,7 +214,8 @@ export function createSim(cell: Cell, scene: THREE.Scene, params: SimParams, opt
       const pose = [...poseAt(arm, X(LAY.stopX + ts.x), Z(ts.z), BACK_Y + TIP + ts.lift), 0, TOOL_YAW[r]];
       let err = urTrack(arm, pose, ikIters);
       // always elbow up: if the solver slipped into the elbow-down solution, solve again from elbow-up postures
-      if (elbowLift(r) < 0.03) err = reseedElbowUp(r, pose);
+      if (cool[r] > 0) cool[r]--;
+      else if (elbowLift(r) < 0) { cool[r] = 15; err = reseedElbowUp(r, pose); }
       if (stats.t > 2 && err > stats.maxIkErr) stats.maxIkErr = err;
       tools[r].spin(dt, ts.drive);
     }

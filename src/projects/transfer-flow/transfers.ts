@@ -239,14 +239,20 @@ export function elbowLift(r: Transfer) {
   const t = THREE.MathUtils.clamp(_el.clone().sub(_sh).dot(_d) / Math.max(1e-9, _d.lengthSq()), 0, 1);
   return _el.y - (_sh.y + _d.y * t);
 }
+// (light on purpose: only when the elbow is really down, a few seeds, at most every 15 steps per robot)
+const cooldown = new WeakMap<Transfer, number>();
 function track(r: Transfer, iters: number) {
   urTrack(r.arm, r.pose, iters);
-  if (elbowLift(r) >= 0.03) return;
-  const ur = r.arm.ur!, keep = ur.q.slice();
+  const cd = cooldown.get(r) ?? 0;
+  if (cd > 0) cooldown.set(r, cd - 1);
+  if (cd > 0 || elbowLift(r) >= 0) return;
+  cooldown.set(r, 15);
+  const ur = r.arm.ur!, keep = ur.q.slice(), [, a, b, c] = keep;
   let best: { lift: number; q: number[] } | null = null;
-  for (const q1 of [-0.6, -1.0, -1.5, -2.0]) for (const q2 of [-2.2, -1.4, 1.4, 2.2]) for (const q3 of [-1.6, 0, 1.6]) {
+  // the same arm with the elbow mirrored (shoulder and wrist 1 take up the difference), and two plain postures
+  for (const [q1, q2, q3] of [[a + b, -b, c + b], [a, -b, c], [-1.2, 1.6, c], [-1.8, 1.0, c]]) {
     ur.q = [keep[0], q1, q2, q3, keep[4], keep[5]];
-    const err = urTrack(r.arm, r.pose, 80), lift = elbowLift(r);
+    const err = urTrack(r.arm, r.pose, 60), lift = elbowLift(r);
     if (err < 0.003 && lift > 0.05 && (!best || lift > best.lift)) best = { lift, q: ur.q.slice() };
   }
   ur.q = best ? best.q : keep;
