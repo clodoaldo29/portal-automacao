@@ -17,9 +17,7 @@ export const LINE_UPH: Record<Inch, number> = { 32: 230, 43: 220, 50: 115, 55: 1
 export const TOP = 0.88; // belt top height
 export const BELT_ASM = 1.2, BELT_TEST = 1.2; // both belts 1.2 m wide
 export const Z_ASM = 1.05, Z_TEST = -1.05; // belt centres; robots between them
-/** Transfers 25 cm toward the test belt: the hook reaches over the standing TV to its back without full stretch, and the
- *  far TV of a 32"/43" pair is still within reach (the hook holds it from the robot's side). */
-export const ROBOT_Z = -0.25;
+export const ROBOT_Z = 0; // transfers midway between the belts (as in the first, validated version)
 export const LINE_X0 = -8.3, LINE_X1 = 5.1; // 13.4 m of belt; ~15.8 m overall with the lift units
 /** Pallets ride on the robot side of the test belt (30 cm off its centre), so the hook gripper reaches behind the TV. */
 export const Z_PAL = Z_TEST + 0.3;
@@ -40,14 +38,12 @@ export const ITEM_GAP = 0.1; // accumulation: queued items keep 10 cm apart
 // picks the TV lying screen-down with the tool horizontal and stands it in the test pallet screen toward the robots,
 // the hook reaching over the TV to hold its back.
 // flange → cup row · bracket axis → cup face · grip point below the TV's top edge (the edge nearest the robot at the pick)
-export const HOOK_D = 0.37, CUP_Z = 0.18, GRIP = 0.25;
+export const HOOK_D = 0.37, CUP_Z = 0.1, GRIP = 0.25;
 /** Grip point below the top edge for this TV: 40% of its height at most, so on a 32" the cup bars stay clear of the
  *  test pallet's rest rail. */
 export const gripOf = (inch: Inch) => Math.min(GRIP, SIZES[inch][1] * 0.4);
 export const TRANSFER_PED = 1.5; // pedestal height: the hook reaches over a 75" standing in the pallet (top at ~1.98 m)
 export const ROBOT_X1 = -2.0, ROBOT_X2 = 2.0; // work stations (pick stop, pallet dock), 4.0 m apart: room for one full pallet queued between them
-/** How far each transfer stands upstream of its stations (none: the hook reaches the pallet best straight across). */
-export const ARM_DX = 0;
 export const BUFFER_X = ROBOT_X1 - 2.25; // empty-pallet buffer just before Transfer 1
 /** Back-cover height of a TV lying screen-down on the jig. */
 export const PICK_Y = TOP + JIG_TOP + TV_T / 2 + TV_BACK;
@@ -82,8 +78,8 @@ export const LABELS: LabelDef[] = [
   { lines: ['Esteira de Montagem'], x: LINE_X1 - 1.2, y: 1.7, z: Z_ASM + 0.2 },
   { lines: ['Esteira de Teste'], x: LINE_X0 + 1.0, y: 1.9, z: Z_TEST },
   { lines: ['Inspeção Visual', 'com Robô (IA) · UR10e'], x: CELL.x, y: 2.75, z: CELL.z + 0.3 },
-  { lines: ['Transfer 1 · UR30', 'Telas 32” a 75”'], x: ROBOT_X1 - ARM_DX, y: 3.25, z: ROBOT_Z },
-  { lines: ['Transfer 2 · UR30', 'Telas 32” a 75”'], x: ROBOT_X2 - ARM_DX, y: 3.25, z: ROBOT_Z },
+  { lines: ['Transfer 1 · UR30', 'Telas 32” a 75”'], x: ROBOT_X1, y: 3.25, z: ROBOT_Z },
+  { lines: ['Transfer 2 · UR30', 'Telas 32” a 75”'], x: ROBOT_X2, y: 3.25, z: ROBOT_Z },
   { lines: ['Pulmão de pallets'], x: BUFFER_X - 1.2, y: 2.3, z: Z_TEST - 0.3 },
 ];
 

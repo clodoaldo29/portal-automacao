@@ -16,7 +16,6 @@ import { createKpiPanel } from './ui/kpi-panel';
 import { createParamsPanel } from './ui/params-panel';
 import { createShotModal } from '../../sim/ui/shot-modal';
 import { DEFAULT_PARAMS, applyArms, createWorld, mountArms, resetLine, resetStats, startClearance, step } from './world';
-import { programReport } from './transfers';
 import { measureClearance } from './clearance';
 import { jointPoints } from '../../sim/robots/collision';
 
@@ -107,7 +106,6 @@ declare global {
   }
 }
 window.__tf = {
-  report: () => programReport(w),
   world: w, step: (dt: number) => step(w, dt), resetLine: () => resetLine(w), resetStats: () => resetStats(w),
   /** Collision check now (smallest clearance and between what), and the joint points of a transfer arm. */
   measure: () => measureClearance(w),

@@ -91,7 +91,7 @@ export function createWorld(stage: Stage, params: Params = { ...DEFAULT_PARAMS }
 
 /** Swap the planner rigs for the UR arms: transfers UR30 · inspection UR10e. */
 export function mountArms(w: World) {
-  w.robots.forEach(r => { upgradeArm(w.scene, r.arm, r.pose, UR30); resetTransfer(w, r); }); // straight into its posture
+  w.robots.forEach(r => upgradeArm(w.scene, r.arm, r.pose, UR30));
   upgradeArm(w.scene, w.insp.arm, w.insp.pose, UR10E);
 }
 
