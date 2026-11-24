@@ -10,7 +10,7 @@ import { obstacleBox, type Obstacle } from '../../sim/robots/collision';
 import { makeCobot, poseAt, upgradeArm, type Cobot } from '../../sim/robots/ur-arm';
 import { UR10E } from '../../sim/robots/ur-kinematics';
 import type { Pose } from '../../sim/sequencer';
-import { JIG_L, JIG_TOP, JIG_W, TOP, TV_T } from '../transfer-flow/config';
+import { JIG_L, JIG_TOP, JIG_W, SIZES, TOP, TV_T } from '../transfer-flow/config';
 import { makeJig, makeTV, type TV } from '../transfer-flow/products';
 import { rollerConveyor } from '../transfer-flow/rollers';
 import { CELL, robotHome, tvCentersZ, type TvModel } from './model';
@@ -26,9 +26,9 @@ export const LAY = {
   preX: -2.1,
   /** The pallet is the Transfer Flow assembly jig ("base colchão"): it goes on to the transfers as it is. */
   pal: { l: JIG_L, w: JIG_W },
-  // base a little above the TV backs: the screw points are close to the base (a higher base folds the arm on itself),
-  // and the upper arm still clears the pallet edge when it reaches out low for the far points
-  ped: TOP + 0.15, pedW: 0.22,
+  // base low, at the height of the jig: the screw points are close to the base, and a higher base folds the arm on itself;
+  // the upper arm still clears the pallet edge (the jig foam, lower than the TVs) when it reaches out for the far points
+  ped: TOP + 0.1, pedW: 0.22,
   cab: { x: 1.35, z: 1.4, h: 2.3 },
   /** Travel height of the nose above the back cover between screws, and at home. */
   travel: 0.07, homeLift: 0.3,
@@ -63,8 +63,7 @@ export function createCell(scene: THREE.Scene, M: Materials, font: string, ox: n
   obstacles.push(obstacleBox('esteira', X(mid), (top - 0.01) / 2, Z(0), len, top - 0.01, beltW + 0.08));
   // the pallet at the stop with its TV(s), up to the back-cover bump: the arm links must stay clear of it (only the
   // screwdriver nose touches the screw)
-  const tvTop = BACK_Y + 0.05;
-  obstacles.push(obstacleBox('pallet e TVs', X(LAY.stopX), (top + tvTop) / 2, Z(0), LAY.pal.l, tvTop - top, LAY.pal.w));
+  // (the pallet at the stop and its TVs are obstacles too: palletObstacles(), per model)
   liftUnit(scene, M, { x: X(x0 - 0.15), z: Z(0), beltW: LAY.pal.w, side: -1, open: 1.6 });
   if (opts.exitLift) liftUnit(scene, M, { x: X(x1 + 0.15), z: Z(0), beltW: LAY.pal.w, side: 1, open: 1.6 });
 
@@ -236,8 +235,19 @@ export function createCell(scene: THREE.Scene, M: Materials, font: string, ox: n
   }
   const markMats = { ok: okRing, nok: nokM };
 
+  /** The pallet at the stop as it is for model: the jig foam, the TV back covers, the electronics bump in their middle. */
+  function palletObstacles(model: TvModel): Obstacle[] {
+    const [w, d] = SIZES[model.inch], cx = X(LAY.stopX);
+    const out: Obstacle[] = [obstacleBox('pallet e TVs', cx, (top + SEAT_Y) / 2, Z(0), LAY.pal.l, SEAT_Y - top, LAY.pal.w)];
+    for (const cz of tvCentersZ(model.inch)) {
+      out.push(obstacleBox('pallet e TVs', cx, (SEAT_Y + BACK_Y) / 2, Z(cz), w, BACK_Y - SEAT_Y, d));
+      out.push(obstacleBox('pallet e TVs', cx, BACK_Y + 0.0225, Z(cz), w * 0.56, 0.045, d * 0.56)); // bump
+    }
+    return out;
+  }
+
   return {
-    obstacles, arms, tools, feeders, stoppers, sensorLeds, sensorOn, sensorOff, andons, andon, drawHmi, makePallet, markMats, idlePose,
+    obstacles, palletObstacles, arms, tools, feeders, stoppers, sensorLeds, sensorOn, sensorOff, andons, andon, drawHmi, makePallet, markMats, idlePose,
     X, Z, x1,
   };
 }

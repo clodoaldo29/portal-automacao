@@ -127,7 +127,7 @@ function addPallet(w: World, s: number, inch: Inch | null) {
     const tv = makeTV(w.M, inch);
     obj.add(tv.obj);
     tv.obj.position.set(0, SEAT_Y + SIZES[inch][1] / 2, 0);
-    tv.obj.rotation.set(Math.PI / 2, 0, Math.PI); // standing, screen toward the aisle, back toward the robots
+    tv.obj.rotation.set(-Math.PI / 2, 0, Math.PI); // standing, screen toward the robots
     tvPower(tv, 'swoosh');
     it.tvs.push(tv);
   }

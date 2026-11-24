@@ -1,14 +1,14 @@
 // Transfer Flow · collision check over the whole cycle: nothing may touch.
 //
 // Robot parts: the UR30 as it is drawn (one capsule per visual part of every link: housings, caps and the link tubes,
-// which run well to the side of the joint line), the vacuum plate, and the TV it carries as an oriented box. Checked
+// which run well to the side of the joint line), the hook gripper, and the TV it carries as an oriented box. Checked
 // against: the robot's own arm and pedestal (the carried TV must not touch them), the other robot with its pedestal
 // and TV, the TVs on the jigs and test pallets, the jigs, the test pallets, the belts, the lift units; and the
 // inspection UR10e against the jigs and their TVs. Intended contact is left out: the cups on the TV being picked or
 // just placed, the carried TV sliding into its pallet, and each arm's base on its own pedestal.
 import * as THREE from 'three';
 import { capsuleGap, linkCapsules, type Capsule } from '../../sim/robots/collision';
-import { BELT_ASM, BELT_TEST, JIG_L, JIG_TOP, JIG_W, LINE_X0, LINE_X1, SIZES, TOP, TRANSFER_PED, TV_T, VAC_D, VAC_L, VAC_W, Z_ASM, Z_TEST } from './config';
+import { BELT_ASM, BELT_TEST, JIG_L, JIG_TOP, JIG_W, LINE_X0, LINE_X1, SIZES, TOP, TRANSFER_PED, TV_T, CUP_Z, HOOK_D, Z_ASM, Z_TEST } from './config';
 import type { TV } from './products';
 import type { Jig, Pallet, Transfer, World } from './types';
 
@@ -33,14 +33,17 @@ const aabb = (name: string, x0: number, y0: number, z0: number, x1: number, y1: 
 
 const label = (r: Transfer, idx: number) => `transfer ${idx + 1} [${r.state} ${r.seq.length}]`;
 
-/** Vacuum plate in the flange frame (tool axis local −y): stem with the vacuum generator, the plate (two bars along its
- *  width), the cups. */
-export const gripperCaps = (): { a: [number, number, number]; b: [number, number, number]; r: number }[] => [
-  { a: [0, -0.02, 0], b: [0, -VAC_L + 0.05, 0], r: 0.045 },
-  ...[-1, 1].map(s => ({ a: [-VAC_W / 2, -VAC_L + 0.03, s * (VAC_D / 2 - 0.03)] as [number, number, number], b: [VAC_W / 2, -VAC_L + 0.03, s * (VAC_D / 2 - 0.03)] as [number, number, number], r: 0.025 })),
+type V3 = [number, number, number];
+/** Hook gripper in the flange frame (tool axis local −y): the bracket (first), the cross bar, the cup bars and the cup
+ *  stems (cups facing local +z). */
+export const gripperCaps = (): { a: V3; b: V3; r: number }[] => [
+  { a: [0, -0.04, 0], b: [0, -HOOK_D + 0.02, 0], r: 0.04 },
+  { a: [-0.28, -HOOK_D, 0.035], b: [0.28, -HOOK_D, 0.035], r: 0.03 },
+  ...[-0.25, 0.25].map(sx => ({ a: [sx, -HOOK_D - 0.14, 0.035] as V3, b: [sx, -HOOK_D + 0.14, 0.035] as V3, r: 0.025 })),
+  ...[-0.25, 0.25].flatMap(sx => [-0.12, 0.12].map(sy => ({ a: [sx, -HOOK_D + sy, 0.05] as V3, b: [sx, -HOOK_D + sy, CUP_Z - 0.03] as V3, r: 0.02 }))),
 ];
 
-/** The arm as drawn, and the vacuum plate. */
+/** The arm as drawn, and the hook gripper. */
 export function robotSegs(r: Transfer, idx: number): Seg[] {
   const segs: Seg[] = linkCapsules(r.arm, 0.01).map((c: Capsule) => ({ ...c, name: `${label(r, idx)} · ${LINK[c.link]}` }));
   const m = r.arm.mount;

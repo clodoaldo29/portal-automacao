@@ -7,6 +7,7 @@ import { ease } from '../../sim/math';
 import { makeLine, station, updateLine, type LineItem } from '../../sim/line';
 import { capsuleBoxGap, capsuleGap, jointPoints, linkCapsules } from '../../sim/robots/collision';
 import { poseAt, urTrack } from '../../sim/robots/ur-arm';
+import { urFK } from '../../sim/robots/ur-kinematics';
 import { Track, line } from '../../sim/track';
 import { DEFAULT_TIMING, plan, type CyclePlan, type TimingParams } from './balance';
 import { BACK_Y, LAY, TOOL_YAW, type Cell, type PalletObj } from './cell';
@@ -179,6 +180,27 @@ export function createSim(cell: Cell, scene: THREE.Scene, params: SimParams, opt
   }
   const toolNow: ToolState[] = [toolAt(0, 0), toolAt(1, 0)];
   let ik = true, ikIters = 12, clearEvery = 0, check = false;
+  /** Height of the elbow over the shoulder → wrist line (negative: elbow down, the arm through the pallet). */
+  function elbowLift(r: 0 | 1) {
+    const ur = arms[r].ur!;
+    _sh.setFromMatrixPosition(urFK(ur, ur.q, 2)); _el.setFromMatrixPosition(urFK(ur, ur.q, 3)); _wr.setFromMatrixPosition(urFK(ur, ur.q, 4));
+    const t = THREE.MathUtils.clamp(_el.clone().sub(_sh).dot(_wr.clone().sub(_sh)) / Math.max(1e-9, _wr.distanceToSquared(_sh)), 0, 1);
+    return _el.y - (_sh.y + (_wr.y - _sh.y) * t);
+  }
+  function reseedElbowUp(r: 0 | 1, pose: number[]) {
+    const ur = arms[r].ur!, keep = ur.q.slice();
+    let best: { lift: number; err: number; q: number[] } | null = null;
+    for (const q1 of [-0.6, -1.0, -1.5, -2.0]) for (const q2 of [-2.2, -1.4, 1.4, 2.2]) for (const q3 of [-1.6, 0, 1.6]) {
+      ur.q = [keep[0], q1, q2, q3, keep[4], keep[5]];
+      const err = urTrack(arms[r], pose, 80), lift = elbowLift(r);
+      if (err < 0.003 && lift > 0.05 && (!best || lift > best.lift)) best = { lift, err, q: ur.q.slice() };
+    }
+    ur.q = best ? best.q : keep;
+    ur.joints.forEach((j, i) => { j.rotation.z = ur.q[i]; });
+    return best ? best.err : 1;
+  }
+  const _sh = new THREE.Vector3(), _el = new THREE.Vector3(), _wr = new THREE.Vector3();
+
   function moveArms(dt: number) {
     const tau = phase === 'work' ? phaseT : 0;
     for (const r of [0, 1] as const) {
@@ -186,7 +208,10 @@ export function createSim(cell: Cell, scene: THREE.Scene, params: SimParams, opt
       toolNow[r] = ts;
       if (!ik) continue;
       const arm = arms[r];
-      const err = urTrack(arm, [...poseAt(arm, X(LAY.stopX + ts.x), Z(ts.z), BACK_Y + TIP + ts.lift), 0, TOOL_YAW[r]], ikIters);
+      const pose = [...poseAt(arm, X(LAY.stopX + ts.x), Z(ts.z), BACK_Y + TIP + ts.lift), 0, TOOL_YAW[r]];
+      let err = urTrack(arm, pose, ikIters);
+      // always elbow up: if the solver slipped into the elbow-down solution, solve again from elbow-up postures
+      if (elbowLift(r) < 0.03) err = reseedElbowUp(r, pose);
       if (stats.t > 2 && err > stats.maxIkErr) stats.maxIkErr = err;
       tools[r].spin(dt, ts.drive);
     }
@@ -201,8 +226,9 @@ export function createSim(cell: Cell, scene: THREE.Scene, params: SimParams, opt
 
   // ---------- collision check ----------
   const LINK = ['base', 'ombro', 'braço', 'antebraço', 'punho 1', 'punho 2', 'punho 3'];
-  // the back cover itself (the slab of the pallet obstacle reaches the back bumps): the tool body must stay above it
-  const coverTop = BACK_Y + 0.005;
+  /** Elbow bent more than this (rad, from straight) is the arm folded back on itself: not allowed. */
+  const FOLD_MAX = 2.55;
+  let palletFor = '', palletObs: ReturnType<typeof cell.palletObstacles> = [];
   const _a = new THREE.Vector3(), _b = new THREE.Vector3();
   /** Screwdriver in the flange frame: body with transducer, spindle, nose (touches the screw), camera with ring. */
   const TOOL_PARTS: [string, number, number, number, number, number][] = [
@@ -227,17 +253,17 @@ export function createSim(cell: Cell, scene: THREE.Scene, params: SimParams, opt
       if (worst && d < 0.05) worst.set(what, Math.min(worst.get(what) ?? Infinity, d));
     };
     const caps = [robotCaps(0), robotCaps(1)];
-    for (const r of [0, 1] as const) for (const c of caps[r]) for (const o of cell.obstacles) {
+    if (palletFor !== params.model) { palletFor = params.model; palletObs = cell.palletObstacles(modelOf(params.model)); }
+    for (const r of [0, 1] as const) for (const c of caps[r]) for (const o of [...cell.obstacles, ...palletObs]) {
       if (o.name === `pedestal do robô ${r + 1}` && c.link <= 1) continue; // its own base on its own pedestal
-      if (o.name === 'pallet e TVs' && c.link === 7) { // the tool: only the nose touches the screw head
-        if (c.tip === 2) continue;
-        const top = o.box.max.y;
-        o.box.max.y = coverTop;
-        note(capsuleBoxGap(c, o), `${c.name} × tampa traseira da TV`);
-        o.box.max.y = top;
-        continue;
-      }
+      if (o.name === 'pallet e TVs' && c.tip === 2) continue; // the screwdriver nose touches the screw head
       note(capsuleBoxGap(c, o), `${c.name} × ${o.name}`);
+    }
+    // no arm folded back on itself (the forearm over the upper arm), none with the elbow down
+    for (const r of [0, 1] as const) {
+      note(elbowLift(r) * 0.5, `robô ${r + 1} · cotovelo para baixo`);
+      const e = Math.abs(Math.atan2(Math.sin(arms[r].ur!.q[2]), Math.cos(arms[r].ur!.q[2])));
+      note((FOLD_MAX - e) * 0.1, `robô ${r + 1} · cotovelo dobrado demais`);
     }
     // each arm against itself: links that are not neighbours, and the screwdriver against the base, shoulder, arms
     for (const r of [0, 1] as const) for (const s of caps[r]) for (const t of caps[r]) {
