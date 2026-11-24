@@ -59,7 +59,7 @@ export function createTransfer(w: World, x: number, phi: { home: number; wrapPos
   hookGripper(arm.mount, w.M, { hookD: HOOK_D, cupZ: CUP_Z });
   arm.tool.rotation.order = 'YXZ';
   w.floorRect(x - ARM_DX - 0.4, ROBOT_Z - 0.4, x - ARM_DX + 0.4, ROBOT_Z + 0.4, 0.04);
-  const home: Pose = [phi.home, 0.55, -0.45, H, Math.PI];
+  const home: Pose = [phi.home, 0.8, 0.0, H, Math.PI]; // rest (start, arm switched off): half open, hook level, clear of the arm
   const r: Transfer = {
     arm, x, D: HOOK_D, wrap: p => (phi.wrapPositive && p < 0 ? p + 2 * Math.PI : p),
     enabled: true, count: 0, seq: [], state: 'idle', job: null, pallet: null, need: 0, carried: null, leaving: null, zoneBusy: false, path: [], jm: null,
@@ -117,7 +117,16 @@ function placePose(r: Transfer, inch: Inch, dy: number, dz: number): Pose {
 }
 
 /** Wait hovering over the pick point, not at a far home. */
-export const readyPose = (w: World, r: Transfer) => pickPose(r, w.params.inch, 0, 0.25);
+/**
+ * Wait over the first TV, higher and a little further out than the pick: the arm half open, the hook clear of the
+ * upper arm (from here it goes straight down onto the TV).
+ */
+export const readyPose = (w: World, r: Transfer): Pose => {
+  const inch = w.params.inch, d = SIZES[inch][1];
+  const p = poseAt(r.arm, r.x, Z_ASM + slotZ(inch, 0) - (d / 2 - gripOf(inch)) - r.D + WAIT_OUT, PICK_Y + CUP_Z + WAIT_UP);
+  return [r.wrap(p[0]), p[1], p[2], H, Math.PI];
+};
+const WAIT_UP = 0.45, WAIT_OUT = 0.15;
 
 /**
  * Move time from joint distance — collaborative speeds with up to ~30 kg on the flange (all axes move together,
