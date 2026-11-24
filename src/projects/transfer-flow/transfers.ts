@@ -100,20 +100,24 @@ const viaPose = (r: Transfer): Pose => [0, 0.5, 2.3 - r.arm.shoulderY, H / 2, 1.
 function pickPose(r: Transfer, inch: Inch, k: number, dy: number): Pose {
   const d = SIZES[inch][1];
   // (the base colchão holds a 32"/43" pair across the belt: TV k at slotZ; the hook takes the edge nearest the robot)
-  const p = poseAt(r.arm, r.x, Z_ASM + slotZ(inch, k) - (d / 2 - gripOf(inch)) - r.D, PICK_Y + CUP_Z + dy);
-  return [r.wrap(p[0]), p[1], p[2], H, Math.PI];
+  // the tool pitched down a little (PICK_TILT) about the cup row: the wrist rides higher over the jig foam
+  const s = Math.sin(tiltOf(inch)), c = Math.cos(tiltOf(inch));
+  const p = poseAt(r.arm, r.x, Z_ASM + slotZ(inch, k) - (d / 2 - gripOf(inch)) - r.D * c + CUP_Z * s, PICK_Y + r.D * s + CUP_Z * c + dy);
+  return [r.wrap(p[0]), p[1], p[2], H - tiltOf(inch), Math.PI];
 }
 
 /** Place: TV upright in the pallet, screen toward the robots (+z). Tool pointing down behind the TV. */
 function placePose(r: Transfer, inch: Inch, dy: number, dz: number): Pose {
   const d = SIZES[inch][1], cupY = TOP + SEAT_Y + d - gripOf(inch);
-  const p = poseAt(r.arm, r.x, Z_PAL - TV_BACK - CUP_Z + dz, cupY + r.D + dy);
+  // the tool pitched back by PICK_TILT (the TV was taken with the tool pitched forward): the TV stands exactly upright
+  const s = Math.sin(tiltOf(inch)), c = Math.cos(tiltOf(inch));
+  const p = poseAt(r.arm, r.x, Z_PAL - TV_BACK - r.D * s - CUP_Z * c + dz, cupY + r.D * c - CUP_Z * s + dy);
   // The tool must end facing the same world direction (yaw 0 ≡ 2π). Pick the equivalent that keeps the
   // tool's yaw relative to the arm what it was at the pick, so the base swing does the turning and the
   // wrist does not add a full 360° spin.
   const relPick = Math.PI - pickPose(r, 50, 0, 0)[0];
   const yaw = [0, 2 * Math.PI, -2 * Math.PI].reduce((best, y) => (Math.abs(y - p[0] - relPick) < Math.abs(best - p[0] - relPick) ? y : best));
-  return [p[0], p[1], p[2], 0, yaw];
+  return [p[0], p[1], p[2], -tiltOf(inch), yaw];
 }
 
 /** Wait hovering over the pick point, not at a far home. */
@@ -121,6 +125,9 @@ function placePose(r: Transfer, inch: Inch, dy: number, dz: number): Pose {
  * Wait over the first TV, higher and a little further out than the pick: the arm half open, the hook clear of the
  * upper arm (from here it goes straight down onto the TV).
  */
+/** Tool pitch at the pick (~10°, the wrist over the jig foam), given back at the place; the 65"/75" do without it (their
+ *  wrist is high enough, and at the place the tall TV would come close to the arm). */
+const tiltOf = (inch: Inch) => (inch <= 55 ? 0.17 : 0);
 export const readyPose = (w: World, r: Transfer): Pose => {
   const inch = w.params.inch, d = SIZES[inch][1];
   const p = poseAt(r.arm, r.x, Z_ASM + slotZ(inch, 0) - (d / 2 - gripOf(inch)) - r.D + WAIT_OUT, PICK_Y + CUP_Z + WAIT_UP);
@@ -169,8 +176,9 @@ function startJob(w: World, r: Transfer) {
     { toFn: () => placePose(r, inch, 0, -0.1), dur: 0.3 }, // cups back off the TV
     { until: () => !w.test.items.includes(r.leaving!) || r.leaving!.obj.position.x - SIZES[inch][0] / 2 > r.x + 0.35 },
     { fn: () => { r.state = 'return'; } },
-    // the way back is the way there in reverse: in front of the pallet, the high via, the TV's lift point, over the jig
-    { toFn: () => placePose(r, inch, 0.1, 0.45), durFn: moveDur },
+    // the way back is the way there in reverse: in front of the pallet (a little higher: the hook clears the pallet),
+    // the high via, the TV's lift point, over the jig
+    { toFn: () => placePose(r, inch, 0.3, 0.45), durFn: moveDur },
     { toFn: () => viaPose(r), durFn: moveDur },
     { fn: () => { r.zoneBusy = false; r.leaving = null; r.state = 'idle'; } },
     { toFn: () => pickPose(r, inch, k, 0.4), durFn: moveDur, ready: true },

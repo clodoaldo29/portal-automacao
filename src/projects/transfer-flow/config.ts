@@ -38,10 +38,10 @@ export const ITEM_GAP = 0.1; // accumulation: queued items keep 10 cm apart
 // picks the TV lying screen-down with the tool horizontal and stands it in the test pallet screen toward the robots,
 // the hook reaching over the TV to hold its back.
 // flange → cup row · bracket axis → cup face · grip point below the TV's top edge (the edge nearest the robot at the pick)
-export const HOOK_D = 0.37, CUP_Z = 0.18, GRIP = 0.25; // cups 18 cm off the bracket: the wrist stays over the jig foam at the pick
+export const HOOK_D = 0.37, CUP_Z = 0.18, GRIP = 0.2; // cups 18 cm off the bracket: the wrist stays over the jig foam at the pick
 /** Grip point below the top edge for this TV: 40% of its height at most, so on a 32" the cup bars stay clear of the
  *  test pallet's rest rail. */
-export const gripOf = (inch: Inch) => Math.min(GRIP, SIZES[inch][1] * 0.4);
+export const gripOf = (inch: Inch) => (inch >= 75 ? 0.25 : Math.min(GRIP, SIZES[inch][1] * 0.4)); // the 75": a little lower, its top edge clear of the arm
 export const TRANSFER_PED = 1.5; // pedestal height: the hook reaches over a 75" standing in the pallet (top at ~1.98 m)
 export const ROBOT_X1 = -2.0, ROBOT_X2 = 2.0; // work stations (pick stop, pallet dock), 4.0 m apart: room for one full pallet queued between them
 /** Each transfer's pedestal stands this far upstream of its stations: the TV of a 32"/43" pair nearest the robot is
