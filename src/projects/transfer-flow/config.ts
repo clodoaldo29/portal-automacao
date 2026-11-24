@@ -44,6 +44,9 @@ export const HOOK_D = 0.37, CUP_Z = 0.1, GRIP = 0.25;
 export const gripOf = (inch: Inch) => Math.min(GRIP, SIZES[inch][1] * 0.4);
 export const TRANSFER_PED = 1.5; // pedestal height: the hook reaches over a 75" standing in the pallet (top at ~1.98 m)
 export const ROBOT_X1 = -2.0, ROBOT_X2 = 2.0; // work stations (pick stop, pallet dock), 4.0 m apart: room for one full pallet queued between them
+/** Each transfer's pedestal stands this far upstream of its stations: the TV of a 32"/43" pair nearest the robot is
+ *  not right over the pedestal, so the arm reaches it without folding on itself. */
+export const ARM_DX = 0.3;
 export const BUFFER_X = ROBOT_X1 - 2.25; // empty-pallet buffer just before Transfer 1
 /** Back-cover height of a TV lying screen-down on the jig. */
 export const PICK_Y = TOP + JIG_TOP + TV_T / 2 + TV_BACK;
@@ -78,8 +81,8 @@ export const LABELS: LabelDef[] = [
   { lines: ['Esteira de Montagem'], x: LINE_X1 - 1.2, y: 1.7, z: Z_ASM + 0.2 },
   { lines: ['Esteira de Teste'], x: LINE_X0 + 1.0, y: 1.9, z: Z_TEST },
   { lines: ['Inspeção Visual', 'com Robô (IA) · UR10e'], x: CELL.x, y: 2.75, z: CELL.z + 0.3 },
-  { lines: ['Transfer 1 · UR30', 'Telas 32” a 75”'], x: ROBOT_X1, y: 3.25, z: ROBOT_Z },
-  { lines: ['Transfer 2 · UR30', 'Telas 32” a 75”'], x: ROBOT_X2, y: 3.25, z: ROBOT_Z },
+  { lines: ['Transfer 1 · UR30', 'Telas 32” a 75”'], x: ROBOT_X1 - ARM_DX, y: 3.25, z: ROBOT_Z },
+  { lines: ['Transfer 2 · UR30', 'Telas 32” a 75”'], x: ROBOT_X2 - ARM_DX, y: 3.25, z: ROBOT_Z },
   { lines: ['Pulmão de pallets'], x: BUFFER_X - 1.2, y: 2.3, z: Z_TEST - 0.3 },
 ];
 

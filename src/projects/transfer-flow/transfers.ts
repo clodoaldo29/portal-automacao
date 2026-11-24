@@ -15,7 +15,7 @@ import { urFK } from '../../sim/robots/ur-kinematics';
 import { ease } from '../../sim/math';
 import { runSeq, type Pose } from '../../sim/sequencer';
 import {
-  CUP_Z, gripOf, HOOK_D, ITEM_GAP, PAL_W, PICK_Y, ROBOT_Z, SEAT_Y, SIZES, TOP, TRANSFER_PED, TV_BACK, Z_ASM, Z_PAL, slotZ, type Inch,
+  ARM_DX, CUP_Z, gripOf, HOOK_D, ITEM_GAP, PAL_W, PICK_Y, ROBOT_Z, SEAT_Y, SIZES, TOP, TRANSFER_PED, TV_BACK, Z_ASM, Z_PAL, slotZ, type Inch,
 } from './config';
 import { TV_STANDING, tvPower } from './products';
 import type { Jig, Mode, Pallet, Transfer, World } from './types';
@@ -55,10 +55,10 @@ export function commitJig(w: World, it: Jig) {
 export function createTransfer(w: World, x: number, phi: { home: number; wrapPositive?: boolean }): Transfer {
   const { asm, test } = w;
   // slim 1.5 m column: the UR30 shoulder sits ~1.74 m high, enough to lower a 75" from above and still pick at the belt
-  const arm = makeCobot(w.scene, w.M, { x, z: ROBOT_Z, L1: 0.64, L2: 0.5, ped: TRANSFER_PED, pedW: 0.3 });
+  const arm = makeCobot(w.scene, w.M, { x: x - ARM_DX, z: ROBOT_Z, L1: 0.64, L2: 0.5, ped: TRANSFER_PED, pedW: 0.3 });
   hookGripper(arm.mount, w.M, { hookD: HOOK_D, cupZ: CUP_Z });
   arm.tool.rotation.order = 'YXZ';
-  w.floorRect(x - 0.4, ROBOT_Z - 0.4, x + 0.4, ROBOT_Z + 0.4, 0.04);
+  w.floorRect(x - ARM_DX - 0.4, ROBOT_Z - 0.4, x - ARM_DX + 0.4, ROBOT_Z + 0.4, 0.04);
   const home: Pose = [phi.home, 0.55, -0.45, H, Math.PI];
   const r: Transfer = {
     arm, x, D: HOOK_D, wrap: p => (phi.wrapPositive && p < 0 ? p + 2 * Math.PI : p),
