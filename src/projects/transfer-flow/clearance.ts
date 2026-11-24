@@ -10,6 +10,7 @@ import * as THREE from 'three';
 import { capsuleGap, linkCapsules, type Capsule } from '../../sim/robots/collision';
 import { BELT_ASM, BELT_TEST, JIG_L, JIG_TOP, JIG_W, LINE_X0, LINE_X1, SIZES, TOP, TRANSFER_PED, TV_T, CUP_Z, HOOK_D, Z_ASM, Z_TEST } from './config';
 import type { TV } from './products';
+import { elbowLift } from './transfers';
 import type { Jig, Pallet, Transfer, World } from './types';
 
 const LINK = ['base', 'ombro', 'braço', 'antebraço', 'punho 1', 'punho 2', 'punho 3'];
@@ -164,6 +165,8 @@ export function measureClearance(w: World, worst?: Map<string, number>): Clearan
       if (B.carried) note(boxBox(A.carried, B.carried, A.r.carried!.obj.matrixWorld), `${A.carried.name} × ${B.carried.name}`);
     }
   }
+  // no transfer with its elbow down (the arm bending under itself)
+  w.robots.forEach((r, i) => note(elbowLift(r) * 0.5, `transfer ${i + 1} [${r.state}] · cotovelo para baixo`));
   // the inspection UR10e against the jigs and the TVs on them
   for (const s of linkCapsules(w.insp.arm, 0.01)) {
     if (s.link <= 1) continue; // on its own pedestal

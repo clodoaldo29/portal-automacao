@@ -9,7 +9,9 @@
 //   so robot 1 lets it go on to robot 2 when it already has its pallet. No pallet leaves empty.
 import { station } from '../../sim/line';
 import { hookGripper } from '../../sim/robots/grippers';
+import * as THREE from 'three';
 import { LED, makeCobot, poseAt, solve, urTrack } from '../../sim/robots/ur-arm';
+import { urFK } from '../../sim/robots/ur-kinematics';
 import { runSeq, type Pose } from '../../sim/sequencer';
 import {
   CUP_Z, gripOf, HOOK_D, ITEM_GAP, PAL_W, PICK_Y, ROBOT_Z, SEAT_Y, SIZES, TOP, TRANSFER_PED, TV_BACK, Z_ASM, Z_PAL, slotZ, type Inch,
@@ -167,14 +169,14 @@ export function updateRobots(w: World, dt: number) {
   for (const r of w.robots) {
     if (!r.zoneBusy) for (const it of w.test.items) if (it.hold === r.gateSt) it.hold = null; // dock clear: let the queue in
     if (!r.enabled) { // switched off: park and stay out of the flow
-      runSeq(r, dt); solve(r.arm, r.pose); urTrack(r.arm, r.pose, 6); r.arm.ledMat.emissive.setHex(LED.off);
+      runSeq(r, dt); solve(r.arm, r.pose); track(r, 6); r.arm.ledMat.emissive.setHex(LED.off);
       continue;
     }
     // the last robot always keeps one empty pallet docked or on its way, so it never waits for one;
     // an upstream robot never parks an empty pallet, which would block the pallets of the robot after it
     if (isLastR(w, r) && r.need === 0) r.addNeed(1);
     if (r.state === 'idle' && r.job && r.seq.every(s => s.ready)) startJob(w, r);
-    runSeq(r, dt); solve(r.arm, r.pose); urTrack(r.arm, r.pose, 14);
+    runSeq(r, dt); solve(r.arm, r.pose); track(r, 14);
     const waiting = r.state === 'waitPallet' || r.state === 'idle';
     r.totT += dt;
     if (!waiting) r.busyT += dt;
@@ -206,4 +208,32 @@ export function resetTransfer(w: World, r: Transfer) {
   if (r.carried) { r.carried.obj.parent?.remove(r.carried.obj); r.carried = null; }
   Object.assign(r, { seq: [], state: 'idle', job: null, pallet: null, need: 0, leaving: null, zoneBusy: false });
   r.seq.push({ toFn: () => (r.enabled ? readyPose(w, r) : r.home), durFn: moveDur, ready: true });
+}
+
+// ---------- elbow always up ----------
+// The arm follows its pose with an iterative solver started from where it is; on some moves it can slip into the
+// elbow-down solution (the arm bending under itself). Every step it is checked and, if so, solved again from
+// elbow-up postures.
+const _sh = new THREE.Vector3(), _el = new THREE.Vector3(), _wr = new THREE.Vector3(), _d = new THREE.Vector3();
+/** Height of the elbow over the shoulder → wrist line (negative: elbow down). */
+export function elbowLift(r: Transfer) {
+  const ur = r.arm.ur;
+  if (!ur) return 1;
+  _sh.setFromMatrixPosition(urFK(ur, ur.q, 2)); _el.setFromMatrixPosition(urFK(ur, ur.q, 3)); _wr.setFromMatrixPosition(urFK(ur, ur.q, 4));
+  _d.subVectors(_wr, _sh);
+  const t = THREE.MathUtils.clamp(_el.clone().sub(_sh).dot(_d) / Math.max(1e-9, _d.lengthSq()), 0, 1);
+  return _el.y - (_sh.y + _d.y * t);
+}
+function track(r: Transfer, iters: number) {
+  urTrack(r.arm, r.pose, iters);
+  if (elbowLift(r) >= 0.03) return;
+  const ur = r.arm.ur!, keep = ur.q.slice();
+  let best: { lift: number; q: number[] } | null = null;
+  for (const q1 of [-0.6, -1.0, -1.5, -2.0]) for (const q2 of [-2.2, -1.4, 1.4, 2.2]) for (const q3 of [-1.6, 0, 1.6]) {
+    ur.q = [keep[0], q1, q2, q3, keep[4], keep[5]];
+    const err = urTrack(r.arm, r.pose, 80), lift = elbowLift(r);
+    if (err < 0.003 && lift > 0.05 && (!best || lift > best.lift)) best = { lift, q: ur.q.slice() };
+  }
+  ur.q = best ? best.q : keep;
+  ur.joints.forEach((j, i) => { j.rotation.z = ur.q[i]; });
 }
