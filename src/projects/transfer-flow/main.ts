@@ -5,6 +5,7 @@
 //   ?bench=10      after the warm-up, run that many simulated minutes at once and publish the result in
 //                  window.__bench (ignores saved parameters, skips the real meshes and HDRI)
 import * as THREE from 'three';
+import { SPEEDS } from '../../sim/ui/page';
 import { createLabels } from '../../sim/labels';
 import { useHDRI, useUR10eMeshes } from '../../sim/robots/ur-arm';
 import { createStage } from '../../sim/stage';
@@ -68,7 +69,8 @@ const setPlay = (p: boolean) => { playing = p; playBtn.textContent = p ? 'Pausar
 setPlay(playing);
 playBtn.onclick = () => setPlay(!playing);
 const speedBtn = $('b-speed');
-speedBtn.onclick = () => { speed = speed === 1 ? 2 : speed === 2 ? 4 : 1; speedBtn.textContent = speed + '×'; speedBtn.setAttribute('aria-pressed', String(speed > 1)); };
+// the same speeds as every other cell page: 1×, 2×, 4×, 8×, 16×, 32×
+speedBtn.onclick = () => { speed = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length]; speedBtn.textContent = speed + '×'; speedBtn.setAttribute('aria-pressed', String(speed > 1)); };
 const labelBtn = $('b-labels');
 labelBtn.onclick = () => { labels.setVisible(!labels.visible); labelBtn.setAttribute('aria-pressed', String(labels.visible)); };
 const kpiBtn = $('b-kpi'), kpiEl = $('kpi');
@@ -135,7 +137,7 @@ let kpiT = 0;
 function frame() {
   const raw = Math.min(clock.getDelta(), 0.05);
   if (playing) {
-    const dt = raw * speed, n = Math.ceil(speed);
+    const dt = raw * speed, n = Math.max(1, Math.ceil(dt / (1 / 30))); // steps of 1/30 s at most: robots stay smooth at 32×
     for (let i = 0; i < n; i++) step(w, dt / n);
   }
   andons.update(performance.now() / 1000);
