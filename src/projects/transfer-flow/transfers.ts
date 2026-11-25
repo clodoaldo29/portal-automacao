@@ -147,10 +147,13 @@ function startJob(w: World, r: Transfer) {
   const jig = r.job!, inch = jig.inch, k = jig.tvs.findIndex(Boolean), d = SIZES[inch][1];
   r.seq.length = 0; // drop a pending move to the ready pose
   r.state = 'pick';
+  // 65"/75": slower and smoother while the TV is in the air (the cups hold it mostly by friction once it stands up;
+  // these models have time to spare against their line rate)
+  const slow = inch >= 65 ? 1.5 : 1, slowDur = (a: Pose, b: Pose) => moveDur(a, b) * slow;
   r.seq.push(
     { toFn: () => pickPose(r, inch, k, 0.2), durFn: moveDur }, { toFn: () => pickPose(r, inch, k, 0), dur: 0.5 }, { dur: 0.3 },
     { fn: () => { const tv = jig.tvs[k]!; r.arm.mount.attach(tv.obj); r.carried = tv; jig.tvs[k] = null; } },
-    { toFn: () => pickPose(r, inch, k, 0.4), dur: 0.6 },
+    { toFn: () => pickPose(r, inch, k, 0.4), dur: 0.6 * slow },
     { fn: () => {
       if (!hasTV(jig)) { jig.ledMat.emissive.setHex(0x000000); jig.hold = null; r.job = null; }
       else if (!isLastR(w, r) && modeOf(w, jig) !== 'B') { giveToLast(w, jig, tvCount(jig)); jig.hold = null; r.job = null; } // the other TV goes on to robot 2
@@ -158,9 +161,9 @@ function startJob(w: World, r: Transfer) {
     } },
     { until: () => !!r.pallet && r.pallet.hold === r.placeSt },
     { fn: () => { r.state = 'place'; } },
-    { toFn: () => viaPose(r), durFn: moveDur }, // high over the gap between the belts, TV half turned
-    { toFn: () => placePose(r, inch, 0.1, 0.45), durFn: moveDur }, // TV upright 45 cm in front of the pallet
-    { toFn: () => placePose(r, inch, 0, 0), dur: 0.75 }, { dur: 0.3 }, // slide it in over the front lip, between the side guides
+    { toFn: () => viaPose(r), durFn: slowDur }, // high over the gap between the belts, TV half turned
+    { toFn: () => placePose(r, inch, 0.1, 0.45), durFn: slowDur }, // TV upright 45 cm in front of the pallet
+    { toFn: () => placePose(r, inch, 0, 0), dur: 0.75 * slow }, { dur: 0.3 }, // slide it in over the front lip, between the side guides
     { fn: () => {
       const tv = r.carried!, pal = r.pallet!;
       pal.obj.attach(tv.obj);
