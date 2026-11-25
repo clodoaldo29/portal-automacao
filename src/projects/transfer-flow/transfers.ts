@@ -127,7 +127,7 @@ function placePose(r: Transfer, inch: Inch, dy: number, dz: number): Pose {
  */
 /** Tool pitch at the pick (~10°, the wrist over the jig foam), given back at the place; the 65"/75" do without it (their
  *  wrist is high enough, and at the place the tall TV would come close to the arm). */
-const tiltOf = (inch: Inch) => (inch <= 55 ? 0.17 : 0);
+const tiltOf = (inch: Inch) => { void inch; return 0; }; // (no pitch: the four cups lie flat on the TV back)
 export const readyPose = (w: World, r: Transfer): Pose => {
   const inch = w.params.inch, d = SIZES[inch][1];
   const p = poseAt(r.arm, r.x, Z_ASM + slotZ(inch, 0) - (d / 2 - gripOf(inch)) - r.D + WAIT_OUT, PICK_Y + CUP_Z + WAIT_UP);
@@ -259,18 +259,27 @@ export function elbowLift(r: Transfer) {
 // (light on purpose: only when the elbow is really down, a few seeds, at most every 15 steps per robot)
 const cooldown = new WeakMap<Transfer, number>();
 function track(r: Transfer, iters: number) {
-  urTrack(r.arm, r.pose, iters);
+  const err = urTrack(r.arm, r.pose, iters);
   const cd = cooldown.get(r) ?? 0;
   if (cd > 0) cooldown.set(r, cd - 1);
-  if (cd > 0 || elbowLift(r) >= 0) return;
+  // solved again when the elbow went down, or when the arm is stuck short of the pose (stretched straight: the
+  // solver cannot get out of that by itself)
+  const stuck = err > 0.01 && Math.abs(r.arm.ur!.q[2]) < 0.15;
+  if (cd > 0 || (elbowLift(r) >= 0 && !stuck)) return;
   cooldown.set(r, 15);
   const ur = r.arm.ur!, keep = ur.q.slice(), [, a, b, c] = keep;
   let best: { lift: number; q: number[] } | null = null;
   // the same arm with the elbow mirrored (shoulder and wrist 1 take up the difference), and two plain postures
-  for (const [q1, q2, q3] of [[a + b, -b, c + b], [a, -b, c], [-1.2, 1.6, c], [-1.8, 1.0, c]]) {
-    ur.q = [keep[0], q1, q2, q3, keep[4], keep[5]];
+  // (and, for an arm stuck reaching backwards, the base turned to face the work)
+  const seeds: number[][] = [[keep[0], a + b, -b, c + b], [keep[0], a, -b, c], [keep[0], -1.2, 1.6, c], [keep[0], -1.8, 1.0, c]];
+  if (stuck) for (const b0 of [keep[0] + Math.PI, keep[0] - Math.PI]) seeds.push([b0, -1.2, 1.6, c], [b0, -1.6, 2.0, c]);
+  for (const [q0, q1, q2, q3] of seeds) {
+    ur.q = [q0, q1, q2, q3, keep[4], keep[5]];
     const err = urTrack(r.arm, r.pose, 60), lift = elbowLift(r);
-    if (err < 0.003 && lift > 0.05 && (!best || lift > best.lift)) best = { lift, q: ur.q.slice() };
+    // elbow up, and the wrist as it was (no wrist turned over onto the forearm)
+    const wrist = [3, 4, 5].reduce((s, j) => s + Math.abs(Math.atan2(Math.sin(ur.q[j] - keep[j]), Math.cos(ur.q[j] - keep[j]))), 0);
+    const score = lift - 0.3 * wrist;
+    if (err < 0.003 && lift > 0.05 && (!best || score > best.lift)) best = { lift: score, q: ur.q.slice() };
   }
   ur.q = best ? best.q : keep;
   ur.joints.forEach((j, i) => { j.rotation.z = ur.q[i]; });

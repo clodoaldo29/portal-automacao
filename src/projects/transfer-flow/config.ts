@@ -19,8 +19,8 @@ export const BELT_ASM = 1.2, BELT_TEST = 1.2; // both belts 1.2 m wide
 export const Z_ASM = 1.05, Z_TEST = -1.05; // belt centres; robots between them
 export const ROBOT_Z = 0; // transfers midway between the belts (as in the first, validated version)
 export const LINE_X0 = -8.3, LINE_X1 = 5.1; // 13.4 m of belt; ~15.8 m overall with the lift units
-/** Pallets ride in the middle of the test belt. */
-export const Z_PAL = Z_TEST;
+/** Pallets ride on the robot side of the test belt (30 cm off its centre): within the transfers' reach. */
+export const Z_PAL = Z_TEST + 0.3;
 export const SPEED_ASM = 0.6, SPEED_TEST = 0.8; // m/s
 export const LIFT_OPEN = 2.1; // clear height: a 75" standing on a pallet reaches ~1.98 m
 
@@ -38,7 +38,7 @@ export const ITEM_GAP = 0.1; // accumulation: queued items keep 10 cm apart
 // picks the TV lying screen-down with the tool horizontal and stands it in the test pallet screen toward the robots,
 // the hook reaching over the TV to hold its back.
 // flange → cup row · bracket axis → cup face · grip point below the TV's top edge (the edge nearest the robot at the pick)
-export const HOOK_D = 0.37, CUP_Z = 0.18, GRIP = 0.2; // cups 18 cm off the bracket: the wrist stays over the jig foam at the pick
+export const HOOK_D = 0.37, CUP_Z = 0.24, GRIP = 0.2; // cups 18 cm off the bracket: the wrist stays over the jig foam at the pick
 /** Grip point below the top edge for this TV: 40% of its height at most, so on a 32" the cup bars stay clear of the
  *  test pallet's rest rail. */
 export const gripOf = (inch: Inch) => (inch >= 75 ? 0.25 : Math.min(GRIP, SIZES[inch][1] * 0.4)); // the 75": a little lower, its top edge clear of the arm
