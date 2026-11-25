@@ -14,6 +14,9 @@
   .pts td.nok, .log td.nok { color: var(--alarm); font-weight: 700; }
   .pts td.ok, .log td.ok { color: var(--run); font-weight: 700; }
   .log td small, .pts td small { display: block; font-size: 11px; color: var(--muted); font-weight: 500; }
+  /* robots table: one line per robot whatever the state text (no row jumping as it changes) */
+  .rob td:first-child, .rob td:last-child { white-space: nowrap; }
+  .rob td:last-child { font-size: 12px; overflow: hidden; text-overflow: ellipsis; max-width: 0; width: 34%; }
   [data-only="integrado"] { display: none !important; }
   body[data-fluxo="integrado"] [data-only="integrado"] { display: revert !important; }
 </style>
@@ -115,7 +118,7 @@
       <p class="note" id="cyc-note"></p>
 
       <h3>Robôs</h3>
-      <table class="cells">
+      <table class="cells rob">
         <thead><tr><th scope="col">Robô</th><th scope="col">Parafusos</th><th scope="col">Ocupação</th><th scope="col">Estado</th></tr></thead>
         <tbody id="rob-rows"></tbody>
       </table>

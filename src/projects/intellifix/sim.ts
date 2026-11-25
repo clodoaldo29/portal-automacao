@@ -396,17 +396,17 @@ export function createSim(cell: Cell, scene: THREE.Scene, params: SimParams, opt
   function resetStats() { stats = newStats(); log.length = 0; }
 
   function robotState(r: 0 | 1) {
-    if (params.robots === (r === 0 ? 'r2' : 'r1')) return 'desligado nos parâmetros';
-    if (phase === 'vision') return 'visão: localizando a TV';
-    if (phase === 'rework') return 'em casa · retrabalho';
+    if (params.robots === (r === 0 ? 'r2' : 'r1')) return 'desligado';
+    if (phase === 'vision') return 'visão';
+    if (phase === 'rework') return 'retrabalho';
     if (phase !== 'work' || !job) return 'em casa';
     const rp = job.plan.robots[r], tau = phaseT;
     if (tau >= rp.endS) return 'em casa';
     const k = rp.tasks.findIndex(t => tau < t.done);
-    if (k < 0) return 'voltando para casa';
+    if (k < 0) return 'voltando';
     const t = rp.tasks[k];
-    if (tau < t.moveStart) return 'aguarda a faixa central';
-    return `${tau < t.arrive ? 'indo ao' : 'parafusando o'} ponto ${k + 1}/${rp.tasks.length}`;
+    if (tau < t.moveStart) return 'aguarda a faixa';
+    return `${tau < t.arrive ? 'indo ao ponto' : 'parafusando'} ${k + 1}/${rp.tasks.length}`;
   }
 
   return {
