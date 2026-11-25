@@ -169,6 +169,14 @@
       <form id="params" class="params">
         <p class="warn">Valores de referência do estudo de tempos (fabricantes e integradores). Confirmar com a cronoanálise da LTV01 e o ciclo garantido pelo fornecedor da parafusadeira. Pontos de fixação plausíveis, a confirmar nos desenhos.</p>
         <fieldset>
+          <legend>Robôs ativos</legend>
+          <div class="two">
+            <label>Parafusamento (UR10e)<select id="p-robots"><option value="both">Os dois robôs</option><option value="r1">Só o robô 1</option><option value="r2">Só o robô 2</option></select></label>
+            <label id="p-transfers-l">Transfers (JAKA Zu 50)<select id="p-transfers"><option value="both">Os dois transfers</option><option value="t1">Só o transfer 1</option><option value="t2">Só o transfer 2</option></select></label>
+          </div>
+          <p class="hint"><span id="p-robots-h">Com um robô só, ele faz todos os parafusos do pallet; com um transfer só, ele leva todas as TVs. Combine com o modelo no topo para testar cada situação.</span></p>
+        </fieldset>
+        <fieldset>
           <legend>Parafusos do modelo selecionado</legend>
           <div class="two">
             <label>Parafusos por TV<input id="p-screws" type="number" min="1" max="16" step="1" inputmode="numeric"></label>

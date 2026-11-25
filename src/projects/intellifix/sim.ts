@@ -9,7 +9,8 @@ import { capsuleBoxGap, capsuleGap, jointPoints, linkCapsules } from '../../sim/
 import { poseAt, urTrack } from '../../sim/robots/ur-arm';
 import { urFK } from '../../sim/robots/ur-kinematics';
 import { Track, line } from '../../sim/track';
-import { DEFAULT_TIMING, plan, type CyclePlan, type TimingParams } from './balance';
+import type { Arms } from '../transfer-flow/types';
+import { DEFAULT_TIMING, plan, type ActiveRobots, type CyclePlan, type TimingParams } from './balance';
 import { BACK_Y, LAY, TOOL_YAW, type Cell, type PalletObj } from './cell';
 import { MODELS, requiredCycleS, robotBase, robotHome, screwPoints, tvsPerPallet, type ScrewPoint, type TvModel } from './model';
 import { TIP } from './tool';
@@ -27,8 +28,12 @@ export interface SimParams {
   reworkS: number;
   /** Pallets arrive at the line's cadence ('linha') or as fast as the cell takes them ('max', capacity test). */
   feed: FeedMode;
+  /** Screwdriving robots on: both, or one of them doing every screw. */
+  robots: ActiveRobots;
+  /** Integrated flow: Transfer Flow robots on. */
+  transfers: Arms;
 }
-export const DEFAULT_SIM: SimParams = { model: 'TL056', screws: {}, timing: { ...DEFAULT_TIMING }, nok: 0.004, reworkS: 25, feed: 'linha' };
+export const DEFAULT_SIM: SimParams = { model: 'TL056', screws: {}, timing: { ...DEFAULT_TIMING }, nok: 0.004, reworkS: 25, feed: 'linha', robots: 'both', transfers: 'both' };
 /** NOK share when "Simular NOK" is on. */
 export const NOK_HIGH = 0.04;
 
@@ -94,7 +99,7 @@ export function createSim(cell: Cell, scene: THREE.Scene, params: SimParams, opt
 
   function startJob(it: Pallet) {
     const n = it.points.length / tvsPerPallet(it.model.inch);
-    job = { it, plan: plan(it.model, params.timing, n), next: [0, 0], nokTvs: 0 };
+    job = { it, plan: plan(it.model, params.timing, n, params.robots), next: [0, 0], nokTvs: 0 };
     phase = 'vision'; phaseT = 0;
   }
 
@@ -391,6 +396,7 @@ export function createSim(cell: Cell, scene: THREE.Scene, params: SimParams, opt
   function resetStats() { stats = newStats(); log.length = 0; }
 
   function robotState(r: 0 | 1) {
+    if (params.robots === (r === 0 ? 'r2' : 'r1')) return 'desligado nos parâmetros';
     if (phase === 'vision') return 'visão: localizando a TV';
     if (phase === 'rework') return 'em casa · retrabalho';
     if (phase !== 'work' || !job) return 'em casa';

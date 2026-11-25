@@ -69,7 +69,8 @@ const sim = createSim(cell, stage.scene, params, {
   onExit: () => { if (tf) tf.world.inbox! += 1; },
   canExit: INTEGRATED ? () => tf!.world.inbox === 0 && tf!.world.asm.items.every(it => it.s > S_INSP + 0.01) : undefined,
 });
-if (tf) { mountArms(tf.world); applyArms(tf.world); }
+if (tf) { mountArms(tf.world); tf.world.params.arms = params.transfers; applyArms(tf.world); }
+else $('p-transfers-l').remove(); // the transfers are only in the integrated flow
 const step = (dt: number) => { sim.step(dt); if (tf) tfStep(tf.world, dt); };
 
 // ---------- controls ----------
@@ -96,8 +97,9 @@ fluxoBtn.onclick = () => { const u = new URL(location.href); if (INTEGRATED) u.s
 const f = (id: string) => $<HTMLInputElement>(id);
 const val = (id: string, d: number, lo: number, hi: number) => { const x = Number(f(id).value); return f(id).value !== '' && Number.isFinite(x) ? Math.min(hi, Math.max(lo, x)) : d; };
 function splitHint() {
-  const m = modelOf(params.model), p = plan(m, params.timing, screwsOf(params, m));
+  const m = modelOf(params.model), p = plan(m, params.timing, screwsOf(params, m), params.robots);
   const [a, b] = p.robots.map(r => r.points.length);
+  if (params.robots !== 'both') { $('p-split').textContent = `${m.id}: só o robô ${params.robots === 'r1' ? 1 : 2} ativo, faz os ${a + b} parafusos do pallet. Ciclo calculado: ${num(p.cycleS, 1)} s para ${num(p.requiredS, 1)} s exigidos.${p.maxReach > CELL.reach ? ` Atenção: o parafuso mais distante fica a ${num(p.maxReach, 2)} m da base, além do alcance útil do UR10e (${num(CELL.reach, 1)} m).` : ''}`; return; }
   $('p-split').textContent = tvsPerPallet(m.inch) === 2
     ? `${m.id}: 2 TVs por pallet, cada robô parafusa a sua (${a} + ${b} parafusos). Ciclo calculado: ${num(p.cycleS, 1)} s para ${num(p.requiredS, 1)} s exigidos.`
     : `${m.id}: 1 TV por pallet, os robôs dividem os parafusos (${a} + ${b}), sem entrar juntos na faixa central. Ciclo calculado: ${num(p.cycleS, 1)} s para ${num(p.requiredS, 1)} s exigidos.`;
@@ -111,6 +113,8 @@ function writeForm() {
   $<HTMLSelectElement>('p-flow').value = params.feed;
   f('p-nok').value = String(Math.round(baseNok * 1000) / 10);
   f('p-reworkS').value = String(params.reworkS);
+  $<HTMLSelectElement>('p-robots').value = params.robots;
+  if (tf) $<HTMLSelectElement>('p-transfers').value = tf.world.params.arms;
   splitHint();
 }
 writeForm();
@@ -126,12 +130,21 @@ $<HTMLFormElement>('params').addEventListener('submit', e => {
   baseNok = val('p-nok', DEFAULT_SIM.nok * 100, 0, 30) / 100;
   params.nok = nokBtn.getAttribute('aria-pressed') === 'true' ? NOK_HIGH : baseNok;
   params.reworkS = Math.round(val('p-reworkS', DEFAULT_SIM.reworkS, 5, 120));
+  const rb = $<HTMLSelectElement>('p-robots').value;
+  params.robots = rb === 'r1' || rb === 'r2' ? rb : 'both';
+  if (tf) {
+    const ta = $<HTMLSelectElement>('p-transfers').value;
+    params.transfers = tf.world.params.arms = ta === 't1' || ta === 't2' ? ta : 'both';
+    applyArms(tf.world);
+  }
   save(); writeForm(); restart();
-  const p = plan(m, t, n);
+  const p = plan(m, t, n, params.robots);
   $('p-status').textContent = `Aplicado. ${m.id} com ${n} parafusos por TV: ciclo calculado de ${num(p.cycleS, 1)} s (${pct(p.load)} do exigido)${p.ok ? '' : ' — não atende a cadência'}. Linha reiniciada e indicadores zerados.`;
 });
 $('p-reset').onclick = () => {
   Object.assign(params.timing, DEFAULT_TIMING); params.screws = {}; params.feed = DEFAULT_SIM.feed; params.reworkS = DEFAULT_SIM.reworkS;
+  params.robots = 'both'; params.transfers = 'both';
+  if (tf) { tf.world.params.arms = 'both'; applyArms(tf.world); }
   baseNok = DEFAULT_SIM.nok; params.nok = nokBtn.getAttribute('aria-pressed') === 'true' ? NOK_HIGH : baseNok;
   save(); writeForm(); restart();
   $('p-status').textContent = 'Valores do estudo de tempos restaurados. Linha reiniciada.';
@@ -153,7 +166,7 @@ const cm = (m: number) => (Number.isFinite(m) ? `${num(m * 100, 0)} cm` : '—')
 function cycleTable() {
   cycBody.textContent = '';
   for (const m of MODELS) {
-    const p = plan(m, params.timing, screwsOf(params, m)), tr = cycBody.insertRow();
+    const p = plan(m, params.timing, screwsOf(params, m), params.robots), tr = cycBody.insertRow();
     const name = tr.insertCell(); name.textContent = `${m.id} · ${m.inch}″`;
     const s = document.createElement('small'); s.textContent = `${screwsOf(params, m)} parafusos · ${tvsPerPallet(m.inch)} TV${tvsPerPallet(m.inch) > 1 ? 's' : ''}/pallet`; name.appendChild(s);
     const c = tr.insertCell(); c.textContent = `${num(p.cycleS, 1)} s`; if (!p.ok) c.style.color = 'var(--alarm)';
@@ -161,9 +174,9 @@ function cycleTable() {
     const o = tr.insertCell(); o.textContent = pct(p.load); o.appendChild(bar(p.load));
     if (m.id === params.model) tr.style.outline = '1px solid var(--accent)';
   }
-  const worst = MODELS.map(m => plan(m, params.timing, screwsOf(params, m))).sort((a, b) => b.load - a.load)[0];
+  const worst = MODELS.map(m => plan(m, params.timing, screwsOf(params, m), params.robots)).sort((a, b) => b.load - a.load)[0];
   $('cyc-note').textContent = worst.ok
-    ? `Os sete modelos atendem a cadência. O mais apertado é o ${worst.model.id}, com ${pct(worst.load)} do ciclo ocupado: ${worst.robots[0].points.length} parafusos por robô.`
+    ? `Os sete modelos atendem a cadência. O mais apertado é o ${worst.model.id}, com ${pct(worst.load)} do ciclo ocupado.`
     : `O ${worst.model.id} não atende: ciclo de ${num(worst.cycleS, 1)} s para ${num(worst.requiredS, 1)} s exigidos. Reduza o tempo por parafuso, use alimentação por sopro ou reveja a quantidade de parafusos.`;
 }
 
@@ -174,11 +187,11 @@ function panel() {
   $('k-target').textContent = String(m.uph);
   $('k-cycle').textContent = s.pallets ? `${num(s.cycleSum / s.pallets, 1)} s` : '—';
   $('k-tvs').textContent = String(s.tvs);
-  const p = plan(m, params.timing, screwsOf(params, m));
+  const p = plan(m, params.timing, screwsOf(params, m), params.robots);
   $('k-note').textContent = params.feed === 'linha'
     ? `Pallets chegando na cadência da linha: ${m.uph} TVs/h, um pallet a cada ${num(req, 1)} s. A célula precisa de ${num(p.cycleS, 1)} s por pallet${s.waitLineT > 1 ? `; a linha já esperou ${num(s.waitLineT, 0)} s pela célula` : ''}.`
     : `Teste de capacidade: pallets chegando o mais rápido possível. Capacidade calculada: ${num(p.uph, 0)} TVs/h.`;
-  const key = JSON.stringify([params.model, params.screws, params.timing]);
+  const key = JSON.stringify([params.model, params.screws, params.timing, params.robots]);
   if (key !== lastKey) { lastKey = key; cycleTable(); splitHint(); }
   // robots
   ([0, 1] as const).forEach(r => {
@@ -187,7 +200,9 @@ function panel() {
     tr.cells[2].textContent = pct(s.busy[r] / T); tr.cells[2].appendChild(bar(s.busy[r] / T));
     tr.cells[3].textContent = sim.robotState(r);
   });
-  $('rob-note').textContent = tvsPerPallet(m.inch) === 2
+  $('rob-note').textContent = params.robots !== 'both'
+    ? `Só o robô ${params.robots === 'r1' ? 1 : 2} ativo: faz os ${p.robots[0].points.length + p.robots[1].points.length} parafusos do pallet${p.maxReach > CELL.reach ? `; o mais distante fica a ${num(p.maxReach, 2)} m da base, além do alcance útil do UR10e (${num(CELL.reach, 1)} m)` : ''}.`
+    : tvsPerPallet(m.inch) === 2
     ? `${m.id}: cada robô parafusa a TV do seu lado (${p.robots[0].points.length} + ${p.robots[1].points.length}). Na faixa central (${num(CELL.zone * 200, 0)} cm entre as TVs) só entra um por vez: o robô 1 faz esses pontos primeiro e o robô 2 por último${s.zoneWait > 0.5 ? `; espera acumulada de ${num(s.zoneWait, 1)} s` : ''}.`
     : `${m.id}: os dois dividem os parafusos da mesma TV (${p.robots[0].points.length} + ${p.robots[1].points.length}), cada um na metade do seu lado. Na faixa central só entra um por vez${s.zoneWait > 0.5 ? `; espera acumulada de ${num(s.zoneWait, 1)} s` : ''}.`;
   $('s-arms').textContent = cm(s.minArmArm);
@@ -309,7 +324,7 @@ if (benchMin) {
   const r = (x: number, k = 1000) => Math.round(x * k) / k;
   window.__ifBench = {
     model: m.id, feed: params.feed, minutes: benchMin, tvs: s.tvs, pallets: s.pallets, uph: r((s.tvs / s.t) * 3600, 10),
-    cycle: r(s.pallets ? s.cycleSum / s.pallets : 0, 100), planCycle: r(plan(m, params.timing, screwsOf(params, m)).cycleS, 100),
+    cycle: r(s.pallets ? s.cycleSum / s.pallets : 0, 100), planCycle: r(plan(m, params.timing, screwsOf(params, m), params.robots).cycleS, 100),
     perRobot: [...s.screws], minArmArm: r(s.minArmArm), minClear: r(s.minClear), minClearAt: s.minClearAt, maxIkErr: r(s.maxIkErr, 1e4),
     tfMoved: tf ? tf.world.stats.moved : null,
     tfMinClear: tf ? r(tf.world.clear!.min) : null, tfMinClearAt: tf ? tf.world.clear!.at : '',

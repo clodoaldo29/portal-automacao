@@ -137,9 +137,13 @@ function runRobot(r: 0 | 1, pts: ScrewPoint[], t: TimingParams, zoneFreeAt: numb
   return { points: seq, tasks, endS: now + back, waitS, zone: zIn >= 0 ? [zIn, zOut] : null };
 }
 
-/** Plan one pallet of `model` (optionally with another number of screws per TV). */
-export function plan(model: TvModel, t: TimingParams = DEFAULT_TIMING, screws = model.screws): CyclePlan {
-  const [p1, p2] = split(model, screwPoints(model, screws));
+/** Which screwdriving robots are on: both, or only robot 1 / robot 2 (it then does every screw of the pallet). */
+export type ActiveRobots = 'both' | 'r1' | 'r2';
+
+/** Plan one pallet of `model` (optionally with another number of screws per TV, or with one robot only). */
+export function plan(model: TvModel, t: TimingParams = DEFAULT_TIMING, screws = model.screws, active: ActiveRobots = 'both'): CyclePlan {
+  const pts = screwPoints(model, screws);
+  const [p1, p2] = active === 'r1' ? [pts, []] : active === 'r2' ? [[], pts] : split(model, pts);
   const r1 = runRobot(0, p1, t, 0);
   const r2 = runRobot(1, p2, t, r1.zone ? r1.zone[1] : 0);
   const cycleS = t.exchangeS + t.visionS + Math.max(r1.endS, r2.endS);
