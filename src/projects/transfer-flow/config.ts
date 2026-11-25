@@ -46,7 +46,7 @@ export const HOOK_D = 0.37, CUP_Z = 0.28, GRIP = 0.2; // cups 28 cm off the brac
 /** Grip point below the top edge for this TV: 40% of its height at most, so on a 32" the cup bars stay clear of the
  *  test pallet's rest rail. */
 export const gripOf = (inch: Inch) => (inch >= 75 ? 0.25 : Math.min(GRIP, SIZES[inch][1] * 0.4)); // the 75": a little lower, its top edge clear of the arm
-export const TRANSFER_PED = 1.5; // pedestal height: the hook reaches over a 75" standing in the pallet (top at ~1.98 m)
+export const TRANSFER_PED = 0.8; // pedestal height: the Zu 50 reaches over a 75" standing in the pallet (top at ~1.94 m) from 0.8 m (at 0.6 m its forearm meets that TV)
 export const ROBOT_X1 = -2.0, ROBOT_X2 = 2.0; // work stations (pick stop, pallet dock), 4.0 m apart: room for one full pallet queued between them
 /** Each transfer's pedestal stands this far upstream of its stations: the TV of a 32"/43" pair nearest the robot is
  *  not right over the pedestal, so the arm reaches it without folding on itself. */

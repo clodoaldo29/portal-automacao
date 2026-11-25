@@ -55,7 +55,7 @@ export function commitJig(w: World, it: Jig) {
 
 export function createTransfer(w: World, x: number, phi: { home: number; wrapPositive?: boolean }): Transfer {
   const { asm, test } = w;
-  // slim 1.5 m column: the Zu 50 shoulder sits ~1.80 m high, enough to lower a 75" from above and still pick at the belt
+  // 0.8 m column: the Zu 50 shoulder sits ~1.10 m high; its long arm still lowers a 75" from above
   const arm = makeCobot(w.scene, w.M, { x: x - ARM_DX, z: ROBOT_Z, L1: 0.64, L2: 0.5, ped: TRANSFER_PED, pedW: 0.3 });
   hookGripper(arm.mount, w.M, { hookD: HOOK_D, cupZ: CUP_Z });
   arm.tool.rotation.order = 'YXZ';
