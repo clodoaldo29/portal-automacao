@@ -1,7 +1,7 @@
 // Live indicators: line UPH and target, UPH and occupancy per cell (vision → transfers → line output), simulated OEE,
 // and the state of each station.
 import { oee, pct, uph } from '../../../sim/kpi';
-import { LINE_UPH, type Inch } from '../config';
+import { LINE_UPH } from '../config';
 import type { Transfer, World } from '../types';
 import { $ } from '../../../sim/ui/dom';
 
@@ -32,16 +32,6 @@ export function createKpiPanel(w: World) {
     return tr;
   };
   const cells = { insp: mkCell('Inspeção IA'), t1: mkCell('Transfer 1'), t2: mkCell('Transfer 2'), line: mkCell('Linha (saída)', true) };
-  // expected UPH of every model (the line cadence), the running model highlighted with what the simulation does
-  const modelRows = $('model-rows');
-  const models = (Object.keys(LINE_UPH).map(Number) as Inch[]).map(inch => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = '<td></td><td></td><td></td>';
-    tr.cells[0].textContent = `${inch}″`;
-    tr.cells[1].textContent = `${LINE_UPH[inch]} TV/h`;
-    modelRows.appendChild(tr);
-    return { inch, tr };
-  });
   const fmtUph = (n: number, t: number) => { const v = uph(n, t); return v == null ? '—' : String(Math.round(v)); };
   const occCell = (td: HTMLTableCellElement, v: number | null, sub?: string) => {
     td.innerHTML = '';
@@ -69,12 +59,10 @@ export function createKpiPanel(w: World) {
     $('k-prod').textContent = String(stats.moved);
     $('k-rate').textContent = lineUph ? String(Math.round(lineUph)) : '—';
     $('k-target').textContent = lineUph ? pct(lineUph / target) : '—';
-    $('k-target-l').textContent = `do UPH esperado do ${params.inch}″ (${target} TV/h)`;
-    for (const m of models) {
-      const on = m.inch === params.inch;
-      m.tr.className = on ? 'total' : '';
-      m.tr.cells[2].textContent = on ? (lineUph ? `${Math.round(lineUph)} TV/h` : '—') : '';
-    }
+    // the selected model's expected UPH (line cadence) and the cycle it asks for
+    $('k-exp').textContent = String(target);
+    $('k-exp-l').textContent = `UPH esperado do ${params.inch}″ (TV/h)`;
+    $('k-cycreq').textContent = `${(3600 / target).toFixed(1)} s`;
     $('k-cycle').textContent = lineUph ? `${(3600 / lineUph).toFixed(1)} s` : '—';
     const tot = stats.ok + stats.ng;
     $('k-yield').textContent = tot ? pct(stats.ok / tot) : '—';
