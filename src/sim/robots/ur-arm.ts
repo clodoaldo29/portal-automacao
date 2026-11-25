@@ -103,9 +103,22 @@ const URC = {
   K: new THREE.MeshStandardMaterial({ color: 0x1b1c1f, metalness: 0.2, roughness: 0.5 }), // rubber rings
 };
 
-function urPart([c, axis, r, a, b, u, v]: URPart) {
+/** Materials of a model: the UR colours, or the model's own (one set per model, shared by its arms). */
+const modelMats = new Map<URModel, Record<URPart[0], THREE.Material>>();
+function matsOf(model: URModel) {
+  let m = modelMats.get(model);
+  if (!m) {
+    const c = model.colors ?? {};
+    m = { ...URC };
+    for (const k of Object.keys(c) as URPart[0][]) m[k] = (URC[k] as THREE.MeshStandardMaterial).clone(), (m[k] as THREE.MeshStandardMaterial).color.setHex(c[k]!);
+    modelMats.set(model, m);
+  }
+  return m;
+}
+
+function urPart([c, axis, r, a, b, u, v]: URPart, mats: Record<URPart[0], THREE.Material> = URC) {
   const g = new THREE.CylinderGeometry(r, r, b - a, 40);
-  const m = new THREE.Mesh(g, URC[c]);
+  const m = new THREE.Mesh(g, mats[c]);
   const mid = (a + b) / 2;
   if (axis === 'z') { g.rotateX(Math.PI / 2); m.position.set(u, v, mid); }
   else if (axis === 'x') { g.rotateZ(Math.PI / 2); m.position.set(mid, u, v); }
@@ -146,7 +159,7 @@ export function upgradeArm(scene: THREE.Scene, arm: Cobot, pose: Pose, model: UR
   const visNodes: THREE.Object3D[] = [];
   const addVis = (node: THREE.Object3D, i: number) => {
     visNodes[i] = node;
-    model.parts[i].forEach(p => { const m = urPart(p); m.userData.urPart = true; node.add(m); });
+    model.parts[i].forEach(p => { const m = urPart(p, matsOf(model)); m.userData.urPart = true; node.add(m); });
   };
   let node = new THREE.Object3D();
   node.applyMatrix4(UR_BASE);

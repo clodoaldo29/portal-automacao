@@ -25,6 +25,8 @@ export interface URModel {
   parts: URPart[][];
   /** Scene scale (1 = real size in metres). */
   S: number;
+  /** Colours by part key, when not the UR ones (J housings, L link tubes, B caps, K rings). */
+  colors?: Partial<Record<URPart[0], number>>;
 }
 
 export const UR10E: URModel = {
@@ -88,6 +90,8 @@ export const UR30: URModel = {
 export const ZU50: URModel = {
   name: 'JAKA Zu 50',
   S: 1,
+  // as JAKA shows it: red joint housings, silver link tubes and caps, grey rings between them
+  colors: { J: 0x8a0f17, L: 0xd4d7da, B: 0xe3e5e7, K: 0x9ea3a8 },
   O: [
     urM(0, 0, 0.3035, 0, 0, 0), urM(0, 0, 0, Math.PI / 2, 0, 0), urM(-1.066, 0, 0, 0, 0, 0),
     urM(-0.852, 0, 0.2345, 0, 0, 0), urM(0, -0.182, 0, Math.PI / 2, 0, 0), urM(0, 0.165, 0, Math.PI / 2, Math.PI, Math.PI),
