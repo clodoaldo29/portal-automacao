@@ -12,6 +12,7 @@ import { hookGripper } from '../../sim/robots/grippers';
 import * as THREE from 'three';
 import { LED, makeCobot, poseAt, solve, urTrack } from '../../sim/robots/ur-arm';
 import { urFK } from '../../sim/robots/ur-kinematics';
+import { capsuleGap, linkCapsules } from '../../sim/robots/collision';
 import { ease } from '../../sim/math';
 import { runSeq, type Pose } from '../../sim/sequencer';
 import {
@@ -256,31 +257,52 @@ export function elbowLift(r: Transfer) {
   const t = THREE.MathUtils.clamp(_el.clone().sub(_sh).dot(_d) / Math.max(1e-9, _d.lengthSq()), 0, 1);
   return _el.y - (_sh.y + _d.y * t);
 }
-// (light on purpose: only when the elbow is really down, a few seeds, at most every 15 steps per robot)
+/** Smallest gap between the arm's own links that are not neighbours (negative: the wrist folded onto the forearm …),
+ *  for the joints in ur.q (drawn joints are set to them). */
+function selfGap(r: Transfer) {
+  const ur = r.arm.ur!;
+  ur.joints.forEach((j, i) => { j.rotation.z = ur.q[i]; });
+  const caps = linkCapsules(r.arm, 0);
+  let min = Infinity;
+  for (const s of caps) for (const t of caps) if (t.link - s.link >= 3) min = Math.min(min, capsuleGap(s, t));
+  return min;
+}
+// (light on purpose: only when the elbow is really down or the arm touches itself, a few seeds, at most every 15
+// steps per robot)
 const cooldown = new WeakMap<Transfer, number>();
 function track(r: Transfer, iters: number) {
   const err = urTrack(r.arm, r.pose, iters);
   const cd = cooldown.get(r) ?? 0;
   if (cd > 0) cooldown.set(r, cd - 1);
-  // solved again when the elbow went down, or when the arm is stuck short of the pose (stretched straight: the
-  // solver cannot get out of that by itself)
-  const stuck = err > 0.01 && Math.abs(r.arm.ur!.q[2]) < 0.15;
-  if (cd > 0 || (elbowLift(r) >= 0 && !stuck)) return;
+  if (cd > 0) return;
+  // solved again when the elbow went down, when the arm is stuck short of the pose (stretched straight: the solver
+  // cannot get out of that by itself), when the wrist folded onto the arm, or when wrist 2 slipped to the other side
+  // (through the wrist singularity at the pick, tool level): with wrist 2 negative the arm reaches the pallet stretched
+  const ur = r.arm.ur!, wrap = (v: number) => Math.atan2(Math.sin(v), Math.cos(v));
+  const stuck = err > 0.01 && Math.abs(wrap(ur.q[2])) < 0.15;
+  const wristOk = (q: number[]) => wrap(q[4]) > -0.05;
+  if (elbowLift(r) >= 0 && !stuck && wristOk(ur.q) && selfGap(r) > 0.015) return;
   cooldown.set(r, 15);
-  const ur = r.arm.ur!, keep = ur.q.slice(), [, a, b, c] = keep;
-  let best: { lift: number; q: number[] } | null = null;
+  const keep = ur.q.slice(), [, a, b, c] = keep;
+  let best: { score: number; q: number[] } | null = null;
   // the same arm with the elbow mirrored (shoulder and wrist 1 take up the difference), and two plain postures
-  // (and, for an arm stuck reaching backwards, the base turned to face the work)
-  const seeds: number[][] = [[keep[0], a + b, -b, c + b], [keep[0], a, -b, c], [keep[0], -1.2, 1.6, c], [keep[0], -1.8, 1.0, c]];
-  if (stuck) for (const b0 of [keep[0] + Math.PI, keep[0] - Math.PI]) seeds.push([b0, -1.2, 1.6, c], [b0, -1.6, 2.0, c]);
-  for (const [q0, q1, q2, q3] of seeds) {
-    ur.q = [q0, q1, q2, q3, keep[4], keep[5]];
+  // (and, for an arm stuck reaching backwards, the base turned to face the work); each with the wrist as it is and
+  // with the other wrist solution (wrist 1 and 3 half a turn, wrist 2 mirrored)
+  const arms: number[][] = [[keep[0], a + b, -b, c + b], [keep[0], a, -b, c], [keep[0], -1.2, 1.6, c], [keep[0], -1.8, 1.0, c]];
+  if (stuck) for (const b0 of [keep[0] + Math.PI, keep[0] - Math.PI]) arms.push([b0, -1.2, 1.6, c], [b0, -1.6, 2.0, c]);
+  const seeds = [keep, ...arms.flatMap(([q0, q1, q2, q3]) => [[q0, q1, q2, q3, keep[4], keep[5]], [q0, q1, q2, q3 + Math.PI, -keep[4], keep[5] + Math.PI]])];
+  for (const s of seeds) {
+    ur.q = s.slice();
     const err = urTrack(r.arm, r.pose, 60), lift = elbowLift(r);
-    // elbow up, and the wrist as it was (no wrist turned over onto the forearm)
-    const wrist = [3, 4, 5].reduce((s, j) => s + Math.abs(Math.atan2(Math.sin(ur.q[j] - keep[j]), Math.cos(ur.q[j] - keep[j]))), 0);
-    const score = lift - 0.3 * wrist;
-    if (err < 0.003 && lift > 0.05 && (!best || score > best.lift)) best = { lift: score, q: ur.q.slice() };
+    if (err > 0.003 || lift < 0.05 || !wristOk(ur.q) || Math.abs(ur.q[0]) > 2 * Math.PI) continue;
+    const gap = selfGap(r);
+    if (gap < 0.015) continue; // never into a posture that touches itself
+    // elbow up, clear of itself, and the wrist as it was as far as possible
+    const wrist = [3, 4, 5].reduce((s, j) => s + Math.abs(wrap(ur.q[j] - keep[j])), 0);
+    const score = Math.min(gap, 0.05) * 20 + lift - 0.3 * wrist;
+    if (!best || score > best.score) best = { score, q: ur.q.slice() };
   }
-  ur.q = best ? best.q : keep;
+  // joints that came out a full turn away go back to the turn they were on (no 360° spins, elbow in range)
+  ur.q = best ? best.q.map((v, j) => (j === 0 ? v : keep[j] + wrap(v - keep[j]))) : keep;
   ur.joints.forEach((j, i) => { j.rotation.z = ur.q[i]; });
 }
