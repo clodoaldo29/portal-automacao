@@ -8,7 +8,7 @@
 // · Pallets are not addressed: an empty pallet stops at the first robot that still needs one,
 //   so robot 1 lets it go on to robot 2 when it already has its pallet. No pallet leaves empty.
 import { station } from '../../sim/line';
-import { hookGripper } from '../../sim/robots/grippers';
+import { hookVGP30 } from '../../sim/robots/grippers';
 import * as THREE from 'three';
 import { LED, makeCobot, poseAt, solve, urTrack } from '../../sim/robots/ur-arm';
 import { urFK } from '../../sim/robots/ur-kinematics';
@@ -57,7 +57,7 @@ export function createTransfer(w: World, x: number, phi: { home: number; wrapPos
   const { asm, test } = w;
   // 0.8 m column: the Zu 50 shoulder sits ~1.10 m high; its long arm still lowers a 75" from above
   const arm = makeCobot(w.scene, w.M, { x: x - ARM_DX, z: ROBOT_Z, L1: 0.64, L2: 0.5, ped: TRANSFER_PED, pedW: 0.3 });
-  hookGripper(arm.mount, w.M, { hookD: HOOK_D, cupZ: CUP_Z });
+  hookVGP30(arm.mount, w.M, { hookD: HOOK_D, cupZ: CUP_Z });
   arm.tool.rotation.order = 'YXZ';
   w.floorRect(x - ARM_DX - 0.4, ROBOT_Z - 0.4, x - ARM_DX + 0.4, ROBOT_Z + 0.4, 0.04);
   const home: Pose = [phi.home, 0.8, 0.0, H, Math.PI]; // rest (start, arm switched off): half open, hook level, clear of the arm
@@ -178,7 +178,8 @@ function startJob(w: World, r: Transfer) {
       r.leaving = pal; r.zoneBusy = true; pal.hold = null; r.pallet = null; r.need--;
     } },
     { toFn: () => placePose(r, inch, 0, -0.1), dur: 0.3 }, // cups back off the TV
-    { until: () => !w.test.items.includes(r.leaving!) || r.leaving!.obj.position.x - SIZES[inch][0] / 2 > r.x + 0.35 },
+    // the plate (at the TV's mid-height, inside the side guides) waits until the whole pallet has gone past it
+    { until: () => !w.test.items.includes(r.leaving!) || r.leaving!.obj.position.x - PAL_W / 2 > r.x + 0.25 },
     { fn: () => { r.state = 'return'; } },
     // the way back is the way there in reverse: in front of the pallet (a little higher: the hook clears the pallet),
     // the high via, the TV's lift point, over the jig

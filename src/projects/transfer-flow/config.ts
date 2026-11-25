@@ -42,10 +42,12 @@ export const ITEM_GAP = 0.1; // accumulation: queued items keep 10 cm apart
 // picks the TV lying screen-down with the tool horizontal and stands it in the test pallet screen toward the robots,
 // the hook reaching over the TV to hold its back.
 // flange → cup row · bracket axis → cup face · grip point below the TV's top edge (the edge nearest the robot at the pick)
-export const HOOK_D = 0.37, CUP_Z = 0.28, GRIP = 0.2; // cups 28 cm off the bracket: the wrist stays over the jig foam at the pick
-/** Grip point below the top edge for this TV: 40% of its height at most, so on a 32" the cup bars stay clear of the
- *  test pallet's rest rail. */
-export const gripOf = (inch: Inch) => (inch >= 75 ? 0.25 : Math.min(GRIP, SIZES[inch][1] * 0.4)); // the 75": a little lower, its top edge clear of the arm
+// gripper: a hook with an OnRobot VGP30 vacuum plate (compressed air ~6.3 bar at the gripper for its 60 % vacuum; its
+// vacuum sensor interlocks the move). The plate holds the TV at half its height (its centre of mass): standing in the
+// pallet the cups hold it by friction, with no moment peeling the top cups off; hence a 60 cm hook.
+export const HOOK_D = 0.6, CUP_Z = 0.28; // cups 28 cm off the bracket: the wrist stays over the jig foam at the pick
+/** Grip point below the top edge for this TV: the plate centred on its height. */
+export const gripOf = (inch: Inch) => SIZES[inch][1] / 2;
 export const TRANSFER_PED = 0.8; // pedestal height: the Zu 50 reaches over a 75" standing in the pallet (top at ~1.94 m) from 0.8 m (at 0.6 m its forearm meets that TV)
 export const ROBOT_X1 = -2.0, ROBOT_X2 = 2.0; // work stations (pick stop, pallet dock), 4.0 m apart: room for one full pallet queued between them
 /** Each transfer's pedestal stands this far upstream of its stations: the TV of a 32"/43" pair nearest the robot is

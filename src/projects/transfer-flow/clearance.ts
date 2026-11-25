@@ -35,15 +35,14 @@ const aabb = (name: string, x0: number, y0: number, z0: number, x1: number, y1: 
 const label = (r: Transfer, idx: number) => `transfer ${idx + 1} [${r.state} ${r.seq.length}]`;
 
 type V3 = [number, number, number];
-/** Hook gripper in the flange frame (tool axis local −y): the bracket (first), the cross bar, the cup bars and the cup
- *  stems (cups facing local +z). */
+/** Hook gripper with the VGP30 in the flange frame (tool axis local −y): the bracket (first), the post, the plate with
+ *  its housing (three bars across it) and the cup rows (cups facing local +z). */
 export const gripperCaps = (): { a: V3; b: V3; r: number }[] => [
-  { a: [0, -0.04, 0], b: [0, -HOOK_D + 0.02, 0], r: 0.04 },
-  { a: [-0.28, -HOOK_D, 0.035], b: [0.28, -HOOK_D, 0.035], r: 0.03 },
-  ...[-0.25, 0.25].map(sx => ({ a: [sx, -HOOK_D - 0.14, 0.035] as V3, b: [sx, -HOOK_D + 0.14, 0.035] as V3, r: 0.025 })),
-  ...[-0.25, 0.25].flatMap(sx => [-0.12, 0.12].map(sy => ({ a: [sx, -HOOK_D + sy, 0.05] as V3, b: [sx, -HOOK_D + sy, CUP_Z - 0.03] as V3, r: 0.02 }))),
+  { a: [0, -0.04, 0], b: [0, -HOOK_D, 0], r: 0.04 },
+  { a: [0, -HOOK_D, 0.03], b: [0, -HOOK_D, CUP_Z - 0.09], r: 0.04 },
+  ...[-0.08, 0, 0.08].map(y => ({ a: [-0.165, -HOOK_D + y, CUP_Z - 0.06] as V3, b: [0.165, -HOOK_D + y, CUP_Z - 0.06] as V3, r: 0.04 })),
+  ...[-0.09, -0.04, 0.04, 0.09].map(y => ({ a: [-0.175, -HOOK_D + y, CUP_Z - 0.014] as V3, b: [0.175, -HOOK_D + y, CUP_Z - 0.014] as V3, r: 0.012 })),
 ];
-
 /** The arm as drawn, and the hook gripper. */
 export function robotSegs(r: Transfer, idx: number): Seg[] {
   const segs: Seg[] = linkCapsules(r.arm, 0.01).map((c: Capsule) => ({ ...c, name: `${label(r, idx)} · ${LINK[c.link]}` }));

@@ -31,6 +31,34 @@ export function hookGripper(mount: THREE.Object3D, M: Materials, { hookD, cupZ }
   return g;
 }
 
+/**
+ * Hook with an OnRobot VGP30 vacuum plate (datasheet v1.5): the bracket runs hookD along the tool axis (local −y) to
+ * a post that carries the plate, cups facing local +z, cup faces at cupZ. Plate 390 × 240 mm (long side along local x),
+ * housing 310 × 155 mm, 20 cups Ø50 in rows of 4-2-4 | 4-2-4 (26 mm cups, 88.2 mm from the housing top to the cup
+ * faces). The VGP30 makes its vacuum from compressed air: ~6.3 bar at the gripper for its 60 % maximum.
+ */
+export function hookVGP30(mount: THREE.Object3D, M: Materials, { hookD, cupZ }: HookGripperSpec) {
+  const g = new THREE.Group();
+  mount.add(g);
+  const plateMat = new THREE.MeshStandardMaterial({ color: 0x2a2d31, metalness: 0.2, roughness: 0.55 });
+  const housingMat = new THREE.MeshStandardMaterial({ color: 0xd9dcdf, metalness: 0.25, roughness: 0.35 });
+  const qcMat = new THREE.MeshStandardMaterial({ color: 0x3b82f6, metalness: 0.1, roughness: 0.45 });
+  g.add(at(cyl(0.05, 0.05, 0.05, M.aluDark, 20), 0, -0.025, 0));
+  g.add(at(box(0.06, hookD - 0.01, 0.05, M.alu), 0, -(hookD - 0.01) / 2 - 0.04, 0)); // bracket
+  const top = cupZ - 0.088; // housing top
+  g.add(at(box(0.06, 0.06, top - 0.025 - 0.012, M.alu), 0, -hookD, (0.025 + top - 0.012) / 2)); // post down to the plate
+  g.add(at(cylA(0.045, 0.012, qcMat, 'z', 20), 0, -hookD, top - 0.006)); // quick changer (blue)
+  g.add(at(box(0.39, 0.24, 0.022, plateMat), 0, -hookD, cupZ - 0.037)); // plate (cup carrier)
+  g.add(at(box(0.31, 0.155, 0.04, housingMat), 0, -hookD, top + 0.02)); // housing, channels A and B
+  const rows: [number, number[]][] = [
+    [0.1675, [-0.0925, -0.0385, 0.0385, 0.0925]], [0.1125, [-0.0655, 0.0655]], [0.0575, [-0.0925, -0.0385, 0.0385, 0.0925]],
+  ];
+  for (const sx of [-1, 1]) for (const [x, ys] of rows) for (const y of ys)
+    g.add(at(cylA(0.025, 0.026, M.rubber, 'z', 16), sx * x, -hookD + y, cupZ - 0.013));
+  shadowify(g);
+  return g;
+}
+
 /** Vision head: camera body, lit lens with ring light. Returns the lens point (for the field-of-view beam). */
 export function cameraHead(mount: THREE.Object3D, M: Materials) {
   const g = new THREE.Group();
