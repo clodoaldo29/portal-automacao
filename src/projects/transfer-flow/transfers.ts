@@ -208,7 +208,9 @@ export function updateRobots(w: World, dt: number) {
     // the last robot always keeps one empty pallet docked or on its way, so it never waits for one;
     // an upstream robot never parks an empty pallet, which would block the pallets of the robot after it
     if (isLastR(w, r) && r.need === 0) r.addNeed(1);
-    if (r.state === 'idle' && r.job && r.seq.every(s => s.ready)) startJob(w, r);
+    // the TV is only picked up once the empty pallet is in the dock: never held in the air waiting for it
+    const docked = !!r.pallet && r.pallet.hold === r.placeSt;
+    if (r.state === 'idle' && r.job && docked && r.seq.every(s => s.ready)) startJob(w, r);
     runSeq(r, dt); solve(r.arm, r.pose); drive(r, dt, 14);
     const waiting = r.state === 'waitPallet' || r.state === 'idle';
     r.totT += dt;
