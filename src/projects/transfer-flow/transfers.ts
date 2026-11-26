@@ -95,20 +95,20 @@ export function createTransfer(w: World, x: number, phi: { home: number; wrapPos
 /** Via point of every swing: arm pointing downstream, flange high over the gap between the belts, TV half turned. */
 // (direct plate: 1.1 m out and 1.7 m up, the elbow above the wrist: the TV at the flange stays clear of the arm; it passes
 // through the gap between the belts)
-const viaPose = (r: Transfer): Pose => (DIRECT ? [0, 1.1, 1.7 - r.arm.shoulderY, H / 2, 0] : [0, 0.5, 2.3 - r.arm.shoulderY, H / 2, 1.5 * Math.PI]);
+const viaPose = (r: Transfer): Pose => (DIRECT ? [0, 1.1, 1.7 - r.arm.shoulderY, -H / 2, Math.PI / 2] : [0, 0.5, 2.3 - r.arm.shoulderY, H / 2, 1.5 * Math.PI]);
 
 /**
  * Pick: TV lies screen-down on the jig. Tool horizontal (tilt 90°, yaw 180°): the cups hang CUP_Z below the flange
  * and sit D beyond it, on the back cover, GRIP from the TV edge nearest the robot (that edge becomes the top).
  */
-/** Direct plate: how far above the TV's centre it holds it (toward its top edge). The 32"/43" are light and low in the
- *  pallet: held 13 cm below their top edge, the wrist works higher and does not fold onto the forearm. */
-const directOff = (inch: Inch) => (inch <= 43 ? SIZES[inch][1] / 2 - 0.13 : 0);
+/** Direct plate: how far above the TV's centre it holds it (toward its top edge, the far one on the jig). The 32"/43"
+ *  are light and low in the pallet: held higher (32": 13 cm below the top edge), the wrist does not fold. */
+const directOff = (inch: Inch) => (inch === 32 ? SIZES[32][1] / 2 - 0.13 : inch === 43 ? 0.07 : 0); // (43": 7 cm, the far TV of a pair within reach)
 
 function pickPose(r: Transfer, inch: Inch, k: number, dy: number): Pose {
   const d = SIZES[inch][1];
   if (DIRECT) { // plate straight down on the middle of the back (tool pointing down, the TV's width along the plate)
-    const p = poseAt(r.arm, r.x, Z_ASM + slotZ(inch, k) - directOff(inch), PICK_Y + r.D + dy);
+    const p = poseAt(r.arm, r.x, Z_ASM + slotZ(inch, k) + directOff(inch), PICK_Y + r.D + dy);
     return [r.wrap(p[0]), p[1], p[2], 0, 0];
   }
   // (the base colchão holds a 32"/43" pair across the belt: TV k at slotZ; the hook takes the edge nearest the robot)
@@ -121,9 +121,10 @@ function pickPose(r: Transfer, inch: Inch, k: number, dy: number): Pose {
 /** Place: TV upright in the pallet, screen toward the robots (+z). Tool pointing down behind the TV. */
 function placePose(r: Transfer, inch: Inch, dy: number, dz: number): Pose {
   const d = SIZES[inch][1], cupY = TOP_TEST + SEAT_Y + d - gripOf(inch);
-  if (DIRECT) { // plate on the back, which faces the robots: tool pointing away from them (tilt 90°), the TV between
+  if (DIRECT) { // plate on the back, which faces the robots: the TV turned half a turn with the robot and its far (top)
+    // edge tilted up: tool pointing away from the robots (tilt −90°, yaw 180°), the TV between it and the pallet
     const p = poseAt(r.arm, r.x, Z_PAL + TV_BACK + r.D + dz, TOP_TEST + SEAT_Y + d / 2 + directOff(inch) + dy);
-    return [p[0], p[1], p[2], H, 0];
+    return [p[0], p[1], p[2], -H, Math.PI];
   }
   // the tool pitched back by PICK_TILT (the TV was taken with the tool pitched forward): the TV stands exactly upright
   const s = Math.sin(tiltOf(inch)), c = Math.cos(tiltOf(inch));

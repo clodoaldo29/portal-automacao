@@ -46,7 +46,7 @@ export function makeTV(M: Materials, inch: Inch): TV {
   g.add(at(box(w * 0.56, 0.03, d * 0.56, M.dark), 0, -0.045, 0));
   g.add(at(box(w * 0.18, 0.01, d * 0.1, M.aluDark), w * 0.12, -0.065, -d * 0.12));
   const scr = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.02, d - 0.02), screenOff);
-  scr.rotation.x = -Math.PI / 2;
+  scr.rotation.set(-Math.PI / 2, 0, Math.PI); // picture's top edge on local +z: the label on the back (local −z) marks the bottom
   at(scr, 0, TV_T / 2 + 0.0015, 0);
   scr.userData.noShadow = true;
   g.add(scr);
@@ -55,16 +55,16 @@ export function makeTV(M: Materials, inch: Inch): TV {
 }
 
 /**
- * How a TV lies on the jig: screen down, its top edge toward the robots (the transfers' hook takes it by that edge,
- * which is the top again when it stands in the test pallet).
+ * How a TV lies on the jig: screen down, its bottom edge (the label on the back marks it) toward the robots.
  */
 export const TV_ON_JIG = new THREE.Euler(0, 0, Math.PI);
 /** How a TV stands in the test pallet: screen toward the robots, top edge up. */
 const TV_SCREEN_TO_ROBOTS = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.PI)
   .multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, Math.PI)));
-/** Option ?garra=direta: back toward the robots, top edge up: the TV as it lay on the jig, tilted up 90° about the line
- *  (the direct plate on its back turns it so). */
-const TV_BACK_TO_ROBOTS = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2)
+/** Option ?garra=direta: back toward the robots, top edge up, label (bottom) down: the TV as it lay on the jig, its far
+ *  (top) edge tilted up 90° and turned half a turn with the robot (the direct plate on its back turns it so). */
+const TV_BACK_TO_ROBOTS = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI)
+  .multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2))
   .multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, Math.PI)));
 export const TV_STANDING = DIRECT ? TV_BACK_TO_ROBOTS : TV_SCREEN_TO_ROBOTS;
 
