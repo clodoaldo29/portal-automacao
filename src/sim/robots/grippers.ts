@@ -59,6 +59,29 @@ export function hookVGP30(mount: THREE.Object3D, M: Materials, { hookD, cupZ }: 
   return g;
 }
 
+/**
+ * OnRobot VGP30 straight on the flange: the plate across the tool axis (local −y), cups facing along it, cup faces
+ * `d` from the flange. Plate 390 (local x) × 240 (local z) mm, housing 310 × 155 mm, 20 cups Ø50 (rows 4-2-4 | 4-2-4).
+ */
+export function vgp30Direct(mount: THREE.Object3D, M: Materials, { d }: { d: number }) {
+  const g = new THREE.Group();
+  mount.add(g);
+  const plateMat = new THREE.MeshStandardMaterial({ color: 0x2a2d31, metalness: 0.2, roughness: 0.55 });
+  const housingMat = new THREE.MeshStandardMaterial({ color: 0xd9dcdf, metalness: 0.25, roughness: 0.35 });
+  const qcMat = new THREE.MeshStandardMaterial({ color: 0x3b82f6, metalness: 0.1, roughness: 0.45 });
+  const top = d - 0.088; // housing top (the flange adapter fills the rest)
+  g.add(at(cylA(0.045, top, qcMat, 'y', 20), 0, -top / 2, 0)); // adapter and quick changer (blue)
+  g.add(at(box(0.31, 0.04, 0.155, housingMat), 0, -top - 0.02, 0)); // housing, channels A and B
+  g.add(at(box(0.39, 0.022, 0.24, plateMat), 0, -d + 0.037, 0)); // plate (cup carrier)
+  const rows: [number, number[]][] = [
+    [0.1675, [-0.0925, -0.0385, 0.0385, 0.0925]], [0.1125, [-0.0655, 0.0655]], [0.0575, [-0.0925, -0.0385, 0.0385, 0.0925]],
+  ];
+  for (const sx of [-1, 1]) for (const [x, zs] of rows) for (const z of zs)
+    g.add(at(cylA(0.025, 0.026, M.rubber, 'y', 16), sx * x, -d + 0.013, z));
+  shadowify(g);
+  return g;
+}
+
 /** Vision head: camera body, lit lens with ring light. Returns the lens point (for the field-of-view beam). */
 export function cameraHead(mount: THREE.Object3D, M: Materials) {
   const g = new THREE.Group();

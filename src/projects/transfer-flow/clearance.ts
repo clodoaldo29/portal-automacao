@@ -8,7 +8,7 @@
 // just placed, the carried TV sliding into its pallet, and each arm's base on its own pedestal.
 import * as THREE from 'three';
 import { capsuleGap, linkCapsules, type Capsule } from '../../sim/robots/collision';
-import { BELT_ASM, BELT_TEST, JIG_L, JIG_TOP, JIG_W, LINE_X0, LINE_X1, SIZES, TOP, TOP_TEST, TRANSFER_PED, TV_T, CUP_Z, HOOK_D, Z_ASM, Z_TEST } from './config';
+import { BELT_ASM, BELT_TEST, JIG_L, JIG_TOP, JIG_W, LINE_X0, LINE_X1, SIZES, TOP, TOP_TEST, TRANSFER_PED, TV_T, CUP_Z, DIRECT, DIRECT_D, HOOK_D, Z_ASM, Z_TEST } from './config';
 import type { TV } from './products';
 import { elbowLift } from './transfers';
 import type { Jig, Pallet, Transfer, World } from './types';
@@ -37,7 +37,12 @@ const label = (r: Transfer, idx: number) => `transfer ${idx + 1} [${r.state} ${r
 type V3 = [number, number, number];
 /** Hook gripper with the VGP30 in the flange frame (tool axis local −y): the bracket (first), the post, the plate with
  *  its housing (three bars across it) and the cup rows (cups facing local +z). */
-export const gripperCaps = (): { a: V3; b: V3; r: number }[] => [
+export const gripperCaps = (): { a: V3; b: V3; r: number }[] => DIRECT ? [
+  // ?garra=direta: the adapter, the plate with its housing (three bars across it) and the cup rows, cups along −y
+  { a: [0, -0.01, 0], b: [0, -(DIRECT_D - 0.09), 0], r: 0.045 },
+  ...[-0.08, 0, 0.08].map(z => ({ a: [-0.165, -(DIRECT_D - 0.045), z] as V3, b: [0.165, -(DIRECT_D - 0.045), z] as V3, r: 0.035 })),
+  ...[-0.09, -0.04, 0.04, 0.09].map(z => ({ a: [-0.175, -DIRECT_D + 0.012, z] as V3, b: [0.175, -DIRECT_D + 0.012, z] as V3, r: 0.012 })),
+] : [
   { a: [0, -0.04, 0], b: [0, -HOOK_D, 0], r: 0.04 },
   { a: [0, -HOOK_D, 0.03], b: [0, -HOOK_D, CUP_Z - 0.09], r: 0.04 },
   ...[-0.08, 0, 0.08].map(y => ({ a: [-0.165, -HOOK_D + y, CUP_Z - 0.06] as V3, b: [0.165, -HOOK_D + y, CUP_Z - 0.06] as V3, r: 0.04 })),

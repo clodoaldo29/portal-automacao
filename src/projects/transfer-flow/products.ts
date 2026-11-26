@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { at, box, canvasTex, mk, shadowify } from '../../sim/kit';
 import type { Materials } from '../../sim/materials';
-import { JIG_FRAME, JIG_L, JIG_TOP, JIG_W, PAL_D, PAL_W, SIZES, TV_T, type Inch } from './config';
+import { DIRECT, JIG_FRAME, JIG_L, JIG_TOP, JIG_W, PAL_D, PAL_W, SIZES, TV_T, type Inch } from './config';
 
 export interface TV { obj: THREE.Group; inch: Inch; screen: THREE.Mesh }
 export type ScreenPattern = 'bars' | 'red' | 'green' | 'blue' | 'white' | 'swoosh';
@@ -60,8 +60,13 @@ export function makeTV(M: Materials, inch: Inch): TV {
  */
 export const TV_ON_JIG = new THREE.Euler(0, 0, Math.PI);
 /** How a TV stands in the test pallet: screen toward the robots, top edge up. */
-export const TV_STANDING = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.PI)
+const TV_SCREEN_TO_ROBOTS = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.PI)
   .multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, Math.PI)));
+/** Option ?garra=direta: back toward the robots, top edge up: the TV as it lay on the jig, tilted up 90° about the line
+ *  (the direct plate on its back turns it so). */
+const TV_BACK_TO_ROBOTS = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2)
+  .multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, Math.PI)));
+export const TV_STANDING = DIRECT ? TV_BACK_TO_ROBOTS : TV_SCREEN_TO_ROBOTS;
 
 export const tvPower = (tv: TV, pat: ScreenPattern | null) => { tv.screen.material = pat ? getScreenMats()[pat] : screenOff; };
 
@@ -90,7 +95,7 @@ export function makeJig(M: Materials) {
 export function makePallet(M: Materials) {
   // parts are laid out with the screen side on local -z, then the fixture is turned to face +z
   const g0 = new THREE.Group(), g = new THREE.Group();
-  g.rotation.y = Math.PI;
+  g.rotation.y = DIRECT ? 0 : Math.PI; // ?garra=direta: the back rest rail on the robot side (the TV's back faces them)
   g0.add(g);
   const W = PAL_W, D = PAL_D, T = 0.06, H = 0.08;
   g.add(at(box(W - 0.002, H, T, M.blue), 0, H / 2, D / 2 - T / 2)); g.add(at(box(W - 0.002, H, T, M.blue), 0, H / 2, -D / 2 + T / 2));

@@ -8,7 +8,7 @@
 // · Pallets are not addressed: an empty pallet stops at the first robot that still needs one,
 //   so robot 1 lets it go on to robot 2 when it already has its pallet. No pallet leaves empty.
 import { station } from '../../sim/line';
-import { hookVGP30 } from '../../sim/robots/grippers';
+import { hookVGP30, vgp30Direct } from '../../sim/robots/grippers';
 import * as THREE from 'three';
 import { LED, makeCobot, poseAt, solve, urTrack } from '../../sim/robots/ur-arm';
 import { urFK } from '../../sim/robots/ur-kinematics';
@@ -16,7 +16,7 @@ import { capsuleGap, linkCapsules } from '../../sim/robots/collision';
 import { ease } from '../../sim/math';
 import { runSeq, type Pose } from '../../sim/sequencer';
 import {
-  ARM_DX, CUP_Z, gripOf, HOOK_D, ITEM_GAP, PAL_W, PICK_Y, ROBOT_Z, SEAT_Y, SIZES, TOP_TEST, TRANSFER_PED, TV_BACK, Z_ASM, Z_PAL, slotZ, type Inch,
+  ARM_DX, CUP_Z, DIRECT, DIRECT_D, gripOf, HOOK_D, ITEM_GAP, PAL_W, PICK_Y, ROBOT_Z, SEAT_Y, SIZES, TOP_TEST, TRANSFER_PED, TV_BACK, Z_ASM, Z_PAL, slotZ, type Inch,
 } from './config';
 import { TV_STANDING, tvPower } from './products';
 import type { Jig, Mode, Pallet, Transfer, World } from './types';
@@ -57,12 +57,13 @@ export function createTransfer(w: World, x: number, phi: { home: number; wrapPos
   const { asm, test } = w;
   // 0.8 m column: the Zu 50 shoulder sits ~1.10 m high; its long arm still lowers a 75" from above
   const arm = makeCobot(w.scene, w.M, { x: x - ARM_DX, z: ROBOT_Z, L1: 0.64, L2: 0.5, ped: TRANSFER_PED, pedW: 0.3 });
-  hookVGP30(arm.mount, w.M, { hookD: HOOK_D, cupZ: CUP_Z });
+  if (DIRECT) vgp30Direct(arm.mount, w.M, { d: DIRECT_D }); else hookVGP30(arm.mount, w.M, { hookD: HOOK_D, cupZ: CUP_Z });
   arm.tool.rotation.order = 'YXZ';
   w.floorRect(x - ARM_DX - 0.4, ROBOT_Z - 0.4, x - ARM_DX + 0.4, ROBOT_Z + 0.4, 0.04);
-  const home: Pose = [phi.home, 0.8, 0.0, H, Math.PI]; // rest (start, arm switched off): half open, hook level, clear of the arm
+  // rest (start, arm switched off): half open, hook level (direct plate: facing down), clear of the arm
+  const home: Pose = DIRECT ? [phi.home, 0.8, 0.0, 0, 0] : [phi.home, 0.8, 0.0, H, Math.PI];
   const r: Transfer = {
-    arm, x, D: HOOK_D, wrap: p => (phi.wrapPositive && p < 0 ? p + 2 * Math.PI : p),
+    arm, x, D: DIRECT ? DIRECT_D : HOOK_D, wrap: p => (phi.wrapPositive && p < 0 ? p + 2 * Math.PI : p),
     enabled: true, count: 0, seq: [], state: 'idle', job: null, pallet: null, need: 0, carried: null, leaving: null, zoneBusy: false, path: [], jm: null,
     busyT: 0, totT: 0, palT: 0, home, pose: home.slice(),
     addNeed: n => { if (n > 0) { r.need += n; w.palletDemand += n; } },
@@ -92,14 +93,24 @@ export function createTransfer(w: World, x: number, phi: { home: number; wrapPos
 }
 
 /** Via point of every swing: arm pointing downstream, flange high over the gap between the belts, TV half turned. */
-const viaPose = (r: Transfer): Pose => [0, 0.5, 2.3 - r.arm.shoulderY, H / 2, 1.5 * Math.PI];
+// (direct plate: 1.1 m out and 1.7 m up, the elbow above the wrist: the TV at the flange stays clear of the arm; it passes
+// through the gap between the belts)
+const viaPose = (r: Transfer): Pose => (DIRECT ? [0, 1.1, 1.7 - r.arm.shoulderY, H / 2, 0] : [0, 0.5, 2.3 - r.arm.shoulderY, H / 2, 1.5 * Math.PI]);
 
 /**
  * Pick: TV lies screen-down on the jig. Tool horizontal (tilt 90°, yaw 180°): the cups hang CUP_Z below the flange
  * and sit D beyond it, on the back cover, GRIP from the TV edge nearest the robot (that edge becomes the top).
  */
+/** Direct plate: how far above the TV's centre it holds it (toward its top edge). The 32"/43" are light and low in the
+ *  pallet: held 13 cm below their top edge, the wrist works higher and does not fold onto the forearm. */
+const directOff = (inch: Inch) => (inch <= 43 ? SIZES[inch][1] / 2 - 0.13 : 0);
+
 function pickPose(r: Transfer, inch: Inch, k: number, dy: number): Pose {
   const d = SIZES[inch][1];
+  if (DIRECT) { // plate straight down on the middle of the back (tool pointing down, the TV's width along the plate)
+    const p = poseAt(r.arm, r.x, Z_ASM + slotZ(inch, k) - directOff(inch), PICK_Y + r.D + dy);
+    return [r.wrap(p[0]), p[1], p[2], 0, 0];
+  }
   // (the base colchão holds a 32"/43" pair across the belt: TV k at slotZ; the hook takes the edge nearest the robot)
   // the tool pitched down a little (PICK_TILT) about the cup row: the wrist rides higher over the jig foam
   const s = Math.sin(tiltOf(inch)), c = Math.cos(tiltOf(inch));
@@ -110,6 +121,10 @@ function pickPose(r: Transfer, inch: Inch, k: number, dy: number): Pose {
 /** Place: TV upright in the pallet, screen toward the robots (+z). Tool pointing down behind the TV. */
 function placePose(r: Transfer, inch: Inch, dy: number, dz: number): Pose {
   const d = SIZES[inch][1], cupY = TOP_TEST + SEAT_Y + d - gripOf(inch);
+  if (DIRECT) { // plate on the back, which faces the robots: tool pointing away from them (tilt 90°), the TV between
+    const p = poseAt(r.arm, r.x, Z_PAL + TV_BACK + r.D + dz, TOP_TEST + SEAT_Y + d / 2 + directOff(inch) + dy);
+    return [p[0], p[1], p[2], H, 0];
+  }
   // the tool pitched back by PICK_TILT (the TV was taken with the tool pitched forward): the TV stands exactly upright
   const s = Math.sin(tiltOf(inch)), c = Math.cos(tiltOf(inch));
   const p = poseAt(r.arm, r.x, Z_PAL - TV_BACK - r.D * s - CUP_Z * c + dz, cupY + r.D * c - CUP_Z * s + dy);
@@ -131,6 +146,7 @@ function placePose(r: Transfer, inch: Inch, dy: number, dz: number): Pose {
 const tiltOf = (inch: Inch) => { void inch; return 0; }; // (no pitch: the four cups lie flat on the TV back)
 export const readyPose = (w: World, r: Transfer): Pose => {
   const inch = w.params.inch, d = SIZES[inch][1];
+  if (DIRECT) { const p = poseAt(r.arm, r.x, Z_ASM + slotZ(inch, 0) - WAIT_OUT, PICK_Y + r.D + WAIT_UP); return [r.wrap(p[0]), p[1], p[2], 0, 0]; }
   const p = poseAt(r.arm, r.x, Z_ASM + slotZ(inch, 0) - (d / 2 - gripOf(inch)) - r.D + WAIT_OUT, PICK_Y + CUP_Z + WAIT_UP);
   return [r.wrap(p[0]), p[1], p[2], H, Math.PI];
 };
@@ -162,8 +178,12 @@ function startJob(w: World, r: Transfer) {
     { until: () => !!r.pallet && r.pallet.hold === r.placeSt },
     { fn: () => { r.state = 'place'; } },
     { toFn: () => viaPose(r), durFn: slowDur }, // high over the gap between the belts, TV half turned
-    { toFn: () => placePose(r, inch, 0.1, 0.45), durFn: slowDur }, // TV upright 45 cm in front of the pallet
-    { toFn: () => placePose(r, inch, 0, 0), dur: 0.75 * slow }, { dur: 0.3 }, // slide it in over the front lip, between the side guides
+    ...(DIRECT
+      // direct plate: the TV upright 30 cm over its seat (in its final plane, away from the arm), then straight down
+      ? [{ toFn: () => placePose(r, inch, 0.3, 0), durFn: slowDur }, { toFn: () => placePose(r, inch, 0, 0), dur: 0.9 * slow }]
+      // hook: TV upright 45 cm in front of the pallet, then slide it in over the front lip, between the side guides
+      : [{ toFn: () => placePose(r, inch, 0.1, 0.45), durFn: slowDur }, { toFn: () => placePose(r, inch, 0, 0), dur: 0.75 * slow }]),
+    { dur: 0.3 },
     { fn: () => {
       const tv = r.carried!, pal = r.pallet!;
       pal.obj.attach(tv.obj);
@@ -177,13 +197,14 @@ function startJob(w: World, r: Transfer) {
       // the pallet leaves at once and carries the TV away from the hook; nothing else may enter the dock meanwhile
       r.leaving = pal; r.zoneBusy = true; pal.hold = null; r.pallet = null; r.need--;
     } },
-    { toFn: () => placePose(r, inch, 0, -0.1), dur: 0.3 }, // cups back off the TV
-    // the plate (at the TV's mid-height, inside the side guides) waits until the whole pallet has gone past it
-    { until: () => !w.test.items.includes(r.leaving!) || r.leaving!.obj.position.x - PAL_W / 2 > r.x + 0.25 },
+    { toFn: () => placePose(r, inch, 0, DIRECT ? 0.1 : -0.1), dur: 0.3 }, // cups back off the TV
+    // the hook's plate (at the TV's mid-height, behind it, inside the side guides) waits until the whole pallet has
+    // gone past it; the direct plate is on the robot side of the TV and goes straight back
+    { until: () => DIRECT || !w.test.items.includes(r.leaving!) || r.leaving!.obj.position.x - PAL_W / 2 > r.x + 0.25 },
     { fn: () => { r.state = 'return'; } },
     // the way back is the way there in reverse: in front of the pallet (a little higher: the hook clears the pallet),
     // the high via, the TV's lift point, over the jig
-    { toFn: () => placePose(r, inch, 0.3, 0.45), durFn: moveDur },
+    { toFn: () => (DIRECT ? placePose(r, inch, 0.4, 0.1) : placePose(r, inch, 0.3, 0.45)), durFn: moveDur }, // (direct: straight up)
     { toFn: () => viaPose(r), durFn: moveDur },
     { fn: () => { r.zoneBusy = false; r.leaving = null; r.state = 'idle'; } },
     { toFn: () => pickPose(r, inch, k, 0.4), durFn: moveDur, ready: true },
@@ -286,7 +307,7 @@ function track(r: Transfer, iters: number) {
   // (through the wrist singularity at the pick, tool level): with wrist 2 negative the arm reaches the pallet stretched
   const ur = r.arm.ur!, wrap = (v: number) => Math.atan2(Math.sin(v), Math.cos(v));
   const stuck = err > 0.01 && Math.abs(wrap(ur.q[2])) < 0.15;
-  const wristOk = (q: number[]) => wrap(q[4]) > -0.05;
+  const wristOk = (q: number[]) => DIRECT || wrap(q[4]) > -0.05; // (a hook rule: the direct plate takes either side)
   if (elbowLift(r) >= 0 && !stuck && wristOk(ur.q) && selfGap(r) > 0.015) return;
   cooldown.set(r, 15);
   const keep = ur.q.slice(), [, a, b, c] = keep;
