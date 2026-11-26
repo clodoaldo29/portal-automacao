@@ -135,5 +135,15 @@ export function resetRobot(w: World, r: Robot) {
   r.seq.push({ toFn: () => readyPose(w, r), durFn: moveDur, ready: true });
 }
 
-/** The hook is waiting behind the pick point (nothing left to do but wait for a pallet). */
-const hookReady = (r: Robot) => r.state === 'idle' && r.seq.length === 0;
+const _f = new THREE.Vector3();
+/**
+ * The hook is back behind the pick point: waiting, or on its last move to the waiting pose with the cups already behind
+ * the plane of the TV coming in (flange more than CUP_Z + 3 cm behind its back). Then the next pallet may come on: it
+ * takes ~2.5 s to reach the stop, about the time of that last move.
+ */
+const hookReady = (r: Robot) => {
+  if (r.state !== 'idle' || r.seq.length > 1) return false;
+  if (!r.seq.length) return true;
+  r.arm.mount.getWorldPosition(_f);
+  return _f.z > Z_TEST + TV_BACK + CUP_Z + 0.03;
+};
