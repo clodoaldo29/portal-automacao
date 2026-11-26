@@ -298,7 +298,8 @@ function selfGap(r: Transfer) {
 // (light on purpose: only when the elbow is really down or the arm touches itself, a few seeds, at most every 15
 // steps per robot)
 const cooldown = new WeakMap<Transfer, number>();
-function track(r: Transfer, iters: number) {
+/** Follow the pose with the elbow up and the arm clear of itself (also used by the Smart Pack transfer, the same arm and hook). */
+export function track(r: Transfer, iters: number) {
   const err = urTrack(r.arm, r.pose, iters);
   const cd = cooldown.get(r) ?? 0;
   if (cd > 0) cooldown.set(r, cd - 1);

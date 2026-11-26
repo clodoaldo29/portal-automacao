@@ -18,14 +18,15 @@ import type { Stage } from '../../sim/stage';
 import { Track, line } from '../../sim/track';
 import { rollerConveyor } from '../transfer-flow/rollers';
 import {
-  BAG_X, BELT_BOX, BELT_PACK, BELT_TEST, BOX_END, BOX_X0, COVER_X, DEFAULT_TIMING, LINE_UPH, LYING_Y, MAG_Z0, PACK_X0, PAL_W, PIVOT_Z, ROBOT,
+  BAGGER, BAG_X, BELT_BOX, BELT_PACK, BELT_TEST, BOX_END, BOX_X0, COVER_X, DEFAULT_TIMING, FEED_X, LINE_UPH, LYING_Y, MAG_Z0, PACK_X0, PAL_W, PIVOT_Z, ROBOT,
   SEAT_BOX, SEAT_Y, SIZES, SPEED_BOX, SPEED_PACK, SPEED_TEST, TABLE_L, TABLE_X0, TEST_X0, TEST_X1, UP_X, Y_BOX, Y_PACK, Y_TEST, Z_BASE, Z_EDGE, Z_MAG,
   Z_PACK, Z_TEST, coverOf, type Inch,
 } from './config';
 import {
-  buildBagger, buildClampUnit, buildExisting, buildGantry, buildMagazineGuides, buildPrepTable, buildUpender, rollerConveyorZ,
+  buildBagger, buildClampUnit, buildExisting, buildGantry, buildBaseChute, buildMagazineGuides, CHUTE, chuteY, buildUpender, rollerConveyorZ,
 } from './machines';
-import { TV_BOXED, TV_STANDING, makeBase, makeCover, makePallet, makeTV, setBag } from './products';
+import { TV_BOXED, TV_PALLET, makeBase, makeCover, makePallet, makeTV, setBag } from './products';
+import { measureClearance } from './clearance';
 import { createRobot, resetRobot, updateRobot } from './robot';
 import type { BoxItem, CoverItem, PalletItem, PackItem, Params, World } from './types';
 
@@ -41,13 +42,15 @@ export function createWorld(stage: Stage, params: Params = { ...DEFAULT_PARAMS, 
   const andons = createAndons(M);
   const marks = createFloorMarks(scene);
   const ceiling = buildHall(scene, M);
+  // the ceiling (trusses, light rows, pipes) casts no shadow: it would show on the floor whenever it is drawn
+  ceiling.traverse(o => { o.userData.noShadow = true; o.castShadow = false; });
 
   // ---------- conveyors ----------
   rollerConveyor(scene, M, { x0: TEST_X0, x1: TEST_X1, z: Z_TEST, top: Y_TEST, w: BELT_TEST });
   liftUnit(scene, M, { x: TEST_X1 + 0.15, z: Z_TEST, beltW: BELT_TEST, side: 1, open: 2.1 });
   const packTex = buildConveyor(scene, M, new Track([line(PACK_X0, Z_PACK, TABLE_X0 - 0.03, Z_PACK)], false), BELT_PACK, Y_PACK);
   rollerConveyor(scene, M, { x0: BOX_X0, x1: BOX_END, z: Z_BASE, top: Y_BOX, w: BELT_BOX });
-  rollerConveyorZ(scene, M, COVER_X, MAG_Z0, Z_MAG - 0.2, Y_BOX, 2.0);
+  rollerConveyorZ(scene, M, COVER_X, MAG_Z0, Z_MAG + 0.2, Y_BOX, 2.0);
 
   // ---------- equipment ----------
   const bag = buildBagger(scene, M);
@@ -55,14 +58,15 @@ export function createWorld(stage: Stage, params: Params = { ...DEFAULT_PARAMS, 
   const cl = buildClampUnit(scene, M);
   const gt = buildGantry(scene, M);
   buildMagazineGuides(scene, M);
-  buildPrepTable(scene, M);
+  const chute = buildBaseChute(scene, M);
+  const feed = { queue: [], moving: null, setStopper: chute.setStopper };
   buildExisting(scene);
   // floor: the automated area (stations 1 to 4) and the robot's footprint
-  marks.rect(TEST_X0 - 0.2, Z_BASE - 1.4, COVER_X + 1.5, 1.2, 0.1);
+  marks.rect(TEST_X0 - 0.2, MAG_Z0 - 0.4, COVER_X + 1.5, 1.2, 0.1);
   marks.rect(ROBOT.x - 0.4, ROBOT.z - 0.4, ROBOT.x + 0.4, ROBOT.z + 0.4, 0.04);
 
   const w = {
-    scene, M, params, due: 0, baseAt: null,
+    scene, M, params, due: 0, baseAt: null, feed,
     stats: { simT: 0, picked: 0, bagged: 0, boxed: 0, packed: 0, out: 0, bagT: 0, upT: 0, gantryT: 0 },
   } as unknown as World;
 
@@ -79,16 +83,18 @@ export function createWorld(stage: Stage, params: Params = { ...DEFAULT_PARAMS, 
     track: new Track([line(BOX_X0, Z_BASE, BOX_END, Z_BASE)], false), speed: SPEED_BOX, gap: 1, tex: null, y: Y_BOX,
     onExit: it => { w.stats.out++; scene.remove(it.obj); },
   });
-  // covers come toward the box line along −z, from the aisle between the test line and the packing line
+  // covers come toward the box line along +z, fed from the far side
   w.mag = makeLine<CoverItem>({
-    track: new Track([line(COVER_X, MAG_Z0, COVER_X, Z_MAG - 0.1)], false), speed: 0.4, gap: 0.36, tex: null, y: Y_BOX,
+    track: new Track([line(COVER_X, MAG_Z0, COVER_X, Z_MAG + 0.1)], false), speed: 0.4, gap: 0.36, tex: null, y: Y_BOX,
     onExit: it => scene.remove(it.obj),
   });
 
   // station 1
   w.robot = createRobot(w);
   // station 2: the TV stops in the middle of the bagger
-  w.bagger = { item: null, t: 0, mouth: bag.mouth };
+  w.bagger = { item: null, t: 0, mouth: bag.mouth, inside: null } as unknown as World['bagger'];
+  // one TV in the bagger cabin at a time: the next one waits before the entry until the one inside has left it
+  w.bagger.gate = station(w.pack, 0, it => { if (!w.bagger.inside) { w.bagger.inside = it; return false; } return true; }, () => {});
   station(w.pack, w.pack.track.sAtX(0, BAG_X), it => !it.bagged, it => { w.bagger.item = it; w.bagger.t = 0; });
   // station 3: gate before the table (one TV on it at a time), then the stop in the middle of the table
   const upender = { seq: [], pose: [0], table: up.table, free: true, tv: null, tilted: false } as unknown as World['upender'];
@@ -105,7 +111,7 @@ export function createWorld(stage: Stage, params: Params = { ...DEFAULT_PARAMS, 
   const lights = {
     bagger: andons.make(scene, bag.top.x, bag.top.y, bag.top.z),
     upender: andons.make(scene, UP_X + 1.4, 2.92, Z_PACK + 1.1),
-    gantry: andons.make(scene, COVER_X + 1.2, 3.92, Z_MAG + 0.6),
+    gantry: andons.make(scene, COVER_X + 1.2, 3.92, Z_BASE + 0.65),
   };
   resetLine(w);
   return { world: w, andons, lights, ceiling };
@@ -227,29 +233,55 @@ function updateGantry(w: World) {
 // ---------- feeding ----------
 function addPallet(w: World, s: number) {
   const obj = makePallet(w.M), inch = w.params.inch;
+  obj.children[0].rotation.y = 0; // the fixture with its screen side (front lip) toward the robot
   w.scene.add(obj);
   const tv = makeTV(w.M, inch);
   obj.add(tv.obj);
   tv.obj.position.set(0, SEAT_Y + SIZES[inch][1] / 2, 0);
-  tv.obj.quaternion.copy(TV_STANDING); // as on the Transfer Flow test belt: screen toward +z, back toward the robot
+  tv.obj.quaternion.copy(TV_PALLET); // screen toward the robot, as on the Transfer Flow test belt
   w.test.items.push({ obj, s, hold: null, passed: new Set(), tv });
 }
 
-function addBase(w: World, s: number) {
+/** A ready base (EPS corners in place), its length along the line (the TV's width). */
+function newBase(w: World) {
   const obj = new THREE.Group(), inner = new THREE.Group();
   obj.add(inner);
-  inner.rotation.y = H; // the base's length along the line (the TV's width)
+  inner.rotation.y = H;
   inner.add(makeBase(w.M, w.params.inch));
   w.scene.add(obj);
-  w.boxes.items.push({ obj, inner, s, hold: null, passed: new Set(), tv: null, covered: false });
+  return { obj, inner };
+}
+function addBase(w: World, s: number, b = newBase(w)) {
+  w.boxes.items.push({ ...b, s, hold: null, passed: new Set(), tv: null, covered: false });
+}
+/** Place of slot k on the infeed chute (k = 0 at the stopper). */
+const chuteSlot = (k: number) => { const z = CHUTE.zEnd - 0.17 - k * 0.34; return new THREE.Vector3(FEED_X, chuteY(z), z); };
+/** Bases on the chute: they slide down to their slots; one released goes onto the box line in about a second. */
+function updateChute(w: World, dt: number) {
+  const f = w.feed;
+  f.queue.forEach((b, k) => b.obj.position.lerp(chuteSlot(k), Math.min(1, dt * 2.5)));
+  if (f.moving) {
+    const m = f.moving;
+    m.t += dt;
+    const u = Math.min(1, m.t / 1.0), a = chuteSlot(0);
+    m.obj.position.set(FEED_X, a.y + (Y_BOX - a.y) * u, a.z + (Z_BASE - a.z) * u);
+    if (u >= 1) { addBase(w, FEED_S, m); f.moving = null; f.setStopper(false); }
+  }
+  while (f.queue.length < 4) { // a new base comes in at the top of the chute (from outside the line)
+    const b = newBase(w);
+    b.obj.position.copy(chuteSlot(f.queue.length + 1));
+    f.queue.push(b);
+  }
 }
 
 function addCover(w: World, s: number) {
-  const obj = makeCover(w.M, w.params.inch); // the magazine runs along −z: the cover's length ends up along the line
+  const obj = makeCover(w.M, w.params.inch); // the magazine runs along +z: the cover's length ends up along the line
   w.scene.add(obj);
   w.mag.items.push({ obj, s, hold: null, passed: new Set() });
 }
 
+/** Where the feeder sets a base down (along the box line). */
+const FEED_S = FEED_X - BOX_X0;
 const startFree = <I extends LineItem>(L: Line<I>) => L.items.every(it => it.s >= L.gap);
 
 function updateFeed(w: World, dt: number) {
@@ -257,8 +289,13 @@ function updateFeed(w: World, dt: number) {
   const rate = w.params.feed === 'max' ? Infinity : LINE_UPH[w.params.inch] / 3600;
   w.due = Math.min(2, w.due + dt * rate);
   if (w.due >= 1 && startFree(w.test)) { addPallet(w, 0); w.due -= 1; }
-  // the operator keeps three empty bases on the box line; the magazine is kept with six covers
-  if (w.boxes.items.filter(b => !b.tv).length < 3 && startFree(w.boxes)) addBase(w, 0);
+  // the chute keeps three empty bases on the box line: its stopper lets one slide on when the photo-eye sees the box
+  // line clear (the base before has moved a pitch on); the magazine is kept with six covers
+  if (!w.feed.moving && w.feed.queue.length && w.boxes.items.filter(b => !b.tv).length < 3 && w.boxes.items.every(b => b.s >= FEED_S + w.boxes.gap)) {
+    w.feed.moving = { ...w.feed.queue.shift()!, t: 0 };
+    w.feed.setStopper(true);
+  }
+  updateChute(w, dt);
   if (w.mag.items.length + (w.gantry.cover ? 1 : 0) < 6 && startFree(w.mag)) addCover(w, 0);
 }
 
@@ -287,6 +324,10 @@ export function step(w: World, dt: number) {
     bg.mouth.position.z += (rest - bg.mouth.position.z) * Math.min(1, dt * 1.5);
   }
 
+  // station 2: the cabin is free once the TV inside has left it whole; then the next one may go in
+  const tw = wOf(w);
+  if (bg.inside && (!w.pack.items.includes(bg.inside) || bg.inside.obj.position.x - tw / 2 > BAGGER.x1 + 0.02)) bg.inside = null;
+  if (!bg.inside) { const held = w.pack.items.find(it => it.hold === bg.gate); if (held) { held.hold = null; bg.inside = held; } }
   // station 3: let the next TV onto the table once it is down and empty
   const u = w.upender;
   if (u.free) { const held = w.pack.items.find(it => it.hold === u.gate); if (held) { held.hold = null; u.free = false; } }
@@ -299,6 +340,7 @@ export function step(w: World, dt: number) {
   runSeq(w.gantry, dt);
   if (w.gantry.seq.length) st.gantryT += dt;
   applyMachines(w);
+  checkClearance(w);
 }
 
 export function resetStats(w: World) {
@@ -316,16 +358,24 @@ export function resetLine(w: World) {
   // per model: pitch on the packing line (the TV's width along it), the gate before the table, the box pitch
   w.pack.gap = tw + 0.15;
   w.upender.gate.s = w.pack.track.sAtX(0, TABLE_X0 - 0.08 - tw / 2);
+  w.bagger.gate.s = w.pack.track.sAtX(0, BAGGER.x0 - 0.08 - tw / 2);
   w.boxes.gap = coverOf(inch).l + 0.15;
   Object.assign(w.upender, { seq: [], pose: [0], free: true, tv: null, tilted: false });
   Object.assign(w.clamp, { seq: [], pose: clampHome(), tv: null });
   Object.assign(w.gantry, { seq: [], pose: gantryHome(w), cover: null, target: null });
-  Object.assign(w.bagger, { item: null, t: 0 });
+  Object.assign(w.bagger, { item: null, t: 0, inside: null });
   w.baseAt = null;
   w.due = 1;
   // the line opens with TVs queued on the test line, empty bases on the box line and the magazine full
   for (let k = 0; k < 2; k++) addPallet(w, w.test.track.sAtX(0, 0) - 1.2 - k * w.test.gap);
   for (let k = 0; k < 3; k++) addBase(w, w.boxes.track.sAtX(0, UP_X) - k * w.boxes.gap);
+  // the infeed chute with ready bases for this lot
+  for (const b of [...w.feed.queue, ...(w.feed.moving ? [w.feed.moving] : [])]) w.scene.remove(b.obj);
+  w.feed.queue.length = 0;
+  w.feed.moving = null;
+  w.feed.setStopper(false);
+  for (let k = 0; k < 4; k++) { const b = newBase(w); b.obj.position.copy(chuteSlot(k)); w.feed.queue.push(b); }
+  void inch;
   for (let k = 0; k < 6; k++) addCover(w, w.mag.track.length - 0.11 - k * w.mag.gap);
   applyMachines(w);
   resetStats(w);
@@ -333,3 +383,11 @@ export function resetLine(w: World) {
 
 /** Pallets at the line cadence in TVs per hour, for the panel. */
 export const lineRate = (w: World) => LINE_UPH[w.params.inch];
+
+/** Turn the collision check of station 1 on (from zero): every 2nd step keeps the smallest clearance. */
+export const startClearance = (w: World) => { w.clear = { min: Infinity, at: '', n: 0, worst: new Map() }; };
+export function checkClearance(w: World) {
+  if (!w.clear || ++w.clear.n % 2) return;
+  const c = measureClearance(w, w.clear.worst);
+  if (c.min < w.clear.min) { w.clear.min = c.min; w.clear.at = c.at; }
+}

@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { at, box, cyl, cylA, shadowify, std } from '../../sim/kit';
 import type { Materials } from '../../sim/materials';
 import {
-  BAGGER, BELT_BOX, BOX_END, CABIN_L, COVER_X, EXIST_X0, GANTRY_Y, MAG_Z0, PIVOT_Z, PREP_X, TABLE_D, TABLE_L, UP_X, Y_BOX, Y_PACK, Z_BASE, Z_EDGE, Z_MAG, Z_PACK,
+  BAGGER, BELT_BOX, BOX_END, CABIN_L, COVER_X, EXIST_X0, FEED_X, GANTRY_Y, MAG_Z0, PIVOT_Z, TABLE_D, TABLE_L, UP_X, Y_BOX, Y_PACK, Z_BASE, Z_EDGE, Z_MAG, Z_PACK,
 } from './config';
 
 const panel = std(0xe6e9ed, 0.2, 0.5), band = std(0x1f5fd6, 0.2, 0.4), frameMat = std(0x3a4047, 0.4, 0.45);
@@ -21,27 +21,28 @@ export function buildBagger(scene: THREE.Scene, M: Materials) {
   scene.add(g);
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) g.add(at(box(0.07, h, 0.07, frameMat), sx * (L / 2 - 0.035), h / 2, sz * (w / 2 - 0.035)));
   for (const sz of [-1, 1]) for (const y of [0.35, h - 0.035]) g.add(at(box(L, 0.07, 0.07, frameMat), 0, y, sz * (w / 2 - 0.035)));
-  g.add(at(box(L, 0.05, w, panel), 0, h - 0.025, 0)); // roof
+  // (panels sit inside the frame and the roof on top of it: no two faces in the same plane, which would flicker)
+  g.add(at(box(L + 0.04, 0.05, w + 0.04, panel), 0, h + 0.025, 0)); // roof
   // far side (−z): closed panel with the blue band; robot side (+z): glazed so the bagging is seen
-  g.add(at(box(L - 0.08, h - 0.45, 0.02, panel), 0, 0.4 + (h - 0.45) / 2, -w / 2 + 0.01));
-  g.add(at(box(L - 0.08, 0.14, 0.022, band), 0, h - 0.25, -w / 2 + 0.012));
-  const win = at(new THREE.Mesh(new THREE.PlaneGeometry(L - 0.12, h - 0.55), glass), 0, 0.4 + (h - 0.55) / 2, w / 2 - 0.01);
+  g.add(at(box(L - 0.08, h - 0.45, 0.02, panel), 0, 0.4 + (h - 0.45) / 2, -w / 2 + 0.035));
+  g.add(at(box(L - 0.08, 0.14, 0.022, band), 0, h - 0.25, -w / 2 - 0.016));
+  const win = at(new THREE.Mesh(new THREE.PlaneGeometry(L - 0.12, h - 0.55), glass), 0, 0.4 + (h - 0.55) / 2, w / 2 - 0.035);
   win.userData.noShadow = true;
   g.add(win);
-  g.add(at(box(L - 0.08, 0.14, 0.022, band), 0, h - 0.25, w / 2 - 0.012));
+  g.add(at(box(L - 0.08, 0.14, 0.022, band), 0, h - 0.25, w / 2 + 0.016));
   // end walls with the tunnel opening (0.42 m over the belt) and strip curtains
   const open = 0.42, top = Y_PACK + open;
   for (const sx of [-1, 1]) {
-    g.add(at(box(0.02, h - top, w - 0.08, panel), sx * (L / 2 - 0.01), top + (h - top) / 2, 0));
+    g.add(at(box(0.02, h - top - 0.07, w - 0.08, panel), sx * (L / 2 - 0.035), top + (h - top - 0.07) / 2, 0));
     for (let i = 0; i < 8; i++) {
-      const s = at(box(0.004, open - 0.02, 0.2, glass), sx * (L / 2 - 0.01), Y_PACK + 0.01 + (open - 0.02) / 2, -0.77 + i * 0.22);
+      const s = at(box(0.004, open - 0.02, 0.2, glass), sx * (L / 2 - 0.035), Y_PACK + 0.01 + (open - 0.02) / 2, -0.77 + i * 0.22);
       s.userData.noShadow = true;
       g.add(s);
     }
   }
   // bag cassette and film roll on the roof, control cabinet with HMI on the robot side
-  g.add(at(box(1.1, 0.35, 0.7, panel), -0.5, h + 0.17, -0.35));
-  g.add(at(cylA(0.16, 0.8, std(0xd6e6f2, 0.05, 0.3), 'z'), 0.6, h + 0.18, -0.3));
+  g.add(at(box(1.1, 0.35, 0.7, panel), -0.5, h + 0.226, -0.35));
+  g.add(at(cylA(0.16, 0.8, std(0xd6e6f2, 0.05, 0.3), 'z'), 0.6, h + 0.215, -0.3));
   g.add(at(box(0.6, 1.6, 0.3, panel), 0.7, 0.8, w / 2 + 0.17));
   g.add(at(box(0.32, 0.22, 0.03, std(0x0b1b33, 0.2, 0.3, { emissive: 0x1d4ed8, emissiveIntensity: 0.5 })), 0.7, 1.3, w / 2 + 0.33));
   // bag mouth frame: posts beyond both ends of the TV and a bar along its width; it moves across the belt (local z)
@@ -53,7 +54,7 @@ export function buildBagger(scene: THREE.Scene, M: Materials) {
   mouth.add(at(box(span, 0.04, 0.04, M.alu), 0, ringH, 0));
   for (const s of [-1, 1]) mouth.add(at(box(0.12, 0.03, 0.05, M.yellow), s * (span / 2 - 0.08), ringH - 0.03, 0));
   shadowify(g);
-  return { group: g, mouth, top: new THREE.Vector3(xc + L / 2 - 0.3, h + 0.02, z + w / 2 - 0.3) };
+  return { group: g, mouth, top: new THREE.Vector3(xc + L / 2 - 0.3, h + 0.05, z + w / 2 - 0.3) };
 }
 
 /**
@@ -103,7 +104,7 @@ export function buildClampUnit(scene: THREE.Scene, M: Materials) {
   scene.add(g);
   for (const z of [za, zb]) for (const s of [-1, 1]) g.add(at(box(0.1, top, 0.1, frameMat), s * hx, top / 2, z));
   for (const s of [-1, 1]) g.add(at(box(0.12, 0.12, za - zb + 0.1, frameMat), s * hx, top + 0.06, (za + zb) / 2));
-  for (const z of [za, zb]) g.add(at(box(2 * hx, 0.1, 0.1, frameMat), 0, top + 0.05, z));
+  for (const z of [za, zb]) g.add(at(box(2 * hx, 0.1, 0.1, frameMat), 0, top + 0.055, z));
   // cabin: glazed guards on the long sides; the end walls are glazed above the conveyors (the packing belt comes in,
   // the box line runs through)
   const sideH = top - 0.15, endY0 = 1.8;
@@ -122,7 +123,7 @@ export function buildClampUnit(scene: THREE.Scene, M: Materials) {
   }
   const carriage = new THREE.Group();
   g.add(carriage);
-  carriage.add(at(box(2 * hx, 0.1, 0.16, M.alu), 0, top - 0.05, 0));
+  carriage.add(at(box(2 * hx - 0.14, 0.1, 0.16, M.alu), 0, top - 0.06, 0));
   const arms = [-1, 1].map(s => {
     const a = new THREE.Group();
     carriage.add(a);
@@ -164,18 +165,49 @@ export function rollerConveyorZ(scene: THREE.Scene, M: Materials, x: number, z0:
   return g;
 }
 
-/** Operator table beside the start of the box line, where the bases get the EPS corners (manual, out of the automation scope). */
-export function buildPrepTable(scene: THREE.Scene, M: Materials) {
+/**
+ * Base infeed from outside the line: the bases come ready (EPS corners in place) down an inclined gravity roller chute,
+ * square to the box line, on its far side. At the bottom a photo-eye sees the base and a stopper holds it; the stopper
+ * drops to let one base slide onto the box line. `surfY(z)`: height of the chute's rollers at z. `setStopper(down)`.
+ */
+export const CHUTE = { zEnd: Z_BASE - BELT_BOX / 2 - 0.06, zTop: Z_BASE - 2.6, yEnd: Y_BOX + 0.02, yTop: Y_BOX + 0.32, w: 2.0 };
+export const chuteY = (z: number) => CHUTE.yEnd + (CHUTE.yTop - CHUTE.yEnd) * (CHUTE.zEnd - z) / (CHUTE.zEnd - CHUTE.zTop);
+export function buildBaseChute(scene: THREE.Scene, M: Materials) {
+  const { zEnd, zTop, w } = CHUTE, len = zEnd - zTop, ang = Math.atan2(CHUTE.yTop - CHUTE.yEnd, len);
   const g = new THREE.Group();
-  g.position.set(PREP_X, 0, Z_BASE - BELT_BOX / 2 - 0.5);
+  g.position.set(FEED_X, 0, 0);
   scene.add(g);
-  g.add(at(box(2.0, 0.04, 0.8, M.white), 0, 0.88, 0));
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) g.add(at(box(0.04, 0.86, 0.04, M.alu), sx * 0.95, 0.43, sz * 0.35));
-  const eps = std(0xf4f6f8, 0, 0.95);
-  for (let i = 0; i < 4; i++) g.add(at(box(0.22, 0.17, 0.3, eps), -0.8 + (i % 2) * 0.26, 0.985, -0.15 + Math.floor(i / 2) * 0.34)); // EPS corners
-  for (let i = 0; i < 5; i++) g.add(at(box(1.1, 0.012, 0.32, M.cardboard), 0.35, 0.91 + i * 0.012, 0)); // flat bases
+  // inclined frame with free rollers (along x), the bases slide down toward the box line
+  const bed = new THREE.Group();
+  bed.position.set(0, (CHUTE.yEnd + CHUTE.yTop) / 2, (zEnd + zTop) / 2);
+  bed.rotation.x = ang; // lower toward the box line
+  g.add(bed);
+  for (const s of [-1, 1]) bed.add(at(box(0.04, 0.1, len, M.alu), s * (w / 2 + 0.02), -0.06, 0));
+  const n = Math.floor(len / 0.09);
+  const rollers = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.02, 0.02, w, 12), std(0xc7cdd4, 0.85, 0.25), n);
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.PI / 2), one = new THREE.Vector3(1, 1, 1);
+  for (let i = 0; i < n; i++) rollers.setMatrixAt(i, m4.compose(new THREE.Vector3(0, -0.02, -len / 2 + 0.05 + i * 0.09), q, one));
+  bed.add(rollers);
+  for (const s of [-1, 1]) bed.add(at(box(0.03, 0.12, len, M.yellow), s * (w / 2 + 0.06), 0.05, 0)); // side guides
+  for (const z of [zTop + 0.1, (zEnd + zTop) / 2, zEnd - 0.1]) for (const s of [-1, 1]) {
+    const hgt = chuteY(z) - 0.08;
+    g.add(at(box(0.045, hgt, 0.045, M.alu), s * (w / 2 - 0.02), hgt / 2, z));
+  }
+  // photo-eye on posts either side of the chute end, and the stopper blade across it
+  for (const s of [-1, 1]) {
+    g.add(at(box(0.04, 0.35, 0.04, M.aluDark), s * (w / 2 + 0.14), CHUTE.yEnd + 0.1, zEnd - 0.22));
+    g.add(at(box(0.06, 0.05, 0.05, M.blue), s * (w / 2 + 0.11), CHUTE.yEnd + 0.12, zEnd - 0.22));
+  }
+  const beam = new THREE.Mesh(new THREE.BoxGeometry(w + 0.22, 0.004, 0.004), new THREE.MeshBasicMaterial({ color: 0xff3b3b }));
+  beam.position.set(0, CHUTE.yEnd + 0.12, zEnd - 0.22);
+  beam.userData.noShadow = true;
+  g.add(beam);
+  const stopper = at(box(w - 0.2, 0.08, 0.02, M.yellow), 0, CHUTE.yEnd + 0.04, zEnd + 0.02);
+  g.add(stopper);
+  g.add(at(box(0.1, 0.12, 0.08, M.blue), 0, CHUTE.yEnd - 0.1, zEnd + 0.02)); // stopper cylinder
   shadowify(g);
-  return g;
+  const setStopper = (down: boolean) => { stopper.position.y = CHUTE.yEnd + (down ? -0.07 : 0.04); };
+  return { group: g, setStopper };
 }
 
 /**
@@ -183,7 +215,7 @@ export function buildPrepTable(scene: THREE.Scene, M: Materials) {
  * vertical mast and a bar of suction cups along x that holds the cover by its top. `setGantry(z, cupY)`.
  */
 export function buildGantry(scene: THREE.Scene, M: Materials) {
-  const za = Z_BASE - 0.6, zb = Z_MAG + 0.6, hx = 1.2, y = GANTRY_Y;
+  const za = Z_MAG - 0.6, zb = Z_BASE + 0.65, hx = 1.2, y = GANTRY_Y;
   const g = new THREE.Group();
   g.position.set(COVER_X, 0, 0);
   scene.add(g);
@@ -191,7 +223,7 @@ export function buildGantry(scene: THREE.Scene, M: Materials) {
     for (const z of [za, zb]) g.add(at(box(0.14, y, 0.14, frameMat), sx * hx, y / 2, z));
     g.add(at(box(0.16, 0.2, zb - za + 0.14, M.alu), sx * hx, y + 0.1, (za + zb) / 2));
   }
-  for (const z of [za, zb]) g.add(at(box(2 * hx + 0.14, 0.14, 0.14, frameMat), 0, y + 0.07, z));
+  for (const z of [za, zb]) g.add(at(box(2 * hx + 0.14, 0.13, 0.14, frameMat), 0, y + 0.075, z)); // (13 cm: its faces off the beams')
   const carriage = new THREE.Group();
   g.add(carriage);
   carriage.add(at(box(2 * hx + 0.2, 0.16, 0.3, M.blue), 0, y + 0.28, 0));
@@ -218,14 +250,14 @@ export function buildGantry(scene: THREE.Scene, M: Materials) {
   return { group: g, head, setGantry };
 }
 
-/** Side guides and end stop of the cover magazine (covers queue along −z toward the box line). */
+/** Side guides and end stop of the cover magazine (fed from the far side, covers queue along +z toward the box line). */
 export function buildMagazineGuides(scene: THREE.Scene, M: Materials) {
-  const g = new THREE.Group(), w = 2.0, z0 = Z_MAG - 0.2, len = MAG_Z0 - z0;
+  const g = new THREE.Group(), w = 2.0, z1 = Z_MAG + 0.2, len = z1 - MAG_Z0;
   for (const s of [-1, 1]) {
-    g.add(at(box(0.04, 0.05, len, M.yellow), COVER_X + s * (w / 2 - 0.02), Y_BOX + 0.35, z0 + len / 2));
-    for (let z = z0 + 0.1; z <= MAG_Z0; z += 1.0) g.add(at(box(0.04, 0.4, 0.04, M.alu), COVER_X + s * (w / 2 - 0.02), Y_BOX + 0.15, z));
+    g.add(at(box(0.04, 0.05, len, M.yellow), COVER_X + s * (w / 2 - 0.02), Y_BOX + 0.35, MAG_Z0 + len / 2));
+    for (let z = MAG_Z0 + 0.1; z <= z1; z += 1.0) g.add(at(box(0.04, 0.4, 0.04, M.alu), COVER_X + s * (w / 2 - 0.02), Y_BOX + 0.15, z));
   }
-  g.add(at(box(w - 0.1, 0.5, 0.05, M.yellow), COVER_X, Y_BOX + 0.25, Z_MAG - 0.21)); // end stop
+  g.add(at(box(w - 0.1, 0.5, 0.05, M.yellow), COVER_X, Y_BOX + 0.25, Z_MAG + 0.21)); // end stop
   shadowify(g);
   scene.add(g);
   return g;

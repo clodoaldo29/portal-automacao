@@ -6,7 +6,19 @@ import type { Materials } from '../../sim/materials';
 import { TV_STANDING } from '../transfer-flow/products';
 import { SEAT_BOX, SIZES, TV_T, coverOf, trayOf, type Inch } from './config';
 
-export { makePallet, makeTV, type TV } from '../transfer-flow/products';
+import { makeTV as makeTFTV, type TV } from '../transfer-flow/products';
+export { makePallet, type TV } from '../transfer-flow/products';
+
+/**
+ * The Transfer Flow TV with its label (on the back) at the bottom edge, as on the real TV: the label marks the bottom.
+ * Standing (pallet, box base) the label is down; lying on the bagging belt it is on the far side, toward the box line.
+ */
+export function makeTV(M: Materials, inch: Inch): TV {
+  const tv = makeTFTV(M, inch);
+  const label = tv.obj.children[2]; // body, back bump, label, screen
+  label.position.z = Math.abs(label.position.z); // local +z: the bottom edge (local −z is up when standing)
+  return tv;
+}
 export { TV_STANDING };
 
 const Xa = new THREE.Vector3(1, 0, 0);
@@ -85,3 +97,6 @@ export function makeCover(M: Materials, inch: Inch) {
   shadowify(g);
   return g;
 }
+
+/** Standing in the test pallet with the screen toward the robot (−z), top up, width along the line. */
+export const TV_PALLET = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI).multiply(TV_STANDING);

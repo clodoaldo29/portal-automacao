@@ -9,8 +9,9 @@ import { useHDRI } from '../../sim/robots/ur-arm';
 import { $ } from '../../sim/ui/dom';
 import { createPage } from '../../sim/ui/page';
 import { DEFAULT_TIMING, FONT, INCHES, LABELS, SHADOW_FRUSTUM, TOUR, VIEWS, type Feed, type Inch } from './config';
+import { setVia } from './robot';
 import type { Params } from './types';
-import { DEFAULT_PARAMS, createWorld, lineRate, resetLine, resetStats, step } from './world';
+import { DEFAULT_PARAMS, createWorld, lineRate, resetLine, resetStats, startClearance, step } from './world';
 
 const page = createPage({ stage: { shadowFrustum: SHADOW_FRUSTUM }, font: FONT });
 const { stage, query } = page;
@@ -31,6 +32,8 @@ if (!INCHES.includes(params.inch)) params.inch = DEFAULT_PARAMS.inch;
 if (benchMin && query.get('feed') === 'max') params.feed = 'max'; // capacity: TVs as fast as station 1 takes them
 const save = () => { if (!benchMin) try { localStorage.setItem(PKEY, JSON.stringify(params)); } catch { /* not saved */ } };
 
+const qVia = (query.get('via') || '').split(',').map(Number); // (bench: try another via point, ?via=reach,height)
+if (benchMin && qVia.length === 2 && qVia.every(Number.isFinite)) setVia(qVia[0], qVia[1]);
 const { world: w, andons, lights, ceiling } = createWorld(stage, params);
 
 // ---------- controls ----------
@@ -99,7 +102,7 @@ page.start({
 declare global {
   interface Window {
     __sp: unknown;
-    __spBench?: { inch: Inch; minutes: number; picked: number; bagged: number; boxed: number; packed: number; maxIkErr: number; ms: number };
+    __spBench?: { inch: Inch; minutes: number; picked: number; bagged: number; boxed: number; packed: number; maxIkErr: number; minClear: number; minClearAt: string; near: string[]; ms: number };
   }
 }
 window.__sp = { world: w, stage, step: (dt: number) => step(w, dt), resetLine: () => resetLine(w), resetStats: () => resetStats(w), panel };
@@ -107,11 +110,14 @@ window.__sp = { world: w, stage, step: (dt: number) => step(w, dt), resetLine: (
 
 if (benchMin) {
   const t0 = performance.now();
+  startClearance(w); // nothing may touch: the bench measures the smallest clearance of station 1 over the whole run
   for (let i = 0, n = Math.round(benchMin * 60 * 30); i < n; i++) step(w, 1 / 30);
-  const s = w.stats;
+  const s = w.stats, c = w.clear!;
   window.__spBench = {
     inch: w.params.inch, minutes: benchMin, picked: s.picked, bagged: s.bagged, boxed: s.boxed, packed: s.packed,
-    maxIkErr: Math.round(w.robot.maxErr * 1e4) / 1e4, ms: Math.round(performance.now() - t0),
+    maxIkErr: Math.round(w.robot.maxErr * 1e4) / 1e4, minClear: Math.round(c.min * 1000) / 1000, minClearAt: c.at,
+    near: [...c.worst].sort((a, b) => a[1] - b[1]).slice(0, 10).map(([k, v]) => `${Math.round(v * 1000)} mm · ${k.replace(/ \d+\]/, ']')}`),
+    ms: Math.round(performance.now() - t0),
   };
 } else {
   const base = import.meta.env.BASE_URL;

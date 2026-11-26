@@ -22,6 +22,11 @@ export interface Robot extends Actor {
   /** Pallet held at the pick stop. */
   pallet: PalletItem | null;
   carried: TV | null;
+  /** Pallet the carried TV came from, and the TV just set down (the cups were on it): intended contact. */
+  lastPallet: PalletItem | null;
+  lastPlaced: TV | null;
+  /** Stop one pallet before the pick point (interlock with the hook). */
+  gate: Station<PalletItem>;
   busyT: number;
   /** Largest IK error seen (m + weighted rad): the arm must reach every point. */
   maxErr: number;
@@ -46,7 +51,8 @@ export interface World {
   boxes: Line<BoxItem>;
   mag: Line<CoverItem>;
   robot: Robot;
-  bagger: { item: PackItem | null; t: number; mouth: THREE.Object3D };
+  /** item: the TV being bagged; inside: the TV in the cabin (one at a time); gate: stop before the cabin entry. */
+  bagger: { item: PackItem | null; t: number; mouth: THREE.Object3D; inside: PackItem | null; gate: Station<PackItem> };
   upender: Actor & {
     table: THREE.Object3D;
     /** Table free for the next TV (none on it or reserved for it). */
@@ -59,9 +65,17 @@ export interface World {
   };
   clamp: Actor & { group: THREE.Object3D; set: (x: number, padY: number, half: number) => void; tv: TV | null; busy: boolean };
   gantry: Actor & { head: THREE.Object3D; set: (z: number, cupY: number) => void; cover: CoverItem | null; target: BoxItem | null; busy: boolean };
+  /** Base infeed chute: bases waiting on it (slot 0 at the stopper), and the one sliding onto the box line. */
+  feed: {
+    queue: { obj: THREE.Group; inner: THREE.Group }[];
+    moving: { obj: THREE.Group; inner: THREE.Group; t: number } | null;
+    setStopper: (down: boolean) => void;
+  };
   /** Empty base waiting under the clamps. */
   baseAt: BoxItem | null;
   /** Pallets due from the test line (feed at the line cadence). */
   due: number;
   stats: Stats;
+  /** Collision check (bench, tests): smallest clearance seen since it was turned on, and between what. */
+  clear?: { min: number; at: string; n: number; worst: Map<string, number> };
 }

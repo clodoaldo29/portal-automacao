@@ -11,7 +11,7 @@
 // Distance between the lines is PROVISIONAL (flow document, pending item "distância e desníveis entre linhas").
 import type { LabelDef } from '../../sim/labels';
 import type { ViewDef } from '../../sim/views';
-import { INCHES, LINE_UPH, PAL_W, SEAT_Y, SIZES, TOP_TEST, TV_BACK, TV_T, type Inch } from '../transfer-flow/config';
+import { ARM_DX, ROBOT_Z as TF_ROBOT_Z, Z_PAL as TF_Z_PAL, INCHES, LINE_UPH, PAL_W, SEAT_Y, SIZES, TOP_TEST, TV_BACK, TV_T, type Inch } from '../transfer-flow/config';
 
 export { INCHES, LINE_UPH, PAL_W, SEAT_Y, SIZES, TV_BACK, TV_T, type Inch };
 
@@ -22,13 +22,15 @@ export const SPEED_TEST = 0.8;
 export const PICK_X = 0; // pallet stop of station 1
 
 // ---------- station 1: transfer robot ----------
-export const ROBOT = { x: 0, z: -1.25, ped: 0.8 };
-/** Flange → cup faces of the VGP30 straight on the flange (adapter and a 100 mm spacer). */
-export const GRIP_D = 0.2;
+/** As far from the test pallet as on the Transfer Flow (1.11 m): the arm passes over the top of a 75" TV waiting or arriving. */
+const TF_PALLET_DIST = TF_ROBOT_Z - TF_Z_PAL;
+/** The pedestal stands ARM_DX upstream of the pick and set-down points, as the Transfer Flow transfers: the arm reaches
+ *  them on a slant and the forearm stays clear of a 75" TV while it is laid down; the hook reaches over the TV from here. */
+export const ROBOT = { x: PICK_X - ARM_DX, z: Z_TEST - TF_PALLET_DIST, ped: 1.0 }; // 1.0 m pedestal (Transfer Flow: 0.8 m): the hook waits behind a 75" TV within reach
 
 // ---------- packing line (TV lying screen-down, width along the belt, top edge toward the robot) ----------
-export const Z_PACK = -2.55, Y_PACK = 0.85, BELT_PACK = 1.9, PACK_X0 = -1.3, SPEED_PACK = 0.35;
-export const DROP_X = 0; // where the robot sets the TV down
+export const Z_PACK = -2.55, Y_PACK = 0.85, BELT_PACK = 1.9, PACK_X0 = -1.3, SPEED_PACK = 0.6;
+export const DROP_X = PICK_X + 0.9; // where the robot sets the TV down (a little downstream: the arm works open, not folded)
 /** Every TV is set down with its bottom edge on this line (far side of the belt): the upender pivots there. */
 export const Z_EDGE = Z_PACK - 0.45;
 /** Station 2: automatic bagger (housing from x0 to x1, w across); the TV stops in the middle for the bag. */
@@ -42,10 +44,12 @@ export const TABLE_X0 = CABIN_X0 + 0.4, TABLE_L = 2.0, UP_X = TABLE_X0 + TABLE_L
 
 // ---------- box line (lower, parallel to the packing line) ----------
 export const Y_BOX = 0.5, Z_BASE = -4.0, BELT_BOX = 0.7, SPEED_BOX = 0.3;
-/** Box line from the base preparation table (start) to the end; the TV goes into the base at UP_X. */
-export const BOX_X0 = -2.4, BOX_END = 18.2, PREP_X = -1.5;
-/** Station 4: cover gantry over the box line; the covers queue on a magazine coming from the −z side. */
-export const COVER_X = CABIN_X0 + CABIN_L + 1.45, Z_MAG = Z_BASE + 0.62, MAG_Z0 = Z_PACK + 1.55, GANTRY_Y = 3.7;
+/** Box line from the base feeder (start) to the end; the TV goes into the base at UP_X. */
+/** The bases come ready (EPS corners in place): a feeder (magazine with the stack of bases) sets them on the start of the
+ *  box line, one at a time, at FEED_X. */
+export const BOX_X0 = -2.4, BOX_END = 18.2, FEED_X = BOX_X0 + 1.2;
+/** Station 4: cover gantry over the box line; the covers queue on a magazine fed from the far side of the box line. */
+export const COVER_X = CABIN_X0 + CABIN_L + 1.45, Z_MAG = Z_BASE - 0.62, MAG_Z0 = Z_BASE - 3.2, GANTRY_Y = 3.7;
 /** Existing stations 5 to 10 (grey). */
 export const EXIST_X0 = COVER_X + 1.65;
 
@@ -88,9 +92,9 @@ export const LABELS: LabelDef[] = [
   { lines: ['1 · Transferência', 'JAKA Zu 50 + VGP30'], x: ROBOT.x - 0.4, y: 3.3, z: ROBOT.z },
   { lines: ['2 · Ensacadora automática'], x: BAG_X, y: BAGGER.h + 0.55, z: Z_PACK },
   { lines: ['3 · Cabine da verticalizadora', 'TV em pé na base com isopor'], x: UP_X, y: 3.35, z: (PIVOT_Z + Z_BASE) / 2 },
-  { lines: ['Preparo das bases', '(manual)'], x: PREP_X, y: 1.9, z: Z_BASE - 0.9 },
+  { lines: ['Alimentador de bases', '(bases prontas com isopor)'], x: FEED_X, y: 2.45, z: Z_BASE },
   { lines: ['4 · Fechamento com a parte', 'superior · pórtico com ventosas'], x: COVER_X, y: GANTRY_Y + 0.6, z: (Z_MAG + Z_BASE) / 2 },
-  { lines: ['Magazine de coberturas'], x: COVER_X, y: 2.0, z: MAG_Z0 - 0.3 },
+  { lines: ['Magazine de coberturas'], x: COVER_X, y: 2.0, z: MAG_Z0 + 0.3 },
   { lines: ['Espaço para 1 TV 75″'], x: (BUFFER_X0 + CABIN_X0) / 2, y: 1.45, z: Z_PACK + 0.9 },
   { lines: ['5 a 10 · Postos existentes', 'fechamento, conferência, etiqueta,', 'arqueação, paletização'], x: EXIST_X0 + 2.4, y: 2.7, z: Z_BASE },
 ];
