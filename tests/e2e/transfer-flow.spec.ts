@@ -3,18 +3,17 @@ import { expect, test } from '@playwright/test';
 // Throughput reference: 10 simulated minutes per model, both arms, automatic work split, no NG — and nothing may
 // touch: the bench measures the smallest clearance over the whole run (arms, gripper and the TV they carry against
 // their own arm, the TVs on the jigs and pallets, jigs, pallets, belts, lifts and the other robot).
-// Re-measured with the hook-gripper transfers running their taught program (pick, the base turns, the wrist stands the
-// TV up screen toward the robots, straight down into the pallet) and the jigs alternated between them in every size.
+// Re-measured (2026-11-26) with the JAKA Zu 50 transfers on the measured line (0.8 m pedestals), the hook with the
+// OnRobot VGP30 holding the TV at mid-height, the TV only picked once its pallet is in the dock, and the 65"/75" slower
+// while the TV is in the air.
 // When the line logic is changed on purpose, re-measure and update in the same commit.
-// PENDING: the 75" still has to change its wrist configuration on the way and grazes the arm (12 mm); its test is
-// marked fixme until that is solved.
 const REFERENCE: { inch: number; moved: number; perRobot: number[]; pending?: boolean }[] = [
-  { inch: 32, moved: 97, perRobot: [49, 48] },
-  { inch: 43, moved: 95, perRobot: [48, 47] },
-  { inch: 50, moved: 104, perRobot: [52, 52] },
-  { inch: 55, moved: 104, perRobot: [52, 52] },
-  { inch: 65, moved: 104, perRobot: [52, 52] },
-  { inch: 75, moved: 104, perRobot: [52, 52], pending: true },
+  { inch: 32, moved: 75, perRobot: [37, 38] },
+  { inch: 43, moved: 74, perRobot: [37, 37] },
+  { inch: 50, moved: 88, perRobot: [44, 44] },
+  { inch: 55, moved: 88, perRobot: [44, 44] },
+  { inch: 65, moved: 62, perRobot: [31, 31] },
+  { inch: 75, moved: 62, perRobot: [31, 31] },
 ];
 
 test.describe('Transfer Flow 3D', () => {
@@ -31,7 +30,7 @@ test.describe('Transfer Flow 3D', () => {
 
   for (const ref of REFERENCE) {
     test(`${ref.inch}": throughput matches the reference, no losses, nothing touches`, async ({ page }) => {
-      test.fixme(!!ref.pending, 'pendente: o 75" ainda raspa no braço ao trocar a configuração do punho');
+      test.fixme(!!ref.pending, 'pendente');
       await page.goto(`/projetos/transfer-flow-3d/?bench=10&model=${ref.inch}`);
       const result = await page.waitForFunction(() => window.__bench, null, { timeout: 600_000 }).then(h => h.jsonValue());
       console.log(`${ref.inch}": ${result!.moved} TVs (${result!.perRobot.join(' / ')}), folga mínima ${result!.minClear} m (${result!.minClearAt}) in ${result!.ms} ms`);
