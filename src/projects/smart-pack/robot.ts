@@ -7,7 +7,7 @@ import { vgp30Direct } from '../../sim/robots/grippers';
 import { LED, makeCobot, poseAt, upgradeArm, urTrack } from '../../sim/robots/ur-arm';
 import { ZU50 } from '../../sim/robots/ur-kinematics';
 import { runSeq, type Pose } from '../../sim/sequencer';
-import { DROP_X, GRIP_D, LYING_Y, PICK_X, ROBOT, SEAT_Y, SIZES, TV_BACK, Y_PACK, Y_TEST, Z_PACK, Z_TEST } from './config';
+import { DROP_X, GRIP_D, LYING_Y, PICK_X, ROBOT, SEAT_Y, SIZES, TV_BACK, Y_PACK, Y_TEST, Z_EDGE, Z_PACK, Z_TEST } from './config';
 import { TV_LYING, makeBag } from './products';
 import type { PackItem, Robot, World } from './types';
 
@@ -30,16 +30,19 @@ function pickPose(w: World, r: Robot, dy: number, dz: number): Pose {
   const p = poseAt(r.arm, PICK_X, Z_TEST - TV_BACK - GRIP_D - dz, Y_TEST + SEAT_Y + h / 2 + dy);
   return [p[0], p[1], p[2], -H, 0];
 }
+/** Centre of the TV lying on the infeed: its bottom edge on the line Z_EDGE (far side), whatever the size. */
+export const lyingZ = (w: World) => Z_EDGE + SIZES[w.params.inch][1] / 2;
 /**
- * Plate on the TV lying on the infeed, tool pointing down. Tool yaw 3π/2 (≡ −π/2): the TV's width across the belt,
- * its bottom edge downstream; written as 3π/2 so the wrist turns a quarter turn while the base turns half a turn.
+ * Plate on the TV lying on the infeed, tool pointing down. Tool yaw 0, as at the pick: the TV keeps its heading (width
+ * along the line) while the base turns half a turn, and lies as on the Transfer Flow assembly belt, top edge toward
+ * the robot.
  */
-function placePose(r: Robot, dy: number): Pose {
-  const p = poseAt(r.arm, DROP_X, Z_PACK, Y_PACK + LYING_Y + TV_BACK + GRIP_D + dy);
-  return [p[0], p[1], p[2], 0, 1.5 * Math.PI];
+function placePose(w: World, r: Robot, dy: number): Pose {
+  const p = poseAt(r.arm, DROP_X, lyingZ(w), Y_PACK + LYING_Y + TV_BACK + GRIP_D + dy);
+  return [p[0], p[1], p[2], 0, 0];
 }
 /** Half way: the arm toward the bagger side (+x), high, the TV half laid down. */
-const viaPose = (r: Robot): Pose => [0, 1.05, 2.15 - r.arm.shoulderY, -H / 2, 0.75 * Math.PI];
+const viaPose = (r: Robot): Pose => [0, 1.05, 2.15 - r.arm.shoulderY, -H / 2, 0];
 /** Waiting: 30 cm behind the pick point and a little higher, ready to go straight in. */
 export const readyPose = (w: World, r: Robot): Pose => pickPose(w, r, 0.1, 0.3);
 
@@ -66,12 +69,12 @@ function startJob(w: World, r: Robot) {
     { toFn: () => pickPose(w, r, 0.45, 0), dur: 0.8 * slow }, // straight up, out of the side guides
     { fn: () => { pal.hold = null; r.pallet = null; } }, // the empty pallet goes on to the return lift
     { toFn: () => viaPose(r), durFn: slowDur },
-    { toFn: () => placePose(r, 0.3), durFn: slowDur },
+    { toFn: () => placePose(w, r, 0.3), durFn: slowDur },
     { until: () => dropFree(w) },
-    { toFn: () => placePose(r, 0), dur: 0.7 * slow },
+    { toFn: () => placePose(w, r, 0), dur: 0.7 * slow },
     { dur: 0.25 },
     { fn: () => release(w, r) },
-    { toFn: () => placePose(r, 0.3), dur: 0.5 },
+    { toFn: () => placePose(w, r, 0.3), dur: 0.5 },
     { fn: () => { r.state = 'idle'; } },
     { toFn: () => viaPose(r), durFn: moveDur, ready: true },
     { toFn: () => readyPose(w, r), durFn: moveDur, ready: true },
@@ -87,7 +90,7 @@ function release(w: World, r: Robot) {
   obj.position.set(p.x, w.pack.y, p.z);
   obj.updateMatrixWorld(true);
   obj.attach(tv.obj);
-  tv.obj.position.set(0, LYING_Y, 0);
+  tv.obj.position.set(0, LYING_Y, lyingZ(w) - Z_PACK);
   tv.obj.quaternion.copy(TV_LYING);
   const bag = makeBag(tv.inch);
   tv.obj.add(bag);

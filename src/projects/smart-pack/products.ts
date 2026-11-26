@@ -9,16 +9,16 @@ import { SEAT_BOX, SIZES, TV_T, coverOf, trayOf, type Inch } from './config';
 export { makePallet, makeTV, type TV } from '../transfer-flow/products';
 export { TV_STANDING };
 
-const Y = new THREE.Vector3(0, 1, 0), Xa = new THREE.Vector3(1, 0, 0), Za = new THREE.Vector3(0, 0, 1);
+const Xa = new THREE.Vector3(1, 0, 0);
 /**
- * Lying screen-down on the packing line: width across the line (z), bottom edge leading (+x), back up. It is the TV as
- * it stood in the test pallet, laid down by the robot (tool from horizontal to pointing down: +90° about x) and turned
- * a quarter turn about the vertical (wrist).
+ * Lying screen-down on the packing line as on the Transfer Flow assembly belt: width along the line (x), top edge
+ * toward the robot (+z), bottom edge on the far side, back up. It is the TV as it stood in the test pallet, laid down
+ * by the robot (tool from horizontal to pointing down: +90° about x); it keeps its heading while the base turns.
  */
-export const TV_LYING = new THREE.Quaternion().setFromAxisAngle(Y, -Math.PI / 2)
-  .multiply(new THREE.Quaternion().setFromAxisAngle(Xa, Math.PI / 2)).multiply(TV_STANDING);
-/** Standing in the box base after the upender (−90° about z at the foot): screen toward −x, top up, width along z. */
-export const TV_BOXED = new THREE.Quaternion().setFromAxisAngle(Za, -Math.PI / 2).multiply(TV_LYING);
+export const TV_LYING = new THREE.Quaternion().setFromAxisAngle(Xa, Math.PI / 2).multiply(TV_STANDING);
+/** Standing sideways in the box base after the upender (−90° about x at the foot): as it stood in the test pallet,
+ *  width along the line, screen toward +z, back toward the box line. */
+export const TV_BOXED = TV_STANDING.clone();
 
 const film = new THREE.MeshStandardMaterial({ color: 0xc9dceb, metalness: 0, roughness: 0.2, transparent: true, opacity: 0.5, depthWrite: false, side: THREE.DoubleSide });
 /**

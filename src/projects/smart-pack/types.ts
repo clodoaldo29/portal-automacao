@@ -10,7 +10,7 @@ import type { TV } from './products';
 export interface PalletItem extends LineItem { tv: TV | null }
 /** TV lying screen-down on the packing line, with its bag (on once bagged). */
 export interface PackItem extends LineItem { tv: TV; bag: THREE.Mesh; bagged: boolean }
-/** Box base on the feeder or the box line: `inner` keeps the box square to the line on the feeder too. */
+/** Box base on the box line: `inner` turns it so its length runs along the line (the TV standing sideways). */
 export interface BoxItem extends LineItem { inner: THREE.Group; tv: TV | null; covered: boolean }
 export type CoverItem = LineItem;
 
@@ -43,7 +43,6 @@ export interface World {
   params: Params;
   test: Line<PalletItem>;
   pack: Line<PackItem>;
-  feeder: Line<BoxItem>;
   boxes: Line<BoxItem>;
   mag: Line<CoverItem>;
   robot: Robot;
@@ -60,7 +59,7 @@ export interface World {
   };
   clamp: Actor & { group: THREE.Object3D; set: (x: number, padY: number, half: number) => void; tv: TV | null; busy: boolean };
   gantry: Actor & { head: THREE.Object3D; set: (z: number, cupY: number) => void; cover: CoverItem | null; target: BoxItem | null; busy: boolean };
-  /** Base at the end of the feeder, under the clamps. */
+  /** Empty base waiting under the clamps. */
   baseAt: BoxItem | null;
   /** Pallets due from the test line (feed at the line cadence). */
   due: number;
