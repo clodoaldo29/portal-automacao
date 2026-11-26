@@ -47,9 +47,9 @@ export const ITEM_GAP = 0.1; // accumulation: queued items keep 10 cm apart
 // pallet the cups hold it by friction, with no moment peeling the top cups off; hence a 60 cm hook.
 export const HOOK_D = 0.6, CUP_Z = 0.28; // cups 28 cm off the bracket: the wrist stays over the jig foam at the pick
 /**
- * Option ?garra=direta (comparison): the VGP30 straight on the flange, no hook, and the TV standing in the test pallet
- * with its BACK toward the robots (screen toward the operator aisle): picked from above, tilted up, set down in the
- * pallet from the robot side. DIRECT_D: flange → cup faces (VGP30 88.2 mm with its cups, plus the flange adapter and a spacer).
+ * Option ?garra=direta (comparison; the hook stays the default): the VGP30 straight on the flange, no hook, and the TV
+ * standing in the test pallet with its BACK toward the robots (screen toward the operator aisle, label at the bottom):
+ * picked from above, turned half a turn with the robot while its top edge tilts up, set down in the pallet. DIRECT_D: flange → cup faces (VGP30 88.2 mm with its cups, plus the flange adapter and a spacer).
  */
 export const DIRECT = typeof location !== 'undefined' && new URLSearchParams(location.search).get('garra') === 'direta';
 export const DIRECT_D = 0.2; // with a 100 mm spacer: the 390 mm plate clears the wrist

@@ -46,7 +46,9 @@ export function makeTV(M: Materials, inch: Inch): TV {
   g.add(at(box(w * 0.56, 0.03, d * 0.56, M.dark), 0, -0.045, 0));
   g.add(at(box(w * 0.18, 0.01, d * 0.1, M.aluDark), w * 0.12, -0.065, -d * 0.12));
   const scr = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.02, d - 0.02), screenOff);
-  scr.rotation.set(-Math.PI / 2, 0, Math.PI); // picture's top edge on local +z: the label on the back (local −z) marks the bottom
+  // ?garra=direta: picture's top edge on local +z, the label on the back (local −z) marking the bottom (the hook version
+  // keeps the picture as it was)
+  scr.rotation.set(-Math.PI / 2, 0, DIRECT ? Math.PI : 0);
   at(scr, 0, TV_T / 2 + 0.0015, 0);
   scr.userData.noShadow = true;
   g.add(scr);
@@ -55,7 +57,9 @@ export function makeTV(M: Materials, inch: Inch): TV {
 }
 
 /**
- * How a TV lies on the jig: screen down, its bottom edge (the label on the back marks it) toward the robots.
+ * How a TV lies on the jig: screen down, its top edge toward the robots (the transfers' hook takes it by that edge,
+ * which is the top again when it stands in the test pallet). With ?garra=direta the label on the back marks the bottom:
+ * that edge is toward the robots.
  */
 export const TV_ON_JIG = new THREE.Euler(0, 0, Math.PI);
 /** How a TV stands in the test pallet: screen toward the robots, top edge up. */
