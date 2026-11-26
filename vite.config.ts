@@ -25,6 +25,7 @@ const pages = {
   'smart-solder-a': 'projetos/smart-solder-a/index.html',
   'smart-solder-b': 'projetos/smart-solder-b/index.html',
   'intellifix-ai': 'projetos/intellifix-ai/index.html',
+  'smart-pack': 'projetos/smart-pack/index.html',
 };
 
 export default defineConfig({

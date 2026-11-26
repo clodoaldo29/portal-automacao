@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Smart Pack</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="/src/sim/ui/sim.css">
+</head>
+<body>
+<div id="app">
+  <header class="bar">
+    <div class="plaque">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>
+      <h1>SMART PACK</h1>
+      <p>Embalagem automatizada<br>de televisores · etapas 1 a 4</p>
+    </div>
+    <div class="dock" role="toolbar" aria-label="Controles da cena">
+      <div class="group" aria-label="Câmera">
+        <button id="v-linha" aria-pressed="true">Linha</button>
+        <button id="v-robo" aria-pressed="false">Robô</button>
+        <button id="v-ensaque" aria-pressed="false">Ensacadora</button>
+        <button id="v-vertical" aria-pressed="false">Verticalização</button>
+        <button id="v-cobertura" aria-pressed="false">Cobertura</button>
+        <button id="v-cima" aria-pressed="false">De cima</button>
+        <button id="v-tour" aria-pressed="false">Tour</button>
+      </div>
+      <div class="group" aria-label="Produção">
+        <label class="model" for="model">Lote
+          <select id="model">
+            <option value="32">32”</option><option value="43">43”</option><option value="50">50”</option>
+            <option value="55">55”</option><option value="65">65”</option><option value="75">75”</option>
+          </select>
+        </label>
+        <button id="b-play" aria-pressed="false">Pausar</button>
+        <button id="b-speed" aria-pressed="false">1×</button>
+      </div>
+      <div class="group" aria-label="Exibição">
+        <button id="b-labels" aria-pressed="true">Etiquetas</button>
+        <button id="b-quality" aria-pressed="false">Qualidade alta</button>
+        <button id="b-kpi" aria-pressed="true">Painel</button>
+        <button id="b-shot" aria-pressed="false">Gerar PNG</button>
+      </div>
+    </div>
+  </header>
+
+  <div id="stage">
+    <div class="modal" id="modal" hidden>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="shot-title">
+        <div class="row">
+          <p id="shot-title" class="shot-title">Imagem em alta resolução</p>
+          <button id="b-close">Fechar</button>
+        </div>
+        <form class="shot-opts" id="shot-form">
+          <label for="shot-res">Resolução
+            <select id="shot-res">
+              <option value="1920">Full HD · 1920 px</option>
+              <option value="2560">QHD · 2560 px</option>
+              <option value="3840" selected>4K · 3840 px</option>
+              <option value="5760">6K · 5760 px</option>
+            </select>
+          </label>
+          <label for="shot-aspect">Formato
+            <select id="shot-aspect">
+              <option value="view">Igual à tela</option>
+              <option value="1.7778">16:9</option>
+              <option value="1.3333">4:3</option>
+              <option value="1">Quadrado</option>
+            </select>
+          </label>
+          <label class="chk" for="shot-labels"><input type="checkbox" id="shot-labels" checked> Etiquetas</label>
+          <button type="submit" id="shot-go">Gerar imagem</button>
+        </form>
+        <div class="shot-frame"><img id="shot" alt="Imagem renderizada da linha Smart Pack"></div>
+        <div class="row">
+          <p id="shot-info" class="shot-info" role="status"></p>
+          <a id="shot-dl" class="shot-dl" hidden>Baixar PNG</a>
+        </div>
+        <p id="shot-help" class="shot-help">Para salvar: clique com o botão direito na imagem e escolha “Salvar imagem como”. No celular, toque e segure.</p>
+      </div>
+    </div>
+  </div>
+
+  <aside class="kpi open" id="kpi" aria-label="Indicadores e parâmetros da linha Smart Pack">
+    <div class="tabs" role="tablist">
+      <button id="tab-kpi" role="tab" aria-selected="true" aria-controls="pane-kpi">Indicadores</button>
+      <button id="tab-par" role="tab" aria-selected="false" aria-controls="pane-par">Parâmetros</button>
+    </div>
+
+    <section id="pane-kpi" role="tabpanel" aria-labelledby="tab-kpi">
+      <header><span>Linha</span><span class="live">ao vivo</span></header>
+      <div class="grid">
+        <div><b id="k-rate">—</b><span>TVs embaladas por hora</span></div>
+        <div><b id="k-target">—</b><span>Cadência da linha (TV/h)</span></div>
+        <div><b id="k-pct">—</b><span>da cadência</span></div>
+        <div><b id="k-packed">0</b><span>TVs com a caixa montada</span></div>
+        <div><b id="k-cycle">—</b><span>Ciclo médio por TV</span></div>
+        <div><b id="k-takt">—</b><span>Ciclo exigido pela linha</span></div>
+      </div>
+
+      <h3>Estações</h3>
+      <table class="cells">
+        <thead><tr><th scope="col">Estação</th><th scope="col">Ocupação</th><th scope="col">Estado</th></tr></thead>
+        <tbody id="st-rows"></tbody>
+      </table>
+      <p class="note" id="k-flow"></p>
+      <p class="note">A TV chega aprovada no fim da linha de teste. As etapas 5 a 10 (fechamento, conferência, etiquetagem, arqueação, paletização e logística) são postos existentes, desenhados em cinza.</p>
+    </section>
+
+    <section id="pane-par" role="tabpanel" aria-labelledby="tab-par" hidden>
+      <form id="params" class="params">
+        <p class="warn">Valores provisórios: distância entre a linha de teste e a de embalagem, tempo da ensacadora, medidas da caixa e dos isopores ainda dependem de validação com a Multi.</p>
+        <fieldset>
+          <legend>Chegada das TVs</legend>
+          <label for="p-feed">Alimentação</label>
+          <select id="p-feed">
+            <option value="linha">Na cadência da linha (por modelo)</option>
+            <option value="max">Máxima (teste de capacidade)</option>
+          </select>
+          <p class="hint">Cadência da LTV01 por modelo: 32″ 230, 43″ 220, 50″ 115, 55″ 110, 65″ 90 e 75″ 75 TV/h.</p>
+        </fieldset>
+        <fieldset>
+          <legend>Ensacadora</legend>
+          <label for="p-bag">Ciclo por TV (s)</label>
+          <input id="p-bag" type="number" min="4" max="60" step="1" inputmode="numeric">
+          <p class="hint">O mecanismo da ensacadora (referência Win-Win Pack) ainda precisa ser confirmado.</p>
+        </fieldset>
+        <div class="actions">
+          <button type="submit" id="p-apply">Aplicar e reiniciar a linha</button>
+          <span id="p-status" role="status"></span>
+        </div>
+      </form>
+    </section>
+
+    <footer>Arraste para girar · role para zoom · botão direito move<br><br>Fluxo TO-BE v4 (Grupo Multi). Estação 1 com a cinemática do JAKA Zu 50 (URDF oficial da JAKA, jaka_ros2) e a placa de vácuo OnRobot VGP30 direto no flange, como no Transfer Flow. Estudo conceitual, com medidas e tempos provisórios. Iluminação: HDRI "Empty Warehouse 01", Poly Haven (CC0). <a href="/">Voltar ao portal</a></footer>
+  </aside>
+</div>
+<script type="module" src="/src/projects/smart-pack/main.ts"></script>
+</body>
+</html>
