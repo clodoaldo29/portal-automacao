@@ -30,6 +30,8 @@ const qModel = Number(query.get('model')) as Inch;
 if (INCHES.includes(qModel)) params.inch = qModel;
 if (!INCHES.includes(params.inch)) params.inch = DEFAULT_PARAMS.inch;
 if (benchMin && query.get('feed') === 'max') params.feed = 'max'; // capacity: TVs as fast as station 1 takes them
+if (benchMin && page.num('bag')) params.timing.bagS = page.num('bag'); // (bench: &bag=8 bagger cycle, &belt=1.0 belt speed)
+if (benchMin && page.num('belt')) params.timing.beltSpeed = page.num('belt');
 const save = () => { if (!benchMin) try { localStorage.setItem(PKEY, JSON.stringify(params)); } catch { /* not saved */ } };
 
 const qVia = (query.get('via') || '').split(',').map(Number); // (bench: try another via point, ?via=reach,height)
@@ -41,14 +43,16 @@ const modelSel = $<HTMLSelectElement>('model');
 modelSel.value = String(params.inch);
 // a model change is a lot change: the line restarts empty and the indicators from zero
 modelSel.addEventListener('change', () => { params.inch = Number(modelSel.value) as Inch; save(); resetLine(w); warmUp(); panel(); });
-const feedSel = $<HTMLSelectElement>('p-feed'), bagIn = $<HTMLInputElement>('p-bag');
-const writeForm = () => { feedSel.value = params.feed; bagIn.value = String(params.timing.bagS); };
+const feedSel = $<HTMLSelectElement>('p-feed'), bagIn = $<HTMLInputElement>('p-bag'), beltIn = $<HTMLInputElement>('p-belt');
+const writeForm = () => { feedSel.value = params.feed; bagIn.value = String(params.timing.bagS); beltIn.value = String(params.timing.beltSpeed); };
 writeForm();
 $<HTMLFormElement>('params').addEventListener('submit', e => {
   e.preventDefault();
   params.feed = (feedSel.value === 'max' ? 'max' : 'linha') as Feed;
   const b = Number(bagIn.value);
   params.timing.bagS = Number.isFinite(b) && bagIn.value !== '' ? Math.min(60, Math.max(4, b)) : DEFAULT_TIMING.bagS;
+  const v = Number(beltIn.value);
+  params.timing.beltSpeed = Number.isFinite(v) && beltIn.value !== '' ? Math.min(1.5, Math.max(0.2, v)) : DEFAULT_TIMING.beltSpeed;
   writeForm();
   save();
   resetLine(w);

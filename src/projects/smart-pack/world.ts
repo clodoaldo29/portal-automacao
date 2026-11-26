@@ -357,6 +357,7 @@ export function resetLine(w: World) {
   const inch: Inch = w.params.inch, tw = wOf(w);
   // per model: pitch on the packing line (the TV's width along it), the gate before the table, the box pitch
   w.pack.gap = tw + 0.15;
+  w.pack.speed = w.params.timing.beltSpeed;
   w.upender.gate.s = w.pack.track.sAtX(0, TABLE_X0 - 0.08 - tw / 2);
   w.bagger.gate.s = w.pack.track.sAtX(0, BAGGER.x0 - 0.08 - tw / 2);
   w.boxes.gap = coverOf(inch).l + 0.15;

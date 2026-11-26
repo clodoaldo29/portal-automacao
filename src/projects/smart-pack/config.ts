@@ -64,8 +64,9 @@ export const SEAT_BOX = 0.05;
 export const LYING_Y = TV_T / 2 + 0.0015;
 
 // ---------- timing (provisional) ----------
-export interface Timing { bagS: number }
-export const DEFAULT_TIMING: Timing = { bagS: 12 };
+/** bagS: bagger cycle per TV (s); beltSpeed: speed of the bagging belt, through the bagger cabin (m/s). */
+export interface Timing { bagS: number; beltSpeed: number }
+export const DEFAULT_TIMING: Timing = { bagS: 12, beltSpeed: SPEED_PACK };
 
 export type Feed = 'linha' | 'max';
 
