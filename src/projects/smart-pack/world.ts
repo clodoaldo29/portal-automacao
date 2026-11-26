@@ -267,7 +267,7 @@ function updateChute(w: World, dt: number) {
     m.obj.position.set(FEED_X, a.y + (Y_BOX - a.y) * u, a.z + (Z_BASE - a.z) * u);
     if (u >= 1) { addBase(w, FEED_S, m); f.moving = null; f.setStopper(false); }
   }
-  while (f.queue.length < 4) { // a new base comes in at the top of the chute (from outside the line)
+  while (f.queue.length < 3) { // a new base comes in at the top of the chute (from outside the line)
     const b = newBase(w);
     b.obj.position.copy(chuteSlot(f.queue.length + 1));
     f.queue.push(b);
@@ -375,7 +375,7 @@ export function resetLine(w: World) {
   w.feed.queue.length = 0;
   w.feed.moving = null;
   w.feed.setStopper(false);
-  for (let k = 0; k < 4; k++) { const b = newBase(w); b.obj.position.copy(chuteSlot(k)); w.feed.queue.push(b); }
+  for (let k = 0; k < 3; k++) { const b = newBase(w); b.obj.position.copy(chuteSlot(k)); w.feed.queue.push(b); }
   void inch;
   for (let k = 0; k < 6; k++) addCover(w, w.mag.track.length - 0.11 - k * w.mag.gap);
   applyMachines(w);
