@@ -11,7 +11,7 @@
 // Distance between the lines is PROVISIONAL (flow document, pending item "distância e desníveis entre linhas").
 import type { LabelDef } from '../../sim/labels';
 import type { ViewDef } from '../../sim/views';
-import { INCHES, LINE_UPH, PAL_W, SEAT_Y, SIZES, TOP_TEST, TV_BACK, TV_T, type Inch } from '../transfer-flow/config';
+import { BELT_ASM, INCHES, LINE_UPH, PAL_W, SEAT_Y, SIZES, TOP_TEST, TV_BACK, TV_T, type Inch } from '../transfer-flow/config';
 
 export { INCHES, LINE_UPH, PAL_W, SEAT_Y, SIZES, TV_BACK, TV_T, type Inch };
 
@@ -58,7 +58,8 @@ export function payloadOf(inch: Inch) {
 }
 
 // ---------- packing line (TV lying screen-down, width along the belt, top edge toward the robot) ----------
-export const Z_PACK = -2.55, Y_PACK = 0.85, BELT_PACK = 1.9, PACK_X0 = -1.5, SPEED_PACK = 0.6;
+/** Bagging belt: as wide as the Transfer Flow assembly belt (BELT_ASM, 1.195 m inside). */
+export const Z_PACK = -2.55, Y_PACK = 0.85, BELT_PACK = BELT_ASM, PACK_X0 = -1.5, SPEED_PACK = 0.6;
 /** Where the robot sets the TV down: the last place of the queue before the bagger (1 inside, 2 waiting). */
 export const DROP_X = STATION_X;
 /** TVs that may wait on the infeed for the bagger (the one inside not counted). */
