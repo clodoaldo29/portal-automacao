@@ -9,7 +9,6 @@ import { useHDRI } from '../../sim/robots/ur-arm';
 import { $ } from '../../sim/ui/dom';
 import { createPage } from '../../sim/ui/page';
 import { DEFAULT_TIMING, FONT, INCHES, LABELS, SHADOW_FRUSTUM, TOUR, VIEWS, type Feed, type Inch } from './config';
-import { setVia } from './robot';
 import type { Params } from './types';
 import { DEFAULT_PARAMS, createWorld, lineRate, resetLine, resetStats, startClearance, step } from './world';
 
@@ -34,8 +33,6 @@ if (benchMin && page.num('bag')) params.timing.bagS = page.num('bag'); // (bench
 if (benchMin && page.num('belt')) params.timing.beltSpeed = page.num('belt');
 const save = () => { if (!benchMin) try { localStorage.setItem(PKEY, JSON.stringify(params)); } catch { /* not saved */ } };
 
-const qVia = (query.get('via') || '').split(',').map(Number); // (bench: try another via point, ?via=reach,height)
-if (benchMin && qVia.length === 2 && qVia.every(Number.isFinite)) setVia(qVia[0], qVia[1]);
 const { world: w, andons, lights, ceiling } = createWorld(stage, params);
 
 // ---------- controls ----------

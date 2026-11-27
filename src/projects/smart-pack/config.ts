@@ -11,7 +11,7 @@
 // Distance between the lines is PROVISIONAL (flow document, pending item "distância e desníveis entre linhas").
 import type { LabelDef } from '../../sim/labels';
 import type { ViewDef } from '../../sim/views';
-import { ARM_DX, ROBOT_Z as TF_ROBOT_Z, Z_PAL as TF_Z_PAL, INCHES, LINE_UPH, PAL_W, SEAT_Y, SIZES, TOP_TEST, TV_BACK, TV_T, type Inch } from '../transfer-flow/config';
+import { INCHES, LINE_UPH, PAL_W, SEAT_Y, SIZES, TOP_TEST, TV_BACK, TV_T, type Inch } from '../transfer-flow/config';
 
 export { INCHES, LINE_UPH, PAL_W, SEAT_Y, SIZES, TV_BACK, TV_T, type Inch };
 
@@ -25,15 +25,13 @@ export const SPEED_TEST = 0.8;
 export const PICK_X = 0; // pallet stop of station 1
 
 // ---------- station 1: transfer robot ----------
-/** As far from the test pallet as on the Transfer Flow (1.11 m): the arm passes over the top of a 75" TV waiting or arriving. */
-const TF_PALLET_DIST = TF_ROBOT_Z - TF_Z_PAL;
-/** The pedestal stands ARM_DX upstream of the pick and set-down points, as the Transfer Flow transfers: the arm reaches
- *  them on a slant and the forearm stays clear of a 75" TV while it is laid down; the hook reaches over the TV from here. */
-export const ROBOT = { x: PICK_X - ARM_DX, z: Z_TEST - TF_PALLET_DIST, ped: 1.0 }; // 1.0 m pedestal (Transfer Flow: 0.8 m): the hook waits behind a 75" TV within reach
+export const ROBOT = { x: 0, z: -1.25, ped: 0.8 };
+/** Flange → cup faces of the VGP30 straight on the flange (adapter and a 100 mm spacer). */
+export const GRIP_D = 0.2;
 
 // ---------- packing line (TV lying screen-down, width along the belt, top edge toward the robot) ----------
 export const Z_PACK = -2.55, Y_PACK = 0.85, BELT_PACK = 1.9, PACK_X0 = -1.3, SPEED_PACK = 0.6;
-export const DROP_X = PICK_X + 0.9; // where the robot sets the TV down (a little downstream: the arm works open, not folded)
+export const DROP_X = 0; // where the robot sets the TV down
 /** Every TV is set down with its bottom edge on this line (far side of the belt): the upender pivots there. */
 export const Z_EDGE = Z_PACK - 0.45;
 /** Station 2: automatic bagger (housing from x0 to x1, w across); the TV stops in the middle for the bag. */

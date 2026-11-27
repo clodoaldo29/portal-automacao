@@ -25,7 +25,7 @@ import {
 import {
   buildBagger, buildClampUnit, buildExisting, buildGantry, buildBaseChute, buildMagazineGuides, CHUTE, chuteY, buildUpender, rollerConveyorZ,
 } from './machines';
-import { TV_BOXED, TV_PALLET, makeBase, makeCover, makePallet, makeTV, setBag } from './products';
+import { TV_BOXED, TV_STANDING, makeBase, makeCover, makePallet, makeTV, setBag } from './products';
 import { measureClearance } from './clearance';
 import { createRobot, resetRobot, updateRobot } from './robot';
 import type { BoxItem, CoverItem, PalletItem, PackItem, Params, World } from './types';
@@ -235,12 +235,11 @@ function updateGantry(w: World) {
 // ---------- feeding ----------
 function addPallet(w: World, s: number) {
   const obj = makePallet(w.M), inch = w.params.inch;
-  obj.children[0].rotation.y = 0; // the fixture with its screen side (front lip) toward the robot
   w.scene.add(obj);
   const tv = makeTV(w.M, inch);
   obj.add(tv.obj);
   tv.obj.position.set(0, SEAT_Y + SIZES[inch][1] / 2, 0);
-  tv.obj.quaternion.copy(TV_PALLET); // screen toward the robot, as on the Transfer Flow test belt
+  tv.obj.quaternion.copy(TV_STANDING); // as on the Transfer Flow test belt: back toward this robot, screen toward +z
   w.test.items.push({ obj, s, hold: null, passed: new Set(), tv });
 }
 

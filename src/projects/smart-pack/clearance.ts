@@ -1,14 +1,13 @@
 // Smart Pack · collision check of station 1 over the whole cycle: nothing may touch.
 //
-// Robot parts: the JAKA Zu 50 as it is drawn (one capsule per visual part of every link), the hook with the VGP30, and
+// Robot parts: the JAKA Zu 50 as it is drawn (one capsule per visual part of every link), the VGP30 on the flange, and
 // the TV it carries as an oriented box. Checked against: its own arm (links that are not neighbours, the gripper and
 // the carried TV), its pedestal (the carried TV), the test belt, the test pallets and the TVs on them, the bagging
 // belt and the TVs on it, the bagger housing and its cabinet. Intended contact is left out: the cups on the TV being
 // picked or just set down, and the TV leaving its pallet while it is lifted out of the guides.
 import * as THREE from 'three';
 import { capsuleGap, linkCapsules } from '../../sim/robots/collision';
-import { gripperCaps } from '../transfer-flow/clearance';
-import { BAGGER, BELT_PACK, BELT_TEST, LYING_Y, PACK_X0, ROBOT, SEAT_Y, SIZES, TABLE_X0, TEST_X0, TEST_X1, TV_T, Y_PACK, Y_TEST, Z_PACK, Z_TEST } from './config';
+import { BAGGER, BELT_PACK, BELT_TEST, GRIP_D, LYING_Y, PACK_X0, ROBOT, SEAT_Y, SIZES, TABLE_X0, TEST_X0, TEST_X1, TV_T, Y_PACK, Y_TEST, Z_PACK, Z_TEST } from './config';
 import type { TV } from './products';
 import type { World } from './types';
 
@@ -47,8 +46,12 @@ function boxBox(a: Obb, b: Obb, aM: THREE.Matrix4) {
 }
 
 type V3 = [number, number, number];
-/** The hook with the VGP30, as the Transfer Flow checks it (bracket, post, plate with its housing, cup rows). */
-const GRIP = gripperCaps();
+/** VGP30 straight on the flange (tool axis local −y): adapter, housing and plate (three bars across), cup rows. */
+const GRIP: { a: V3; b: V3; r: number }[] = [
+  { a: [0, -0.01, 0], b: [0, -(GRIP_D - 0.09), 0], r: 0.045 },
+  ...[-0.08, 0, 0.08].map(z => ({ a: [-0.165, -(GRIP_D - 0.045), z] as V3, b: [0.165, -(GRIP_D - 0.045), z] as V3, r: 0.035 })),
+  ...[-0.09, -0.04, 0.04, 0.09].map(z => ({ a: [-0.175, -GRIP_D + 0.012, z] as V3, b: [0.175, -GRIP_D + 0.012, z] as V3, r: 0.012 })),
+];
 
 export interface Clearance { min: number; at: string }
 
@@ -100,7 +103,7 @@ export function measureClearance(w: World, worst?: Map<string, number>): Clearan
     for (const s of links) note(segBox(s, tvO), `${s.name} × TV carregada`);
     // lifting out of the pallet: the TV slides up between the guides of the pallet it came from
     const y = r.carried.obj.getWorldPosition(_q).y;
-    const lifting = y < Y_TEST + SEAT_Y + h / 2 + 0.33;
+    const lifting = y < Y_TEST + SEAT_Y + h / 2 + 0.42;
     // setting down: the TV within 2 cm of the bagging belt it is laid on
     const settingDown = y < Y_PACK + LYING_Y + 0.02;
     const cm = r.carried.obj.matrixWorld;
