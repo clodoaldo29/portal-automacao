@@ -1,8 +1,8 @@
 // Station 1: JAKA Zu 50 with the OnRobot VGP30 straight on the flange. The TV stands in the test pallet as on the
 // Transfer Flow test belt, its back toward this robot: the plate takes the middle of the back, lifts the TV out of the
-// pallet; on the way to the bagging belt the base turns and the wrist turns the TV over (half a turn about the tool axis)
-// while it still stands, clear of the arm; then the tool goes from horizontal to pointing down and the TV lies
-// screen-down as on the assembly belt: width along the line, top edge toward the robot, label (bottom) on the far side.
+// pallet; on the way to the bagging belt the base turns while the TV keeps its heading and only tips over forward (a quarter
+// turn about the line axis, no spin): it lies screen-down as on the assembly belt, width along the line, top edge toward
+// the robot, label (bottom) on the far side.
 import * as THREE from 'three';
 import { station } from '../../sim/line';
 import { capsuleGap, linkCapsules } from '../../sim/robots/collision';
@@ -95,13 +95,16 @@ function pickPose(w: World, r: Robot, dy: number, dz: number): Pose {
 }
 /** Centre of the TV lying on the infeed: its bottom edge on the line Z_EDGE (far side), whatever the size. */
 export const lyingZ = (w: World) => Z_EDGE + SIZES[w.params.inch][1] / 2;
-/** Plate on the TV lying on the infeed, tool pointing down (yaw π with the roll π: the TV's heading as at the pick). */
+/** Plate on the TV lying on the infeed, tool pointing down; same heading as at the pick (the TV only tipped over). */
 function placePose(w: World, r: Robot, dy: number): Pose {
   const p = poseAt(r.arm, DROP_X, lyingZ(w), Y_PACK + LYING_Y + TV_BACK + GRIP_D + dy);
-  return [p[0], p[1], p[2], 0, Math.PI, Math.PI];
+  return [p[0], p[1], p[2], 0, 0, 0];
 }
-/** Half way: the arm toward the bagger side (+x), high, the tool still horizontal and the TV turned over (upside down). */
-const viaPose = (r: Robot): Pose => [0, 1.05, 2.3 - r.arm.shoulderY, -H, H, Math.PI];
+/**
+ * Half way: the arm toward the bagger side (+x), stretched out and below the shoulder, the TV already lying (tool down) so
+ * its width (along the arm here) passes under the upper arm and clear of the pedestal.
+ */
+const viaPose = (r: Robot): Pose => [0, 1.25, 1.3 - r.arm.shoulderY, 0, 0, 0];
 /** Waiting: 30 cm in front of the pick point and a little higher; the next TV comes in beyond the plate. */
 export const readyPose = (w: World, r: Robot): Pose => pickPose(w, r, 0.1, 0.3);
 
