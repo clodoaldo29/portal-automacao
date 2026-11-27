@@ -125,6 +125,9 @@ function clientCard(c: Client) {
   if (color) a.style.setProperty('--cl', color);
   a.onclick = e => { if (plainClick(e)) { e.preventDefault(); go(c.id); } };
   const head = el('div', { className: 'client-head' }, badge(c, 'logo'));
+  // the covers of up to 3 of its projects behind the logo
+  const thumbs = own.filter(p => p.cover).slice(0, 3);
+  if (thumbs.length) head.prepend(el('div', { className: 'thumbs' }, thumbs.map(p => el('img', { src: p.cover!, alt: '', loading: 'lazy' }))));
   a.append(head);
   const b = el('div', { className: 'body' });
   b.append(el('h2', { textContent: c.name }));

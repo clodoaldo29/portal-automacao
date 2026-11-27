@@ -84,6 +84,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .client-head { position: relative; aspect-ratio: 16 / 9; background-color: #f6f8fb; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: minmax(0, 1fr); place-items: center; overflow: hidden;
   background-image: linear-gradient(rgba(15,34,56,.045) 1px, transparent 1px), linear-gradient(90deg, rgba(15,34,56,.045) 1px, transparent 1px);
   background-size: 24px 24px; }
+.client-head .thumbs { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 2px; }
+.client-head .thumbs img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* a light veil over the covers: the logo (dark colours) stands out on them */
+.client-head .thumbs::after { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(246,248,251,.78) 0%, rgba(246,248,251,.5) 65%, rgba(246,248,251,.3) 100%); }
 .logo { --cl: var(--band); position: relative; z-index: 1; width: 84px; height: 84px; border-radius: 14px; background: var(--cl); color: #fff; display: grid; place-items: center; box-shadow: 0 6px 18px rgba(0,0,0,.35); border: 3px solid #fff; overflow: hidden; }
 .logo span { font: 700 34px/1 var(--font-display); letter-spacing: .02em; }
 .logo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #fff; padding: 10px; }
@@ -92,7 +96,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .logo.sm img { padding: 5px; }
 /* a logo (usually wide) sits straight on the light head of the card, no plate or frame */
 .logo.has-img { width: 74%; height: 56%; background: none; border: 0; border-radius: 0; box-shadow: none; overflow: visible; }
-.logo.has-img img { padding: 0; background: none; }
+.logo.has-img img { padding: 0; background: none; filter: drop-shadow(0 0 3px rgba(255,255,255,.95)) drop-shadow(0 3px 8px rgba(8,20,36,.45)); }
+.logo.sm.has-img img { filter: none; }
 .logo.sm.has-img { width: 120px; height: 44px; }
 .logo.sm.has-img img { object-position: left center; }
 .open-sim.soon { background: var(--surface-2); color: var(--ink); border: 1px solid var(--line); }
