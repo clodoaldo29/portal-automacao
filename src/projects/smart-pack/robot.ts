@@ -164,7 +164,7 @@ function release(w: World, r: Robot) {
 }
 
 export function updateRobot(w: World, r: Robot, dt: number) {
-  if (r.state === 'idle' && r.pallet && r.pallet.hold && r.seq.every(s => s.ready)) startJob(w, r);
+  if (r.state === 'idle' && r.pallet && r.pallet.hold && dropFree(w) && r.seq.every(s => s.ready)) startJob(w, r);
   runSeq(r, dt);
   const err = track(r, 14);
   if (plateClear(r)) for (const it of w.test.items) if (it.hold === r.gate) it.hold = null;
