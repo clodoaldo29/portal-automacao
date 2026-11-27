@@ -5,7 +5,7 @@ import { at, box, cyl, cylA, shadowify, std } from '../../sim/kit';
 import type { Materials } from '../../sim/materials';
 import { foldedStackMaterials } from './products';
 import {
-  BAGGER, BELT_BOX, BOX_END, CABIN_L, COVER_X, ERECT, EXIST_X0, FEED_X, GANTRY_Y, MAG_Z0, PIVOT_Z, TABLE_D, TABLE_L, UP_X, Y_BOX, Y_PACK, Z_BASE, Z_EDGE, Z_MAG, Z_PACK, coverOf,
+  BAGGER, BELT_BOX, BELT_PACK, BOX_END, CABIN_L, COVER_X, ERECT, EXIST_X0, FEED_X, GANTRY_Y, MAG_Z0, PIVOT_Z, TABLE_D, TABLE_L, UP_X, Y_BOX, Y_PACK, Z_BASE, Z_EDGE, Z_MAG, Z_PACK, coverOf,
 } from './config';
 
 const panel = std(0xe6e9ed, 0.2, 0.5), band = std(0x1f5fd6, 0.2, 0.4), frameMat = std(0x3a4047, 0.4, 0.45);
@@ -74,6 +74,10 @@ export function buildUpender(scene: THREE.Scene, M: Materials) {
     base.add(at(box(0.08, 0.08, D, frameMat), sx * (L / 2 - 0.06), 0.15, D / 2));
   }
   base.add(at(cylA(0.03, L + 0.1, M.alu, 'x'), 0, Y_PACK - 0.06, 0.06)); // pivot shaft
+  // fixed strip from the far edge of the belt to the pivot: with the table, the conveyor in the cabin is as wide as the belt
+  const strip = Z_PACK - BELT_PACK / 2 - PIVOT_Z;
+  base.add(at(box(L, 0.05, -strip, frameMat), 0, Y_PACK - 0.075, strip / 2));
+  base.add(at(box(L, 0.1, 0.04, M.alu), 0, Y_PACK - 0.02, strip + 0.02)); // its outer rail, in line with the belt's
   // tilting drive: gearmotor on the pivot shaft, past the downstream end of the table
   base.add(at(box(0.16, 0.22, 0.22, M.blue), L / 2 + 0.14, Y_PACK - 0.06, 0.06));
   base.add(at(cylA(0.07, 0.24, M.aluDark, 'z'), L / 2 + 0.14, Y_PACK - 0.06, 0.28));
@@ -82,9 +86,9 @@ export function buildUpender(scene: THREE.Scene, M: Materials) {
   base.add(table);
   table.add(at(box(L, 0.05, D, frameMat), 0, -0.075, D / 2));
   const n = Math.floor((L - 0.1) / 0.1);
-  const rollers = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.024, 0.024, D - 0.12, 12), std(0xc7cdd4, 0.85, 0.25), n);
+  const rollers = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.024, 0.024, D - 0.08, 12), std(0xc7cdd4, 0.85, 0.25), n);
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2), one = new THREE.Vector3(1, 1, 1);
-  for (let i = 0; i < n; i++) rollers.setMatrixAt(i, m4.compose(new THREE.Vector3(-L / 2 + 0.1 + i * 0.1, -0.024, D / 2 + 0.03), q, one));
+  for (let i = 0; i < n; i++) rollers.setMatrixAt(i, m4.compose(new THREE.Vector3(-L / 2 + 0.1 + i * 0.1, -0.024, D / 2 + 0.02), q, one));
   table.add(rollers);
   table.add(at(box(L - 0.1, 0.14, 0.04, M.yellow), 0, 0.02, -0.02)); // foot stop along the far edge (the TV's bottom edge rests on it)
   for (const sx of [-1, 1]) table.add(at(box(0.04, 0.1, D, M.alu), sx * (L / 2 - 0.02), -0.02, D / 2)); // side rails

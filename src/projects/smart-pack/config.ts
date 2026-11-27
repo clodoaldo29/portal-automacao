@@ -73,7 +73,9 @@ export const BAG_X = (BAGGER.x0 + BAGGER.x1) / 2;
  *  where the foot stop is: the TV stands up sideways. */
 /** Between the bagger and the upender cabin: belt room for one 75" TV waiting (BUFFER_X0 to CABIN_X0). */
 export const BUFFER_X0 = BAGGER.x1, CABIN_X0 = BUFFER_X0 + 1.9, CABIN_L = 2.8;
-export const TABLE_X0 = CABIN_X0 + 0.4, TABLE_L = 2.0, UP_X = TABLE_X0 + TABLE_L / 2, PIVOT_Z = Z_EDGE - 0.02, TABLE_D = 1.15;
+export const TABLE_X0 = CABIN_X0 + 0.4, TABLE_L = 2.0, UP_X = TABLE_X0 + TABLE_L / 2, PIVOT_Z = Z_EDGE - 0.02;
+/** Upender table depth: from the pivot (foot stop) to the near edge of the bagging belt, so the conveyor in the cabin is as wide as the belt. */
+export const TABLE_D = Z_PACK + BELT_PACK / 2 - PIVOT_Z;
 
 // ---------- box line (lower, parallel to the packing line) ----------
 export const Y_BOX = 0.5, Z_BASE = -4.0, BELT_BOX = 0.7, SPEED_BOX = 0.3;
