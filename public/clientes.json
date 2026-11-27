@@ -22,5 +22,13 @@
     "color": "#e10029",
     "logo": "clientes/denso.svg",
     "description": "Novo cliente: projetos em levantamento."
+  },
+  {
+    "id": "inventus",
+    "name": "Inventus Power",
+    "initials": "IP",
+    "color": "#f99b1c",
+    "logo": "clientes/inventus.svg",
+    "description": "Novo cliente: projetos em levantamento."
   }
 ]
