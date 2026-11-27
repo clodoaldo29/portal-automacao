@@ -3,16 +3,24 @@
     "id": "multilaser",
     "name": "Grupo Multilaser",
     "initials": "GM",
-    "color": "#c43d3d",
-    "logo": "",
+    "color": "#5000be",
+    "logo": "clientes/multi.svg",
     "description": "Linhas de televisores: parafusamento, transferência, solda e embalagem."
   },
   {
     "id": "adata",
     "name": "Adata Technology",
     "initials": "AT",
-    "color": "#1572d6",
-    "logo": "",
+    "color": "#1f4fa8",
+    "logo": "clientes/adata.svg",
     "description": "Planta de memórias e semicondutores: gêmeo digital, inspeção, movimentação e embalagem."
+  },
+  {
+    "id": "denso",
+    "name": "Denso",
+    "initials": "DE",
+    "color": "#e10029",
+    "logo": "clientes/denso.svg",
+    "description": "Novo cliente: projetos em levantamento."
   }
 ]

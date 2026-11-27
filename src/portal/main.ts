@@ -48,13 +48,17 @@ const expanded = new Set<string>();
 
 const slug = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 const safeColor = (c?: string) => (/^#[0-9a-f]{3,8}$/i.test(c || '') ? c! : '');
-/** Clients in the order their first project appears in projetos.json, with the data of clientes.json when there is any. */
+/**
+ * Clients in the order their first project appears in projetos.json, with the data of clientes.json when there is any;
+ * then the clients of clientes.json with no project yet, in that file's order.
+ */
 function clientsOf(list: Project[], known: Client[]) {
   const out: Client[] = [];
   list.forEach(p => {
     if (!p.client || out.some(c => c.name === p.client)) return;
     out.push(known.find(c => c.name === p.client) || { id: slug(p.client), name: p.client });
   });
+  known.forEach(c => { if (c && c.id && c.name && !out.some(o => o.name === c.name)) out.push(c); });
   return out;
 }
 const projectsOf = (c: Client) => projects.filter(p => p.client === c.name);
@@ -66,13 +70,14 @@ function badge(c: Client, cls: string) {
   const color = safeColor(c.color);
   if (color) b.style.setProperty('--cl', color);
   const logo = safeUrl(c.logo);
+  if (logo) b.classList.add('has-img');
   b.append(logo ? el('img', { src: logo, alt: c.name }) : el('span', { textContent: c.initials || initials(c.name) }));
   return b;
 }
 
 function renderTotals() {
   const n = (id: StatusId) => projects.filter(p => p.status === id).length;
-  const vals = [projects.length, new Set(projects.map(p => p.client)).size, n('estudo') + n('validacao') + n('implantacao'), n('aprovado')];
+  const vals = [projects.length, clients.length, n('estudo') + n('validacao') + n('implantacao'), n('aprovado')];
   const box = $('totals');
   box.textContent = '';
   ['projetos', 'clientes', 'em andamento', 'aprovados'].forEach((l, i) => box.append(el('div', {}, el('b', { textContent: String(vals[i]) }), el('span', { textContent: l }))));
@@ -132,7 +137,8 @@ function clientCard(c: Client) {
     d.style.color = `var(--st-${s.id})`;
     return el('span', {}, d, `${n} ${s.label.toLowerCase()}`);
   })));
-  b.append(el('span', { className: 'open-sim', textContent: `Ver ${own.length} ${own.length === 1 ? 'projeto' : 'projetos'}` }));
+  if (!own.length) b.append(el('div', { className: 'mix' }, 'Nenhum projeto publicado ainda'));
+  b.append(el('span', { className: 'open-sim' + (own.length ? '' : ' soon'), textContent: own.length ? `Ver ${own.length} ${own.length === 1 ? 'projeto' : 'projetos'}` : 'Abrir área do cliente' }));
   const last = lastUpdate(own);
   if (last) b.append(el('div', { className: 'foot', textContent: `Atualizado em ${fmtDate(last)}` }));
   a.append(b);
@@ -195,7 +201,9 @@ function renderGrid() {
     .filter(p => !cl || !statusFilter || p.status === statusFilter)
     .filter(p => !q || [p.client, p.name, p.description, ...Object.values(p.metrics || {})].join(' ').toLowerCase().includes(q));
   if (!list.length) {
-    grid.append(el('div', { className: 'state' }, el('h2', { textContent: 'Nenhum projeto com esses filtros' })));
+    const empty = cl && !projectsOf(cl).length;
+    grid.append(el('div', { className: 'state' }, el('h2', { textContent: empty ? `Nenhum projeto de ${cl.name} publicado ainda` : 'Nenhum projeto com esses filtros' }),
+      empty ? el('p', { textContent: 'Os projetos aparecem aqui assim que forem cadastrados.' }) : null));
     return;
   }
   list.forEach(p => grid.append(card(p)));

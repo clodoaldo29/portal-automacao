@@ -152,10 +152,11 @@ ficam em `public/clientes.json`, ligados aos projetos pelo nome (`"client"` do p
 
 ```json
 { "id": "multilaser", "name": "Grupo Multilaser", "initials": "GM", "color": "#c43d3d",
-  "logo": "capas/clientes/multilaser.png", "description": "O que fazemos para o cliente." }
+  "logo": "clientes/multi.svg", "description": "O que fazemos para o cliente." }
 ```
 
-Sem `logo`, o cartão mostra as iniciais na cor do cliente. Um cliente que aparece no `projetos.json` sem estar no
+Logos em `public/clientes/`. Sem `logo`, o cartão mostra as iniciais na cor do cliente. Cliente cadastrado sem projeto
+ganha cartão e área vazia, depois dos que têm projetos. Um cliente que aparece no `projetos.json` sem estar no
 `clientes.json` também ganha cartão (com as iniciais do nome).
 
 Quando os rótulos "UPH", "Robôs", "Produtos" e "Estações" não servirem, `metricLabels` troca o rótulo de cada

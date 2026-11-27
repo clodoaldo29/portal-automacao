@@ -24,12 +24,19 @@ for (const width of [1280, 800]) {
   });
 }
 
-test('the portal opens on the client cards, in the order of their first project in projetos.json', async ({ page }) => {
+test('the portal opens on the client cards: by their first project in projetos.json, then the clients with no project yet', async ({ page }) => {
   await page.goto('/');
   const names = await page.locator('a.client-card h2').allTextContents();
   const list = await json(page);
-  expect(names).toEqual([...new Set(list.map(p => p.client))]);
+  const known = await page.evaluate(() => fetch('/clientes.json').then(r => r.json())) as { name: string }[];
+  const withProjects = [...new Set(list.map(p => p.client))];
+  expect(names).toEqual([...withProjects, ...known.map(c => c.name).filter(n => !withProjects.includes(n))]);
   expect(names[0]).toBe('Grupo Multilaser');
+  expect(names).toContain('Denso');
+  // every logo of clientes.json loads
+  await page.waitForLoadState('networkidle');
+  const broken = await page.locator('a.client-card .logo img').evaluateAll(imgs => imgs.filter(i => !(i as HTMLImageElement).naturalWidth).length);
+  expect(broken).toBe(0);
   await expect(page.locator('article.card')).toHaveCount(0);
   if (process.env.MF_SHOTS) await page.screenshot({ path: `${process.env.MF_SHOTS}/portal-clientes.png`, fullPage: true });
 });
@@ -43,11 +50,20 @@ test('a client card opens its projects in the order of projetos.json, and "back"
   expect(names).toEqual(list.filter(p => p.client === 'Grupo Multilaser').map(p => p.name));
   expect(names[0]).toBe('Transfer Flow 3D');
   await page.goBack();
-  await expect(page.locator('a.client-card')).toHaveCount(new Set(list.map(p => p.client)).size);
+  await expect(page.locator('a.client-card', { hasText: 'Grupo Multilaser' })).toBeVisible();
+  await expect(page.locator('article.card')).toHaveCount(0);
   await page.goForward();
   await expect(page.locator('article.card')).toHaveCount(names.length);
   await page.locator('.crumb .back').click();
   await expect(page.locator('a.client-card').first()).toBeVisible();
+});
+
+test('a client with no project yet opens an empty client area', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('a.client-card', { hasText: 'Denso' }).click();
+  await expect(page).toHaveURL(/\?cliente=denso$/);
+  await expect(page.locator('.state h2')).toHaveText('Nenhum projeto de Denso publicado ainda');
+  if (process.env.MF_SHOTS) await page.screenshot({ path: `${process.env.MF_SHOTS}/portal-denso.png` });
 });
 
 test('the search on the client cards looks in every client\'s projects', async ({ page }) => {

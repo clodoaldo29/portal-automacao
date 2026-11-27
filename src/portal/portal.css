@@ -93,6 +93,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .logo.sm { width: 52px; height: 52px; border-radius: 10px; border-width: 2px; box-shadow: none; }
 .logo.sm span { font-size: 22px; }
 .logo.sm img { padding: 5px; }
+/* a logo (usually wide) sits on a white plate in the client's colour frame */
+.logo.has-img { width: min(240px, 70%); height: 112px; background: #fff; border-color: var(--cl); }
+.logo.has-img img { padding: 14px 18px; }
+.logo.sm.has-img { width: 116px; height: 52px; }
+.logo.sm.has-img img { padding: 6px 8px; }
+.open-sim.soon { background: var(--surface-2); color: var(--ink); border: 1px solid var(--line); }
 .client-card h2 { margin: 0; font-family: var(--font-display); font-size: 26px; font-weight: 700; line-height: 1.05; }
 .client-card .desc { -webkit-line-clamp: 2; }
 .mix { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13.5px; color: var(--muted); }
