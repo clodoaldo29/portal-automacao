@@ -83,6 +83,30 @@ export function makeBase(M: Materials, inch: Inch) {
   return g;
 }
 
+let edgeTex: THREE.Texture | null = null;
+/**
+ * Stack of folded boxes: the top one shows its printed face; the sides show the edges of the boxes, one line each
+ * (`setRows(n)`). BoxGeometry face order: +x, −x, +y (top), −y, +z, −z.
+ */
+export function foldedStackMaterials(M: Materials) {
+  if (!edgeTex) {
+    const [c, g] = mk(64, 16);
+    g.fillStyle = '#c99c6b'; g.fillRect(0, 0, 64, 16);
+    g.fillStyle = '#8a6440'; g.fillRect(0, 13, 64, 3);
+    edgeTex = canvasTex(c);
+    edgeTex.wrapS = edgeTex.wrapT = THREE.RepeatWrapping;
+  }
+  const edge = new THREE.MeshStandardMaterial({ map: edgeTex, metalness: 0, roughness: 0.9 });
+  // the top face of a box maps the texture turned half a turn from panel A lying in the head: turned back, the print
+  // on the stack reads the same way as on the box being taken
+  const print = coverTex().clone();
+  print.center.set(0.5, 0.5);
+  print.rotation = Math.PI;
+  print.needsUpdate = true;
+  const top = new THREE.MeshStandardMaterial({ map: print, metalness: 0, roughness: 0.85 });
+  const setRows = (n: number) => { edgeTex!.repeat.set(1, Math.max(1, n)); };
+  return { mats: [edge, edge, top, M.cardboard, edge, edge], setRows };
+}
 export interface Tube { obj: THREE.Group; set: (u: number) => void }
 /**
  * Box body (the top part of the box): it comes folded flat and the erector opens it into a tube with no bottom (the base

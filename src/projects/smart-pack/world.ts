@@ -121,8 +121,12 @@ const clampHome = (): Pose => [PIVOT_Z - LYING_Y, Y_PACK + 0.02, 1];
 const gantryHigh = (w: World) => Y_BOX + coverOf(w.params.inch).h + hOf(w) + 0.2;
 /** Empty, the gantry waits high over the box line (clear of the erector table). */
 const gantryHome = (w: World): Pose => [Z_BASE, gantryHigh(w)];
-/** Erector: transfer height of the grip (the standing box clears the table by 15 cm), the grip over the stack, at the table. */
-const erHigh = (w: World) => Math.max(ERECT.yS, Y_BOX + coverOf(w.params.inch).h / 2) + 0.15;
+/**
+ * Erector: transfer height of the grip. The box turns about the grip from lying to standing, so its outer half swings down
+ * by half its height: lifted that much (+10 cm) over the stack first, it never touches the boxes below; standing, it
+ * clears the table by 15 cm.
+ */
+const erHigh = (w: World) => { const ch = coverOf(w.params.inch).h; return Math.max(ERECT.yS + ch / 2 + 0.1, Y_BOX + ch / 2 + 0.15); };
 const erHome = (w: World): Pose => [ERECT.zS, erHigh(w), 1, 0];
 const erDur = (a: Pose, b: Pose) => 0.3 + Math.max(Math.abs(b[0] - a[0]) / ERECT_SPEED.z, Math.abs(b[1] - a[1]) / ERECT_SPEED.y, Math.abs(b[2] - a[2]) * ERECT_SPEED.turnS, Math.abs(b[3] - a[3]) * ERECT_SPEED.openS);
 const _q = new THREE.Quaternion(), _p = new THREE.Vector3(), XA = new THREE.Vector3(1, 0, 0);

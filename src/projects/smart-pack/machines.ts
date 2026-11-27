@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { at, box, cyl, cylA, shadowify, std } from '../../sim/kit';
 import type { Materials } from '../../sim/materials';
+import { foldedStackMaterials } from './products';
 import {
   BAGGER, BELT_BOX, BOX_END, CABIN_L, COVER_X, ERECT, EXIST_X0, FEED_X, GANTRY_Y, MAG_Z0, PIVOT_Z, TABLE_D, TABLE_L, UP_X, Y_BOX, Y_PACK, Z_BASE, Z_EDGE, Z_MAG, Z_PACK, coverOf,
 } from './config';
@@ -262,15 +263,11 @@ const R90 = new THREE.Quaternion(), XA = new THREE.Vector3(1, 0, 0), _v = new TH
  * setArm(u, l, d): opening 0–1 of the arm, for a tube of length l and depth d; setStack(n, l, d, h): boxes in the stack.
  */
 export function buildErector(scene: THREE.Scene, M: Materials) {
-  const { zS, yS, top } = ERECT, hx = CAB.hx - 0.14, z0 = CAB.z0, z1 = Z_MAG - 0.25;
+  // the carriage runs on the cabin's top beams, at the same height as the gantry's: the head reaches higher, the
+  // stack can be taller
+  const { zS, yS } = ERECT, hx = CAB.hx, top = GANTRY_Y;
   const g = new THREE.Group();
   scene.add(g);
-  // two rails along z on the inner side of the cabin legs (brackets to the legs at z0 and za), the carriage runs on them
-  for (const sx of [-1, 1]) {
-    g.add(at(box(0.12, 0.14, z1 - z0 + 0.1, M.alu), COVER_X + sx * hx, top + 0.07, (z0 + z1) / 2));
-    for (const z of [z0, CAB.za]) g.add(at(box(0.1, 0.1, 0.1, frameMat), COVER_X + sx * (hx + 0.08), top + 0.07, z));
-  }
-  g.add(at(box(2 * hx, 0.1, 0.1, frameMat), COVER_X, top + 0.05, z0));
   // erector table (where the tube is opened and the gantry takes it)
   g.add(at(box(2.3, 0.05, 0.52, M.aluDark), COVER_X, Y_BOX - 0.025, Z_MAG - 0.04));
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) g.add(at(box(0.05, Y_BOX - 0.05, 0.05, frameMat), COVER_X + sx * 1.1, (Y_BOX - 0.05) / 2, Z_MAG - 0.04 + sz * 0.22));
@@ -283,10 +280,14 @@ export function buildErector(scene: THREE.Scene, M: Materials) {
   g.add(platform);
   const pallet = box(1, 0.12, 1, std(0xb08a5a, 0, 0.9));
   g.add(pallet);
-  const stack = box(1, 1, 1, M.cardboard);
+  const sm = foldedStackMaterials(M);
+  const stack = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), sm.mats);
   g.add(stack);
   // carriage, mast and head
-  const carriage = at(box(2 * hx + 0.1, 0.12, 0.22, M.blue), COVER_X, top + 0.2, 0); // between the legs
+  const carriage = new THREE.Group();
+  carriage.add(at(box(2 * hx + 0.2, 0.16, 0.24, M.blue), 0, top + 0.28, 0)); // on the beams, as the gantry's
+  carriage.add(at(box(0.26, 0.26, 0.26, M.aluDark), 0, top + 0.49, 0)); // vertical axis drive
+  carriage.position.x = COVER_X;
   g.add(carriage);
   const mast = box(0.1, 1, 0.1, M.alu);
   g.add(mast);
@@ -313,7 +314,7 @@ export function buildErector(scene: THREE.Scene, M: Materials) {
     head.position.set(COVER_X, y, z);
     head.quaternion.copy(R90.setFromAxisAngle(XA, (t * Math.PI) / 2));
     _v.set(0, 0, -0.18).applyQuaternion(head.quaternion).add(head.position); // top of the actuator
-    const len = top + 0.15 - (_v.y + 0.1);
+    const len = top + 0.22 - (_v.y + 0.1);
     mast.scale.y = Math.max(0.05, len);
     mast.position.set(COVER_X, _v.y + 0.1 + len / 2, _v.z);
     carriage.position.z = _v.z;
@@ -330,6 +331,7 @@ export function buildErector(scene: THREE.Scene, M: Materials) {
     stack.scale.set(l + d, H, h);
     stack.position.set(xc, yS - H / 2, zS);
     stack.visible = n > 0;
+    sm.setRows(n);
     pallet.scale.set(Math.min(1.25, l + d), 1, 1.2);
     pallet.position.set(COVER_X, yS - H - 0.06, zS);
     platform.position.set(COVER_X, yS - H - 0.145, zS);

@@ -88,9 +88,9 @@ export const FEED_X = BAG_X, BOX_X0 = FEED_X - 1.2, BOX_END = 18.2; // the base 
 export const COVER_X = CABIN_X0 + CABIN_L + 1.45, Z_MAG = Z_BASE - 0.62, MAG_Z0 = Z_BASE - 3.2, GANTRY_Y = 3.7;
 /**
  * Tube erector: the stack of folded boxes on a lift table (its top kept at yS; fed from outside with a pallet jack),
- * centred at zS; folded box thickness (two walls) and boxes per pallet; height of its top rails. PROVISIONAL.
+ * centred at zS; folded box thickness (two walls) and boxes per pallet (stack about 1 m high). PROVISIONAL.
  */
-export const ERECT = { zS: Z_MAG - 1.55, yS: 1.0, sheet: 0.012, n: 30, top: 2.75 };
+export const ERECT = { zS: Z_MAG - 1.55, yS: 1.45, sheet: 0.012, n: 80 };
 /** Erector axes (m/s), the turn from lying to standing and the opening (s); the gantry axes run at 0.8 m/s. PROVISIONAL. */
 export const ERECT_SPEED = { z: 0.8, y: 0.6, turnS: 1.0, openS: 1.2 };
 /** Existing stations 5 to 10 (grey). */
