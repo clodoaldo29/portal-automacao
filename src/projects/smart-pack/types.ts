@@ -30,6 +30,10 @@ export interface Robot extends Actor {
   busyT: number;
   /** Largest IK error seen (m + weighted rad): the arm must reach every point. */
   maxErr: number;
+  /** Speed override (0–1) that keeps every joint within its programmed speed. */
+  ovr: number;
+  /** Fastest speed seen per joint, as a share of the rated speed of the Zu 50. */
+  jointPeak: number[];
 }
 
 export interface Params { inch: Inch; feed: Feed; timing: Timing }

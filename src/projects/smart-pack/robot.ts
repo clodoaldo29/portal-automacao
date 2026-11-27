@@ -12,11 +12,13 @@ import { ZU50, urIK } from '../../sim/robots/ur-kinematics';
 import { runSeq, type Pose } from '../../sim/sequencer';
 import { elbowLift } from '../transfer-flow/transfers';
 import type { Transfer } from '../transfer-flow/types';
-import { DROP_X, GRIP_D, LYING_Y, PAL_W, PICK_X, QUEUE_MAX, ROBOT, SEAT_Y, SIZES, TV_BACK, Y_PACK, Y_TEST, Z_EDGE, Z_PACK, Z_TEST } from './config';
+import { DROP_X, GRIP_D, JOINT_USE, LYING_Y, PAL_W, PICK_X, QUEUE_MAX, ROBOT, ZU50_JOINT_DEG_S, SEAT_Y, SIZES, TV_BACK, Y_PACK, Y_TEST, Z_EDGE, Z_PACK, Z_TEST } from './config';
 import { TV_LYING, makeBag } from './products';
 import type { PackItem, Robot, World } from './types';
 
 const H = Math.PI / 2;
+/** Rated joint speeds of the Zu 50, rad/s. */
+const RATED = ZU50_JOINT_DEG_S.map(d => (d * Math.PI) / 180);
 
 // ---------- following the pose ----------
 // The pose is [φ, reach, height over the shoulder, tool tilt, tool yaw, tool roll]: the shared pose plus a roll about the
@@ -78,7 +80,7 @@ export function createRobot(w: World): Robot {
   const arm = makeCobot(w.scene, w.M, { x: ROBOT.x, z: ROBOT.z, L1: 0.64, L2: 0.5, ped: ROBOT.ped, pedW: 0.3 });
   vgp30Direct(arm.mount, w.M, { d: GRIP_D });
   arm.tool.rotation.order = 'YXZ';
-  const r = { arm, seq: [], pose: [], state: 'idle', pallet: null, carried: null, lastPallet: null, lastPlaced: null, busyT: 0, maxErr: 0 } as unknown as Robot;
+  const r = { arm, seq: [], pose: [], state: 'idle', pallet: null, carried: null, lastPallet: null, lastPlaced: null, busyT: 0, maxErr: 0, ovr: 1, jointPeak: [0, 0, 0, 0, 0, 0] } as unknown as Robot;
   r.pose = readyPose(w, r);
   upgradeArm(w.scene, arm, r.pose, ZU50);
   // interlock: while the plate is not back on the robot side of the pick point, the next pallet waits one slot before it
@@ -165,8 +167,18 @@ function release(w: World, r: Robot) {
 
 export function updateRobot(w: World, r: Robot, dt: number) {
   if (r.state === 'idle' && r.pallet && r.pallet.hold && dropFree(w) && queued(w) < QUEUE_MAX && r.seq.every(s => s.ready)) startJob(w, r);
-  runSeq(r, dt);
+  // the sequence runs at the speed override; then the joints are checked against their programmed speed and the override
+  // follows (down at once to what fits, back up gently): no joint goes over JOINT_USE of the Zu 50 rated speed for long
+  const ur = r.arm.ur!, q0 = ur.q.slice();
+  runSeq(r, dt * r.ovr);
   const err = track(r, 14);
+  let k = 0;
+  ur.q.forEach((v, j) => {
+    const sp = Math.abs(Math.atan2(Math.sin(v - q0[j]), Math.cos(v - q0[j]))) / dt;
+    r.jointPeak[j] = Math.max(r.jointPeak[j], sp / RATED[j]);
+    k = Math.max(k, sp / (RATED[j] * JOINT_USE));
+  });
+  r.ovr = k > 0.94 ? Math.max(0.05, (r.ovr * 0.9) / k) : Math.min(1, r.ovr + 0.015);
   if (plateClear(r)) for (const it of w.test.items) if (it.hold === r.gate) it.hold = null;
   if (err > r.maxErr) r.maxErr = err;
   if (r.state === 'busy') r.busyT += dt;
@@ -176,7 +188,7 @@ export function updateRobot(w: World, r: Robot, dt: number) {
 /** Back to the waiting pose with nothing in hand (line restart). */
 export function resetRobot(w: World, r: Robot) {
   if (r.carried) { r.carried.obj.parent?.remove(r.carried.obj); r.carried = null; }
-  Object.assign(r, { seq: [], state: 'idle', pallet: null });
+  Object.assign(r, { seq: [], state: 'idle', pallet: null, ovr: 1, jointPeak: [0, 0, 0, 0, 0, 0] });
   r.seq.push({ toFn: () => readyPose(w, r), durFn: moveDur, ready: true });
 }
 

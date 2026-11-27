@@ -31,6 +31,32 @@ export const ROBOT = { x: STATION_X, z: -1.25, ped: 0.8 };
 /** Flange → cup faces of the VGP30 straight on the flange (adapter and a 100 mm spacer). */
 export const GRIP_D = 0.2;
 
+// ---------- JAKA Zu 50 data (Hardware User Manual Zu15/Zu35/Zu50, V02: table 4-1 and figure 4-30) ----------
+/** Rated joint speeds, °/s (joints 1 to 6). */
+export const ZU50_JOINT_DEG_S = [110, 110, 150, 200, 200, 200];
+/** Share of the rated joint speeds the station is programmed to (a heavy TV on the flange: not 100 %). */
+export const JOINT_USE = 0.8;
+/** Load capacity: payload (kg) against the distance of its centre of gravity from the flange (mm), read off fig. 4-30. */
+const ZU50_LOAD: [number, number][] = [[0, 50], [40, 50], [110, 48], [200, 43], [300, 36.5], [400, 32], [500, 28.5], [600, 25]];
+export function zu50Capacity(mm: number) {
+  for (let i = 1; i < ZU50_LOAD.length; i++) {
+    const [x0, y0] = ZU50_LOAD[i - 1], [x1, y1] = ZU50_LOAD[i];
+    if (mm <= x1) return y0 + ((Math.max(mm, x0) - x0) / (x1 - x0)) * (y1 - y0);
+  }
+  return ZU50_LOAD[ZU50_LOAD.length - 1][1];
+}
+/** TV mass, kg (panel without stand). PROVISIONAL estimates for typical panels: replace with the Multi data. */
+export const TV_KG: Record<Inch, number> = { 32: 5, 43: 8, 50: 11, 55: 15, 65: 23, 75: 33 };
+/** OnRobot VGP30 with its adapter and spacer: mass (kg, estimate) and centre of gravity from the flange (m). */
+export const GRIPPER_KG = 4.5, GRIPPER_COG = 0.08;
+/** What the Zu 50 carries: TV + gripper, their centre of gravity from the flange and the manual's limit there. */
+export function payloadOf(inch: Inch) {
+  const tv = TV_KG[inch], kg = tv + GRIPPER_KG;
+  const mm = ((tv * (GRIP_D + TV_BACK) + GRIPPER_KG * GRIPPER_COG) / kg) * 1000; // TV centre: cups + back cover depth
+  const cap = zu50Capacity(mm);
+  return { tv, kg, mm, cap, use: kg / cap };
+}
+
 // ---------- packing line (TV lying screen-down, width along the belt, top edge toward the robot) ----------
 export const Z_PACK = -2.55, Y_PACK = 0.85, BELT_PACK = 1.9, PACK_X0 = -1.5, SPEED_PACK = 0.6;
 /** Where the robot sets the TV down: the last place of the queue before the bagger (1 inside, 2 waiting). */

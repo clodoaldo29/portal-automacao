@@ -8,7 +8,7 @@ import { pct } from '../../sim/kpi';
 import { useHDRI } from '../../sim/robots/ur-arm';
 import { $ } from '../../sim/ui/dom';
 import { createPage } from '../../sim/ui/page';
-import { DEFAULT_TIMING, FONT, INCHES, LABELS, SHADOW_FRUSTUM, TOUR, VIEWS, type Feed, type Inch } from './config';
+import { DEFAULT_TIMING, FONT, INCHES, JOINT_USE, LABELS, payloadOf, SHADOW_FRUSTUM, TOUR, VIEWS, type Feed, type Inch } from './config';
 import type { Params } from './types';
 import { DEFAULT_PARAMS, createWorld, lineRate, resetLine, resetStats, startClearance, step } from './world';
 
@@ -59,6 +59,7 @@ $<HTMLFormElement>('params').addEventListener('submit', e => {
 });
 
 // ---------- panel ----------
+const fmt = (v: number) => v.toFixed(1).replace('.', ',');
 const rows = $<HTMLTableSectionElement>('st-rows');
 const NAMES = ['1 · Robô de transferência', '2 · Ensacadora', '3 · Verticalização', '4 · Cobertura'];
 const trs = NAMES.map(n => { const tr = rows.insertRow(); tr.insertCell().textContent = n; tr.insertCell(); tr.insertCell(); return tr; });
@@ -80,6 +81,8 @@ function panel() {
   ];
   const uses = [r.busyT / T, s.bagT / T, s.upT / T, s.gantryT / T];
   trs.forEach((tr, i) => { tr.cells[1].textContent = pct(Math.min(1, uses[i])); tr.cells[2].textContent = state[i]; });
+  const ld = payloadOf(w.params.inch);
+  $('k-load').textContent = `Carga no Zu 50: ${fmt(ld.kg)} kg (TV ~${ld.tv} kg estimado + VGP30) com o centro a ${Math.round(ld.mm)} mm do flange · limite do manual ali: ${fmt(ld.cap)} kg (${pct(ld.use)}${ld.use > 1 ? ' · ACIMA DO LIMITE' : ''}) · juntas programadas a ${pct(JOINT_USE)} da velocidade nominal`;
   $('k-flow').textContent = `${s.picked} retiradas · ${s.bagged} ensacadas · ${s.boxed} na base · ${s.packed} cobertas`;
 }
 
@@ -103,7 +106,7 @@ page.start({
 declare global {
   interface Window {
     __sp: unknown;
-    __spBench?: { inch: Inch; minutes: number; picked: number; bagged: number; boxed: number; packed: number; maxIkErr: number; minClear: number; minClearAt: string; near: string[]; ms: number };
+    __spBench?: { inch: Inch; minutes: number; picked: number; bagged: number; boxed: number; packed: number; maxIkErr: number; jointPct: number[]; loadKg: number; loadCapKg: number; minClear: number; minClearAt: string; near: string[]; ms: number };
   }
 }
 window.__sp = { world: w, stage, step: (dt: number) => step(w, dt), resetLine: () => resetLine(w), resetStats: () => resetStats(w), panel };
@@ -116,7 +119,8 @@ if (benchMin) {
   const s = w.stats, c = w.clear!;
   window.__spBench = {
     inch: w.params.inch, minutes: benchMin, picked: s.picked, bagged: s.bagged, boxed: s.boxed, packed: s.packed,
-    maxIkErr: Math.round(w.robot.maxErr * 1e4) / 1e4, minClear: Math.round(c.min * 1000) / 1000, minClearAt: c.at,
+    maxIkErr: Math.round(w.robot.maxErr * 1e4) / 1e4, jointPct: w.robot.jointPeak.map(v => Math.round(v * 100)),
+    loadKg: Math.round(payloadOf(w.params.inch).kg * 10) / 10, loadCapKg: Math.round(payloadOf(w.params.inch).cap * 10) / 10, minClear: Math.round(c.min * 1000) / 1000, minClearAt: c.at,
     near: [...c.worst].sort((a, b) => a[1] - b[1]).slice(0, 10).map(([k, v]) => `${Math.round(v * 1000)} mm · ${k.replace(/ \d+\]/, ']')}`),
     ms: Math.round(performance.now() - t0),
   };
