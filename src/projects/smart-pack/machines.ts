@@ -170,7 +170,7 @@ export function rollerConveyorZ(scene: THREE.Scene, M: Materials, x: number, z0:
  * square to the box line, on its far side. At the bottom a photo-eye sees the base and a stopper holds it; the stopper
  * drops to let one base slide onto the box line. `surfY(z)`: height of the chute's rollers at z. `setStopper(down)`.
  */
-export const CHUTE = { zEnd: Z_BASE - BELT_BOX / 2 - 0.06, zTop: Z_BASE - 1.5, yEnd: Y_BOX + 0.02, yTop: Y_BOX + 0.15, w: 2.0 }; // short: three bases
+export const CHUTE = { zEnd: Z_BASE - BELT_BOX / 2 - 0.06, zTop: MAG_Z0 - 0.25, yEnd: Y_BOX + 0.02, yTop: Y_BOX + 0.32, w: 2.0 }; // up to the floor line: eight bases
 export const chuteY = (z: number) => CHUTE.yEnd + (CHUTE.yTop - CHUTE.yEnd) * (CHUTE.zEnd - z) / (CHUTE.zEnd - CHUTE.zTop);
 export function buildBaseChute(scene: THREE.Scene, M: Materials) {
   const { zEnd, zTop, w } = CHUTE, len = zEnd - zTop, ang = Math.atan2(CHUTE.yTop - CHUTE.yEnd, len);

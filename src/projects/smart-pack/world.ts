@@ -20,7 +20,7 @@ import { rollerConveyor } from '../transfer-flow/rollers';
 import {
   BAGGER, BAG_X, BELT_BOX, BELT_PACK, BELT_TEST, BOX_END, BOX_X0, COVER_X, DEFAULT_TIMING, FEED_X, LINE_UPH, LYING_Y, MAG_Z0, PACK_X0, PAL_W, PIVOT_Z, ROBOT,
   SEAT_BOX, SEAT_Y, SIZES, SPEED_BOX, SPEED_PACK, SPEED_TEST, TABLE_L, TABLE_X0, TEST_X0, TEST_X1, UP_X, Y_BOX, Y_PACK, Y_TEST, Z_BASE, Z_EDGE, Z_MAG,
-  Z_PACK, Z_TEST, coverOf, type Inch,
+  Z_PACK, Z_TEST, coverOf, RELEASE_X, type Inch,
 } from './config';
 import {
   buildBagger, buildClampUnit, buildExisting, buildGantry, buildBaseChute, buildMagazineGuides, CHUTE, chuteY, buildUpender, rollerConveyorZ,
@@ -90,6 +90,8 @@ export function createWorld(stage: Stage, params: Params = { ...DEFAULT_PARAMS, 
   });
 
   // station 1
+  // release stop (cadence) before station 1
+  w.release = station(w.test, w.test.track.sAtX(0, RELEASE_X), it => { if (!it.tv) return false; if (w.due >= 1) { w.due -= 1; return false; } return true; }, () => {});
   w.robot = createRobot(w);
   // station 2: the TV stops in the middle of the bagger
   w.bagger = { item: null, t: 0, mouth: bag.mouth, inside: null } as unknown as World['bagger'];
@@ -254,6 +256,8 @@ function newBase(w: World) {
 function addBase(w: World, s: number, b = newBase(w)) {
   w.boxes.items.push({ ...b, s, hold: null, passed: new Set(), tv: null, covered: false });
 }
+/** Bases waiting on the infeed chute (it runs up to the floor line). */
+const CHUTE_N = 8;
 /** Place of slot k on the infeed chute (k = 0 at the stopper). */
 const chuteSlot = (k: number) => { const z = CHUTE.zEnd - 0.17 - k * 0.34; return new THREE.Vector3(FEED_X, chuteY(z), z); };
 /** Bases on the chute: they slide down to their slots; one released goes onto the box line in about a second. */
@@ -267,7 +271,7 @@ function updateChute(w: World, dt: number) {
     m.obj.position.set(FEED_X, a.y + (Y_BOX - a.y) * u, a.z + (Z_BASE - a.z) * u);
     if (u >= 1) { addBase(w, FEED_S, m); f.moving = null; f.setStopper(false); }
   }
-  while (f.queue.length < 3) { // a new base comes in at the top of the chute (from outside the line)
+  while (f.queue.length < CHUTE_N) { // a new base comes in at the top of the chute (from outside the line)
     const b = newBase(w);
     b.obj.position.copy(chuteSlot(f.queue.length + 1));
     f.queue.push(b);
@@ -285,10 +289,13 @@ const FEED_S = FEED_X - BOX_X0;
 const startFree = <I extends LineItem>(L: Line<I>) => L.items.every(it => it.s >= L.gap);
 
 function updateFeed(w: World, dt: number) {
-  // TVs from the functional test: at the line cadence of the model, or as fast as the station takes them
-  const rate = w.params.feed === 'max' ? Infinity : LINE_UPH[w.params.inch] / 3600;
-  w.due = Math.min(2, w.due + dt * rate);
-  if (w.due >= 1 && startFree(w.test)) { addPallet(w, 0); w.due -= 1; }
+  // TVs from the functional test: the test line comes full (a pallet whenever its start has room) and the release stop
+  // lets one go at the line cadence of the model, or as fast as the station takes them
+  // ("máxima": always one due. Not Infinity × dt: with dt = 0 on the first frame that is NaN, and the stop would never
+  // let a TV go again)
+  w.due = w.params.feed === 'max' ? 1 : Math.min(1, (Number.isFinite(w.due) ? w.due : 1) + dt * LINE_UPH[w.params.inch] / 3600);
+  if (startFree(w.test)) addPallet(w, 0);
+  if (w.due >= 1) { const held = w.test.items.find(p => p.hold === w.release); if (held) { held.hold = null; w.due -= 1; } }
   // the chute keeps three empty bases on the box line: its stopper lets one slide on when the photo-eye sees the box
   // line clear (the base before has moved a pitch on); the magazine is kept with six covers
   if (!w.feed.moving && w.feed.queue.length && w.boxes.items.filter(b => !b.tv).length < 3 && w.boxes.items.every(b => b.s >= FEED_S + w.boxes.gap)) {
@@ -368,14 +375,16 @@ export function resetLine(w: World) {
   w.baseAt = null;
   w.due = 1;
   // the line opens with TVs queued on the test line, empty bases on the box line and the magazine full
-  for (let k = 0; k < 2; k++) addPallet(w, w.test.track.sAtX(0, 0) - 1.2 - k * w.test.gap);
+  // the test line comes full from the functional test: one TV on its way to station 1, the rest queued at the release stop
+  addPallet(w, w.test.track.sAtX(0, 0) - 1.2);
+  for (let s = w.test.track.sAtX(0, RELEASE_X); s >= 0; s -= w.test.gap) addPallet(w, s);
   for (let k = 0; k < 3; k++) addBase(w, w.boxes.track.sAtX(0, UP_X) - k * w.boxes.gap);
   // the infeed chute with ready bases for this lot
   for (const b of [...w.feed.queue, ...(w.feed.moving ? [w.feed.moving] : [])]) w.scene.remove(b.obj);
   w.feed.queue.length = 0;
   w.feed.moving = null;
   w.feed.setStopper(false);
-  for (let k = 0; k < 3; k++) { const b = newBase(w); b.obj.position.copy(chuteSlot(k)); w.feed.queue.push(b); }
+  for (let k = 0; k < CHUTE_N; k++) { const b = newBase(w); b.obj.position.copy(chuteSlot(k)); w.feed.queue.push(b); }
   void inch;
   for (let k = 0; k < 6; k++) addCover(w, w.mag.track.length - 0.11 - k * w.mag.gap);
   applyMachines(w);

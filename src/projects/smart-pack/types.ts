@@ -73,8 +73,10 @@ export interface World {
   };
   /** Empty base waiting under the clamps. */
   baseAt: BoxItem | null;
-  /** Pallets due from the test line (feed at the line cadence). */
+  /** TVs due from the test line (released at the line cadence, 0–1). */
   due: number;
+  /** Release stop of the test line (cadence). */
+  release: Station<PalletItem>;
   stats: Stats;
   /** Collision check (bench, tests): smallest clearance seen since it was turned on, and between what. */
   clear?: { min: number; at: string; n: number; worst: Map<string, number> };

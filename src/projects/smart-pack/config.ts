@@ -17,7 +17,10 @@ export { INCHES, LINE_UPH, PAL_W, SEAT_Y, SIZES, TV_BACK, TV_T, type Inch };
 
 // ---------- test line (end of it: the TV comes from the functional test) ----------
 export const Z_TEST = 0, Y_TEST = TOP_TEST, BELT_TEST = 0.72, TEST_OUT = 0.75;
-export const TEST_X0 = -7.6, TEST_X1 = 18.2; // along the whole layout; pallets return under the belt through the lift at the end
+export const TEST_X0 = -12, TEST_X1 = 18.2; // along the whole layout; pallets return under the belt through the lift at the end
+/** Release stop of the test line: the line comes full from the functional test (pallets queued behind this stop) and
+ *  one TV is let go at the line cadence of the model. */
+export const RELEASE_X = -4.6;
 export const SPEED_TEST = 0.8;
 export const PICK_X = 0; // pallet stop of station 1
 
@@ -47,7 +50,7 @@ export const Y_BOX = 0.5, Z_BASE = -4.0, BELT_BOX = 0.7, SPEED_BOX = 0.3;
 /** Box line from the base feeder (start) to the end; the TV goes into the base at UP_X. */
 /** The bases come ready (EPS corners in place): a feeder (magazine with the stack of bases) sets them on the start of the
  *  box line, one at a time, at FEED_X. */
-export const BOX_X0 = -2.4, BOX_END = 18.2, FEED_X = BAG_X; // the base infeed beside the bagger
+export const FEED_X = BAG_X, BOX_X0 = FEED_X - 1.2, BOX_END = 18.2; // the base infeed beside the bagger; the box line starts there
 /** Station 4: cover gantry over the box line; the covers queue on a magazine fed from the far side of the box line. */
 export const COVER_X = CABIN_X0 + CABIN_L + 1.45, Z_MAG = Z_BASE - 0.62, MAG_Z0 = Z_BASE - 3.2, GANTRY_Y = 3.7;
 /** Existing stations 5 to 10 (grey). */

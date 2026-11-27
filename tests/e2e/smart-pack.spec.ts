@@ -5,7 +5,7 @@ import { expect, test } from '@playwright/test';
 // nothing touches at station 1 (its arm, the hook and the TV it carries against its own arm, the test pallets and their
 // TVs, the belts, the bagger cabin): the clearance must stay over 5 mm, as on the Transfer Flow.
 // When the line logic or its defaults change on purpose, re-measure and update in the same commit.
-const REFERENCE = { inch: 55, minutes: 10, picked: 19, packed: 20 };
+const REFERENCE = { inch: 55, minutes: 10, picked: 18, packed: 19 };
 
 test.describe('Smart Pack', () => {
   test('opens without errors and packs TVs', async ({ page }) => {
