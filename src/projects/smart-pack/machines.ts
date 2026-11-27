@@ -215,16 +215,18 @@ export function buildBaseChute(scene: THREE.Scene, M: Materials) {
  * mast and a head with two pads of suction cups that hold the open tube by its long sides, just under the top edge (the
  * flaps stay free). `setGantry(z, edgeY)`: edgeY is the height of the tube's top edge.
  */
+/** Station 4 is one cabin: the gantry legs carry the erector too (legs at the far end of the stack, mid and box line). */
+const CAB = { hx: 1.45, z0: ERECT.zS - 0.85, za: Z_MAG - 0.6, zb: Z_BASE + 0.65 };
 export function buildGantry(scene: THREE.Scene, M: Materials) {
-  const za = Z_MAG - 0.6, zb = Z_BASE + 0.65, hx = 1.45, y = GANTRY_Y, d = coverOf(32).d;
+  const { hx, z0, za, zb } = CAB, y = GANTRY_Y, d = coverOf(32).d;
   const g = new THREE.Group();
   g.position.set(COVER_X, 0, 0);
   scene.add(g);
   for (const sx of [-1, 1]) {
-    for (const z of [za, zb]) g.add(at(box(0.14, y, 0.14, frameMat), sx * hx, y / 2, z));
-    g.add(at(box(0.16, 0.2, zb - za + 0.14, M.alu), sx * hx, y + 0.1, (za + zb) / 2));
+    for (const z of [z0, za, zb]) g.add(at(box(0.14, y, 0.14, frameMat), sx * hx, y / 2, z));
+    g.add(at(box(0.16, 0.2, zb - z0 + 0.14, M.alu), sx * hx, y + 0.1, (z0 + zb) / 2));
   }
-  for (const z of [za, zb]) g.add(at(box(2 * hx + 0.14, 0.13, 0.14, frameMat), 0, y + 0.075, z)); // (13 cm: its faces off the beams')
+  for (const z of [z0, za, zb]) g.add(at(box(2 * hx + 0.14, 0.13, 0.14, frameMat), 0, y + 0.075, z)); // (13 cm: its faces off the beams')
   const carriage = new THREE.Group();
   g.add(carriage);
   carriage.add(at(box(2 * hx + 0.2, 0.16, 0.3, M.blue), 0, y + 0.28, 0));
@@ -260,15 +262,15 @@ const R90 = new THREE.Quaternion(), XA = new THREE.Vector3(1, 0, 0), _v = new TH
  * setArm(u, l, d): opening 0–1 of the arm, for a tube of length l and depth d; setStack(n, l, d, h): boxes in the stack.
  */
 export function buildErector(scene: THREE.Scene, M: Materials) {
-  const { zS, yS, top } = ERECT, hx = 1.7, z0 = zS - 0.85, z1 = Z_MAG - 0.25;
+  const { zS, yS, top } = ERECT, hx = CAB.hx - 0.14, z0 = CAB.z0, z1 = Z_MAG - 0.25;
   const g = new THREE.Group();
   scene.add(g);
-  // frame: four posts and two rails along z, the carriage runs on them
+  // two rails along z on the inner side of the cabin legs (brackets to the legs at z0 and za), the carriage runs on them
   for (const sx of [-1, 1]) {
-    for (const z of [z0, z1]) g.add(at(box(0.1, top, 0.1, frameMat), COVER_X + sx * hx, top / 2, z));
     g.add(at(box(0.12, 0.14, z1 - z0 + 0.1, M.alu), COVER_X + sx * hx, top + 0.07, (z0 + z1) / 2));
+    for (const z of [z0, CAB.za]) g.add(at(box(0.1, 0.1, 0.1, frameMat), COVER_X + sx * (hx + 0.08), top + 0.07, z));
   }
-  g.add(at(box(2 * hx + 0.1, 0.1, 0.1, frameMat), COVER_X, top + 0.05, z0));
+  g.add(at(box(2 * hx, 0.1, 0.1, frameMat), COVER_X, top + 0.05, z0));
   // erector table (where the tube is opened and the gantry takes it)
   g.add(at(box(2.3, 0.05, 0.52, M.aluDark), COVER_X, Y_BOX - 0.025, Z_MAG - 0.04));
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) g.add(at(box(0.05, Y_BOX - 0.05, 0.05, frameMat), COVER_X + sx * 1.1, (Y_BOX - 0.05) / 2, Z_MAG - 0.04 + sz * 0.22));
@@ -284,7 +286,7 @@ export function buildErector(scene: THREE.Scene, M: Materials) {
   const stack = box(1, 1, 1, M.cardboard);
   g.add(stack);
   // carriage, mast and head
-  const carriage = at(box(2 * hx + 0.2, 0.12, 0.22, M.blue), COVER_X, top + 0.2, 0);
+  const carriage = at(box(2 * hx + 0.1, 0.12, 0.22, M.blue), COVER_X, top + 0.2, 0); // between the legs
   g.add(carriage);
   const mast = box(0.1, 1, 0.1, M.alu);
   g.add(mast);
