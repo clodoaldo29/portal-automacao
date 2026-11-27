@@ -4,7 +4,7 @@ import type { Materials } from '../../sim/materials';
 import type { Cobot } from '../../sim/robots/ur-arm';
 import type { Pose, Step } from '../../sim/sequencer';
 import type { Feed, Inch, Timing } from './config';
-import type { TV } from './products';
+import type { TV, Tube } from './products';
 
 /** Test pallet on the end of the test line: one TV standing, or empty after the pick. */
 export interface PalletItem extends LineItem { tv: TV | null }
@@ -12,7 +12,6 @@ export interface PalletItem extends LineItem { tv: TV | null }
 export interface PackItem extends LineItem { tv: TV; bag: THREE.Mesh; bagged: boolean }
 /** Box base on the box line: `inner` turns it so its length runs along the line (the TV standing sideways). */
 export interface BoxItem extends LineItem { inner: THREE.Group; tv: TV | null; covered: boolean }
-export type CoverItem = LineItem;
 
 export interface Actor { seq: Step[]; pose: Pose }
 
@@ -53,7 +52,6 @@ export interface World {
   test: Line<PalletItem>;
   pack: Line<PackItem>;
   boxes: Line<BoxItem>;
-  mag: Line<CoverItem>;
   robot: Robot;
   /** item: the TV being bagged; inside: the TV in the cabin (one at a time); gate: stop before the cabin entry. */
   bagger: { item: PackItem | null; t: number; mouth: THREE.Object3D; inside: PackItem | null; gate: Station<PackItem> };
@@ -68,7 +66,20 @@ export interface World {
     stop: Station<PackItem>;
   };
   clamp: Actor & { group: THREE.Object3D; set: (x: number, padY: number, half: number) => void; tv: TV | null; busy: boolean };
-  gantry: Actor & { head: THREE.Object3D; set: (z: number, cupY: number) => void; cover: CoverItem | null; target: BoxItem | null; busy: boolean };
+  /** cover: the open tube in the head; target: the box (with its TV) waiting under the gantry. */
+  gantry: Actor & { head: THREE.Object3D; set: (z: number, edgeY: number) => void; cover: Tube | null; target: BoxItem | null; busy: boolean };
+  /**
+   * Tube erector. pose: [grip z, grip y, turn (1 lying, 0 standing), opening 0–1]; box: the folded box in the head;
+   * ready: the open tube on its table; arm: opening of the arm (it swings back once the tube has been lifted away);
+   * count: folded boxes left in the stack.
+   */
+  erector: Actor & {
+    box: Tube | null; ready: Tube | null; arm: number; count: number;
+    setHead: (z: number, y: number, t: number) => void; setArm: (u: number, l: number, d: number) => void;
+    setStack: (n: number, l: number, d: number, h: number) => void;
+  };
+  /** Who works over the erector table now (the erector head or the gantry): one at a time. */
+  zone: 'erector' | 'gantry' | null;
   /** Base infeed chute: bases waiting on it (slot 0 at the stopper), and the one sliding onto the box line. */
   feed: {
     queue: { obj: THREE.Group; inner: THREE.Group }[];

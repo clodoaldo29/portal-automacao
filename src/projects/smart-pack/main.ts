@@ -61,7 +61,7 @@ $<HTMLFormElement>('params').addEventListener('submit', e => {
 // ---------- panel ----------
 const fmt = (v: number) => v.toFixed(1).replace('.', ',');
 const rows = $<HTMLTableSectionElement>('st-rows');
-const NAMES = ['1 · Robô de transferência', '2 · Ensacadora', '3 · Verticalização', '4 · Cobertura'];
+const NAMES = ['1 · Robô de transferência', '2 · Ensacadora', '3 · Verticalização', '4 · Formadora + pórtico'];
 const trs = NAMES.map(n => { const tr = rows.insertRow(); tr.insertCell().textContent = n; tr.insertCell(); tr.insertCell(); return tr; });
 function panel() {
   const s = w.stats, T = Math.max(1, s.simT), measured = s.simT > 60 && s.packed > 1;
@@ -77,7 +77,7 @@ function panel() {
     r.state === 'busy' ? (r.carried ? 'com a TV' : 'pegando / voltando') : 'aguardando TV',
     w.bagger.item ? 'ensacando' : 'livre',
     w.clamp.tv ? 'descendo a TV na base' : w.upender.tilted ? 'TV em pé' : w.upender.tv ? 'girando' : 'livre',
-    w.gantry.cover ? (w.gantry.target ? 'cobrindo' : 'cobertura pronta') : w.gantry.seq.length ? 'pegando cobertura' : 'livre',
+    w.gantry.cover ? (w.gantry.target ? 'descendo a caixa' : 'caixa pronta') : w.gantry.seq.length ? 'pegando a caixa' : w.erector.ready ? 'caixa aberta esperando' : 'abrindo caixa',
   ];
   const uses = [r.busyT / T, s.bagT / T, s.upT / T, s.gantryT / T];
   trs.forEach((tr, i) => { tr.cells[1].textContent = pct(Math.min(1, uses[i])); tr.cells[2].textContent = state[i]; });

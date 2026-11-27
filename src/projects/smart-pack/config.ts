@@ -6,7 +6,7 @@
 //   z = −2.55  packing line: infeed → station 2 bagger → station 3 upender. The TV lies as on the Transfer Flow assembly
 //              belt: screen down, its width along the belt, its top edge toward the robot.
 //   z = −4.0   box line, parallel to the packing line: the bases (with the EPS corners) are prepared at its start, get
-//              the TV standing sideways at station 3, the cover at station 4 (magazine on the −z side), then go on to
+//              the TV standing sideways at station 3, the box body at station 4 (tube erector on the −z side), then go on to
 //              the existing stations 5 to 10 (grey, not animated)
 // Distance between the lines is PROVISIONAL (flow document, pending item "distância e desníveis entre linhas").
 import type { LabelDef } from '../../sim/labels';
@@ -80,8 +80,19 @@ export const Y_BOX = 0.5, Z_BASE = -4.0, BELT_BOX = 0.7, SPEED_BOX = 0.3;
 /** The bases come ready (EPS corners in place): a feeder (magazine with the stack of bases) sets them on the start of the
  *  box line, one at a time, at FEED_X. */
 export const FEED_X = BAG_X, BOX_X0 = FEED_X - 1.2, BOX_END = 18.2; // the base infeed beside the bagger; the box line starts there
-/** Station 4: cover gantry over the box line; the covers queue on a magazine fed from the far side of the box line. */
+/**
+ * Station 4: the box bodies come folded flat, stacked on a pallet. A tube erector (far side of the box line) takes the top
+ * one, stands it up and opens it into a tube on its table at Z_MAG; the gantry takes the open tube there by its long
+ * sides and lowers it over the TV onto the base. The top flaps stay open (kit and EPS go in at station 5).
+ */
 export const COVER_X = CABIN_X0 + CABIN_L + 1.45, Z_MAG = Z_BASE - 0.62, MAG_Z0 = Z_BASE - 3.2, GANTRY_Y = 3.7;
+/**
+ * Tube erector: the stack of folded boxes on a lift table (its top kept at yS; fed from outside with a pallet jack),
+ * centred at zS; folded box thickness (two walls) and boxes per pallet; height of its top rails. PROVISIONAL.
+ */
+export const ERECT = { zS: Z_MAG - 1.55, yS: 1.0, sheet: 0.012, n: 30, top: 2.75 };
+/** Erector axes (m/s), the turn from lying to standing and the opening (s); the gantry axes run at 0.8 m/s. PROVISIONAL. */
+export const ERECT_SPEED = { z: 0.8, y: 0.6, turnS: 1.0, openS: 1.2 };
 /** Existing stations 5 to 10 (grey). */
 export const EXIST_X0 = COVER_X + 1.65;
 
@@ -110,7 +121,7 @@ export const VIEWS: Record<string, ViewDef> = {
   ensaque: { pos: [1.2, 2.6, 0.6], target: [4.2, 1.0, -2.6] },
   vertical: { pos: [UP_X + 2.6, 2.7, -0.9], target: [UP_X, 1.0, -3.3] },
   bases: { pos: [-6.5, 7.5, -10.5], target: [5, 0.6, -2.8] }, // from the far side: the box line parallel to the packing line
-  cobertura: { pos: [14.6, 3.2, -1.4], target: [COVER_X, 1.3, -4.3] },
+  cobertura: { pos: [15.2, 3.6, -1.6], target: [COVER_X, 1.2, -4.9] },
   cima: { pos: [5.5, 22, -2.61], target: [5.5, 0, -2.6] }, // as the layout sketch: test line on top, flow right to left
 };
 
@@ -126,8 +137,8 @@ export const LABELS: LabelDef[] = [
   { lines: ['2 · Ensacadora automática'], x: BAG_X, y: BAGGER.h + 0.55, z: Z_PACK },
   { lines: ['3 · Cabine da verticalizadora', 'TV em pé na base com isopor'], x: UP_X, y: 3.35, z: (PIVOT_Z + Z_BASE) / 2 },
   { lines: ['Alimentador de bases', '(bases prontas com isopor)'], x: FEED_X, y: 1.55, z: Z_BASE - 1.1 },
-  { lines: ['4 · Fechamento com a parte', 'superior · pórtico com ventosas'], x: COVER_X, y: GANTRY_Y + 0.6, z: (Z_MAG + Z_BASE) / 2 },
-  { lines: ['Magazine de coberturas'], x: COVER_X, y: 2.0, z: MAG_Z0 + 0.3 },
+  { lines: ['4 · Caixa por cima da TV', 'formadora de tubo + pórtico'], x: COVER_X, y: GANTRY_Y + 0.6, z: (Z_MAG + Z_BASE) / 2 },
+  { lines: ['Caixas dobradas', '(pilha na mesa elevatória)'], x: COVER_X, y: 2.1, z: ERECT.zS - 0.5 },
   { lines: ['Espaço para 1 TV 75″'], x: (BUFFER_X0 + CABIN_X0) / 2, y: 1.45, z: Z_PACK + 0.9 },
   { lines: ['5 a 10 · Postos existentes', 'fechamento, conferência, etiqueta,', 'arqueação, paletização'], x: EXIST_X0 + 2.4, y: 2.7, z: Z_BASE },
 ];

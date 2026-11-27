@@ -1,10 +1,10 @@
-// Smart Pack equipment geometry (no logic): bagger, upender with the side-clamp lowering unit, cover gantry with its
-// magazine, base preparation table, and the existing stations 5–10 drawn grey.
+// Smart Pack equipment geometry (no logic): bagger, upender with the side-clamp lowering unit, box gantry with the tube
+// erector, base infeed chute, and the existing stations 5–10 drawn grey.
 import * as THREE from 'three';
 import { at, box, cyl, cylA, shadowify, std } from '../../sim/kit';
 import type { Materials } from '../../sim/materials';
 import {
-  BAGGER, BELT_BOX, BOX_END, CABIN_L, COVER_X, EXIST_X0, FEED_X, GANTRY_Y, MAG_Z0, PIVOT_Z, TABLE_D, TABLE_L, UP_X, Y_BOX, Y_PACK, Z_BASE, Z_EDGE, Z_MAG, Z_PACK,
+  BAGGER, BELT_BOX, BOX_END, CABIN_L, COVER_X, ERECT, EXIST_X0, FEED_X, GANTRY_Y, MAG_Z0, PIVOT_Z, TABLE_D, TABLE_L, UP_X, Y_BOX, Y_PACK, Z_BASE, Z_EDGE, Z_MAG, Z_PACK, coverOf,
 } from './config';
 
 const panel = std(0xe6e9ed, 0.2, 0.5), band = std(0x1f5fd6, 0.2, 0.4), frameMat = std(0x3a4047, 0.4, 0.45);
@@ -211,11 +211,12 @@ export function buildBaseChute(scene: THREE.Scene, M: Materials) {
 }
 
 /**
- * Station 4: cover gantry. Two beams along z (over the magazine head and the box line), a carriage along them, a
- * vertical mast and a bar of suction cups along x that holds the cover by its top. `setGantry(z, cupY)`.
+ * Station 4: box gantry. Two beams along z (over the erector table and the box line), a carriage along them, a vertical
+ * mast and a head with two pads of suction cups that hold the open tube by its long sides, just under the top edge (the
+ * flaps stay free). `setGantry(z, edgeY)`: edgeY is the height of the tube's top edge.
  */
 export function buildGantry(scene: THREE.Scene, M: Materials) {
-  const za = Z_MAG - 0.6, zb = Z_BASE + 0.65, hx = 1.2, y = GANTRY_Y;
+  const za = Z_MAG - 0.6, zb = Z_BASE + 0.65, hx = 1.45, y = GANTRY_Y, d = coverOf(32).d;
   const g = new THREE.Group();
   g.position.set(COVER_X, 0, 0);
   scene.add(g);
@@ -232,37 +233,110 @@ export function buildGantry(scene: THREE.Scene, M: Materials) {
   carriage.add(mast);
   const head = new THREE.Group();
   carriage.add(head);
-  head.add(at(box(1.5, 0.06, 0.08, M.aluDark), 0, 0.16, 0)); // cup bar along the cover
-  head.add(at(box(0.08, 0.06, 0.24, M.aluDark), 0, 0.16, 0));
-  for (const x of [-0.65, -0.22, 0.22, 0.65]) {
-    head.add(at(cyl(0.008, 0.008, 0.1, M.alu, 8), x, 0.08, 0));
-    head.add(at(cyl(0.035, 0.04, 0.03, M.rubber, 16), x, 0.015, 0));
+  head.add(at(box(0.7, 0.06, d + 0.24, M.aluDark), 0, 0.2, 0)); // cross head over the flaps
+  head.add(at(box(0.1, 0.08, 0.12, M.blue), 0.25, 0.27, 0)); // vacuum generator
+  for (const s of [-1, 1]) {
+    for (const x of [-0.3, 0.3]) head.add(at(box(0.05, 0.4, 0.04, M.alu), x, 0.0, s * (d / 2 + 0.08))); // drop arms, clear of the flaps
+    head.add(at(box(0.8, 0.12, 0.04, M.aluDark), 0, -0.13, s * (d / 2 + 0.04))); // pad
+    for (const x of [-0.3, -0.1, 0.1, 0.3]) head.add(at(box(0.07, 0.07, 0.012, M.rubber), x, -0.13, s * (d / 2 + 0.012)));
   }
-  head.add(at(box(0.1, 0.08, 0.12, M.blue), 0, 0.24, 0.1)); // vacuum generator
   shadowify(g);
-  const setGantry = (z: number, cupY: number) => {
+  const setGantry = (z: number, edgeY: number) => {
     carriage.position.z = z;
-    head.position.y = cupY;
-    const len = y + 0.2 - (cupY + 0.19);
+    head.position.y = edgeY;
+    const len = y + 0.2 - (edgeY + 0.23);
     mast.scale.y = Math.max(0.05, len);
-    mast.position.set(0, cupY + 0.19 + len / 2, 0);
+    mast.position.set(0, edgeY + 0.23 + len / 2, 0);
   };
   return { group: g, head, setGantry };
 }
 
-/** Side guides and end stop of the cover magazine (fed from the far side, covers queue along +z toward the box line). */
-export function buildMagazineGuides(scene: THREE.Scene, M: Materials) {
-  const g = new THREE.Group(), w = 2.0, z1 = Z_MAG + 0.2, len = z1 - MAG_Z0;
-  for (const s of [-1, 1]) {
-    g.add(at(box(0.04, 0.05, len, M.yellow), COVER_X + s * (w / 2 - 0.02), Y_BOX + 0.35, MAG_Z0 + len / 2));
-    for (let z = MAG_Z0 + 0.1; z <= z1; z += 1.0) g.add(at(box(0.04, 0.4, 0.04, M.alu), COVER_X + s * (w / 2 - 0.02), Y_BOX + 0.15, z));
-  }
-  g.add(at(box(w - 0.1, 0.5, 0.05, M.yellow), COVER_X, Y_BOX + 0.25, Z_MAG + 0.21)); // end stop
-  shadowify(g);
+const R90 = new THREE.Quaternion(), XA = new THREE.Vector3(1, 0, 0), _v = new THREE.Vector3();
+/**
+ * Tube erector (station 4, far side of the box line). The folded boxes lie in a stack on a lift table (fed from outside
+ * with a pallet jack); a head on a carriage takes the top one by panel A, stands it up on the erector table at Z_MAG
+ * (turning about x), and an arm hinged at the corner of panels A and B pulls B round: the box opens into a tube.
+ * setHead(z, y, t): the grip point (middle of panel A's outer face) and the turn (1 lying, 0 standing);
+ * setArm(u, l, d): opening 0–1 of the arm, for a tube of length l and depth d; setStack(n, l, d, h): boxes in the stack.
+ */
+export function buildErector(scene: THREE.Scene, M: Materials) {
+  const { zS, yS, top } = ERECT, hx = 1.7, z0 = zS - 0.85, z1 = Z_MAG - 0.25;
+  const g = new THREE.Group();
   scene.add(g);
-  return g;
+  // frame: four posts and two rails along z, the carriage runs on them
+  for (const sx of [-1, 1]) {
+    for (const z of [z0, z1]) g.add(at(box(0.1, top, 0.1, frameMat), COVER_X + sx * hx, top / 2, z));
+    g.add(at(box(0.12, 0.14, z1 - z0 + 0.1, M.alu), COVER_X + sx * hx, top + 0.07, (z0 + z1) / 2));
+  }
+  g.add(at(box(2 * hx + 0.1, 0.1, 0.1, frameMat), COVER_X, top + 0.05, z0));
+  // erector table (where the tube is opened and the gantry takes it)
+  g.add(at(box(2.3, 0.05, 0.52, M.aluDark), COVER_X, Y_BOX - 0.025, Z_MAG - 0.04));
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) g.add(at(box(0.05, Y_BOX - 0.05, 0.05, frameMat), COVER_X + sx * 1.1, (Y_BOX - 0.05) / 2, Z_MAG - 0.04 + sz * 0.22));
+  // lift table with the stack (a pallet under the boxes)
+  const liftBase = at(box(1.4, 0.12, 1.2, M.aluDark), COVER_X, 0.06, zS);
+  g.add(liftBase);
+  const column = box(0.3, 1, 0.3, M.alu);
+  g.add(column);
+  const platform = box(1.5, 0.05, 1.25, M.blue);
+  g.add(platform);
+  const pallet = box(1, 0.12, 1, std(0xb08a5a, 0, 0.9));
+  g.add(pallet);
+  const stack = box(1, 1, 1, M.cardboard);
+  g.add(stack);
+  // carriage, mast and head
+  const carriage = at(box(2 * hx + 0.2, 0.12, 0.22, M.blue), COVER_X, top + 0.2, 0);
+  g.add(carriage);
+  const mast = box(0.1, 1, 0.1, M.alu);
+  g.add(mast);
+  const head = new THREE.Group();
+  g.add(head);
+  head.add(at(box(0.9, 0.5, 0.04, M.aluDark), 0, 0, -0.035)); // cup plate, behind panel A
+  for (const x of [-0.35, 0, 0.35]) for (const y of [-0.17, 0.17]) {
+    const c = cyl(0.035, 0.04, 0.02, M.rubber, 14);
+    c.rotation.x = Math.PI / 2;
+    head.add(at(c, x, y, -0.01));
+  }
+  head.add(at(box(0.22, 0.22, 0.12, M.blue), 0, 0, -0.12)); // turning actuator
+  // opening arm: hinged at the corner of panels A and B, a blade with cups on B's outer face
+  const armRoot = new THREE.Group();
+  g.add(armRoot);
+  const post = cyl(0.03, 0.03, 0.85, M.alu, 12);
+  g.add(post);
+  const arm = new THREE.Group();
+  armRoot.add(arm);
+  const blade = box(1, 0.4, 0.03, M.aluDark);
+  arm.add(blade);
+  shadowify(g);
+  const setHead = (z: number, y: number, t: number) => {
+    head.position.set(COVER_X, y, z);
+    head.quaternion.copy(R90.setFromAxisAngle(XA, (t * Math.PI) / 2));
+    _v.set(0, 0, -0.18).applyQuaternion(head.quaternion).add(head.position); // top of the actuator
+    const len = top + 0.15 - (_v.y + 0.1);
+    mast.scale.y = Math.max(0.05, len);
+    mast.position.set(COVER_X, _v.y + 0.1 + len / 2, _v.z);
+    carriage.position.z = _v.z;
+  };
+  const setArm = (u: number, l: number, d: number) => {
+    armRoot.position.set(COVER_X + l / 2, Y_BOX, Z_MAG - d / 2); // hinge line A|B
+    post.position.set(COVER_X + l / 2 + 0.06, Y_BOX + 0.425, Z_MAG - d / 2 - 0.06);
+    arm.rotation.y = 0.03 + u * (Math.PI / 2 - 0.03) - Math.PI; // along panel B, on its outer side
+    blade.scale.x = d - 0.06;
+    blade.position.set((d - 0.06) / 2 + 0.03, 0.45, -0.035);
+  };
+  const setStack = (n: number, l: number, d: number, h: number) => {
+    const H = Math.max(0.001, n * ERECT.sheet), xc = COVER_X - d / 2; // the folded box: l + d wide, h deep
+    stack.scale.set(l + d, H, h);
+    stack.position.set(xc, yS - H / 2, zS);
+    stack.visible = n > 0;
+    pallet.scale.set(Math.min(1.25, l + d), 1, 1.2);
+    pallet.position.set(COVER_X, yS - H - 0.06, zS);
+    platform.position.set(COVER_X, yS - H - 0.145, zS);
+    const ch = yS - H - 0.17 - 0.12;
+    column.scale.y = Math.max(0.05, ch);
+    column.position.set(COVER_X, 0.12 + ch / 2, zS);
+  };
+  return { group: g, setHead, setArm, setStack };
 }
-
 /** Existing stations 5 to 10 along the box line, grey and not animated: they stay as they are in the plant. */
 export function buildExisting(scene: THREE.Scene) {
   const ghost = new THREE.MeshStandardMaterial({ color: 0x9aa3ad, metalness: 0.1, roughness: 0.7, transparent: true, opacity: 0.6 });

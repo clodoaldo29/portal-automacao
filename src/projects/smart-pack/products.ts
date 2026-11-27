@@ -83,20 +83,42 @@ export function makeBase(M: Materials, inch: Inch) {
   return g;
 }
 
-/** Box cover: open at the bottom, printed on the long sides; group origin on its bottom centre. */
-export function makeCover(M: Materials, inch: Inch) {
-  const c = coverOf(inch), g = new THREE.Group(), k = 0.006;
+export interface Tube { obj: THREE.Group; set: (u: number) => void }
+/**
+ * Box body (the top part of the box): it comes folded flat and the erector opens it into a tube with no bottom (the base
+ * is the bottom) and the top flaps left open upward, for the kit and the EPS of station 5. Group origin on the bottom,
+ * at the centre of the open tube; length l along x, depth d along z; panel A (long side, printed) at z = −d/2 is the one
+ * the erector holds. `set(u)`: 0 folded flat (both layers at z ≈ −d/2), 1 open and square.
+ */
+export function makeTube(M: Materials, inch: Inch): Tube {
+  const { l, d, h } = coverOf(inch), k = 0.006, fh = d / 2;
   const printed = new THREE.MeshStandardMaterial({ map: coverTex(), metalness: 0, roughness: 0.85 });
-  g.add(at(box(c.d, k, c.l, M.cardboard), 0, c.h - k / 2, 0)); // top (the cups hold it here)
-  for (const s of [-1, 1]) {
-    // long sides at ±x, printed on the outer face (box face order: +x, −x, +y, −y, +z, −z)
-    const faces = Array.from({ length: 6 }, (_, f) => (f === (s > 0 ? 0 : 1) ? printed : M.cardboard));
-    g.add(at(new THREE.Mesh(new THREE.BoxGeometry(k, c.h - k, c.l), faces), s * (c.d / 2 - k / 2), (c.h - k) / 2, 0));
-    g.add(at(box(c.d - 2 * k, c.h - k, k, M.cardboard), 0, (c.h - k) / 2, s * (c.l / 2 - k / 2)));
-  }
+  const g = new THREE.Group();
+  // panels A, B, C, D around the tube; each one's local x runs along it and its outer face is local −z
+  const panels = [l, d, l, d].map((len, i) => {
+    const p = new THREE.Group();
+    g.add(p);
+    const faces = i % 2 === 0 ? Array.from({ length: 6 }, (_, f) => (f === 5 ? printed : M.cardboard)) : M.cardboard;
+    p.add(at(new THREE.Mesh(new THREE.BoxGeometry(len, h, k), faces), len / 2, h / 2, -k / 2));
+    const flap = new THREE.Group();
+    flap.position.y = h;
+    flap.add(at(box(len - 0.006, fh, k, M.cardboard), len / 2, fh / 2, -k / 2));
+    p.add(flap);
+    return { p, flap };
+  });
+  const set = (u: number) => {
+    const a = 0.03 + u * (Math.PI / 2 - 0.03), vx = -Math.cos(a) * d, vz = Math.sin(a) * d;
+    const pts = [[-l / 2, -d / 2], [l / 2, -d / 2], [l / 2 + vx, -d / 2 + vz], [-l / 2 + vx, -d / 2 + vz]];
+    panels.forEach((q, i) => {
+      const [x0, z0] = pts[i], [x1, z1] = pts[(i + 1) % 4];
+      q.p.position.set(x0, 0, z0);
+      q.p.rotation.y = Math.atan2(-(z1 - z0), x1 - x0);
+      q.flap.rotation.x = -0.22 * u; // the flaps lean out a little once open
+    });
+  };
+  set(0);
   shadowify(g);
-  return g;
+  return { obj: g, set };
 }
-
 /** Standing in the test pallet with the screen toward the robot (−z), top up, width along the line. */
 export const TV_PALLET = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI).multiply(TV_STANDING);

@@ -2,11 +2,12 @@
 //
 // Flow: test pallet with the TV standing → (1) the robot lays it screen-down on the infeed, as it lay on the assembly
 // belt → (2) bagger → (3) the upender stands it up sideways; the side clamps carry it across onto the box line, into
-// the base (EPS corners) prepared at the start of that line, parallel to the packing line → (4) the gantry takes a
-// cover from the magazine and lowers it over the TV → existing stations 5–10.
+// the base (EPS corners) that came ready down the chute onto that line, parallel to the packing line → (4) the tube
+// erector opens a folded box into a tube and the gantry lowers it over the TV, top flaps open → existing stations 5–10.
 // Interlocks (flow document, section 5): the robot only sets a TV down where the infeed is clear; one TV at a time in
 // the bagger; the upender only takes a TV when its table is down and empty; the clamps only lower a TV into a base that
-// is there and empty; the gantry only lowers a cover onto a box that holds a TV.
+// is there and empty; the gantry only lowers a tube onto a box that holds a TV; the erector head and the gantry never
+// work over the erector table at the same time.
 import * as THREE from 'three';
 import { createAndons } from '../../sim/andon';
 import { buildConveyor, liftUnit } from '../../sim/conveyor';
@@ -18,17 +19,17 @@ import type { Stage } from '../../sim/stage';
 import { Track, line } from '../../sim/track';
 import { rollerConveyor } from '../transfer-flow/rollers';
 import {
-  BAGGER, BAG_X, BELT_BOX, BELT_PACK, BELT_TEST, BOX_END, BOX_X0, COVER_X, DEFAULT_TIMING, FEED_X, LINE_UPH, LYING_Y, MAG_Z0, PACK_X0, PAL_W, PIVOT_Z, ROBOT,
+  BAGGER, BAG_X, BELT_BOX, BELT_PACK, BELT_TEST, BOX_END, BOX_X0, COVER_X, DEFAULT_TIMING, FEED_X, ERECT, ERECT_SPEED, LINE_UPH, LYING_Y, MAG_Z0, PACK_X0, PAL_W, PIVOT_Z, ROBOT,
   SEAT_BOX, SEAT_Y, SIZES, SPEED_BOX, SPEED_PACK, SPEED_TEST, TABLE_L, TABLE_X0, TEST_X0, TEST_X1, UP_X, Y_BOX, Y_PACK, Y_TEST, Z_BASE, Z_EDGE, Z_MAG,
   Z_PACK, Z_TEST, coverOf, RELEASE_X, type Inch,
 } from './config';
 import {
-  buildBagger, buildClampUnit, buildExisting, buildGantry, buildBaseChute, buildMagazineGuides, CHUTE, chuteY, buildUpender, rollerConveyorZ,
+  buildBagger, buildClampUnit, buildExisting, buildGantry, buildBaseChute, buildErector, CHUTE, chuteY, buildUpender,
 } from './machines';
-import { TV_BOXED, TV_STANDING, makeBase, makeCover, makePallet, makeTV, setBag } from './products';
+import { TV_BOXED, TV_STANDING, makeBase, makePallet, makeTube, makeTV, setBag, type Tube } from './products';
 import { measureClearance } from './clearance';
 import { createRobot, resetRobot, updateRobot } from './robot';
-import type { BoxItem, CoverItem, PalletItem, PackItem, Params, World } from './types';
+import type { BoxItem, PalletItem, PackItem, Params, World } from './types';
 
 export const DEFAULT_PARAMS: Params = { inch: 55, feed: 'linha', timing: { ...DEFAULT_TIMING } };
 
@@ -50,14 +51,13 @@ export function createWorld(stage: Stage, params: Params = { ...DEFAULT_PARAMS, 
   liftUnit(scene, M, { x: TEST_X1 + 0.15, z: Z_TEST, beltW: BELT_TEST, side: 1, open: 2.1 });
   const packTex = buildConveyor(scene, M, new Track([line(PACK_X0, Z_PACK, TABLE_X0 - 0.03, Z_PACK)], false), BELT_PACK, Y_PACK);
   rollerConveyor(scene, M, { x0: BOX_X0, x1: BOX_END, z: Z_BASE, top: Y_BOX, w: BELT_BOX });
-  rollerConveyorZ(scene, M, COVER_X, MAG_Z0, Z_MAG + 0.2, Y_BOX, 2.0);
 
   // ---------- equipment ----------
   const bag = buildBagger(scene, M);
   const up = buildUpender(scene, M);
   const cl = buildClampUnit(scene, M);
   const gt = buildGantry(scene, M);
-  buildMagazineGuides(scene, M);
+  const er = buildErector(scene, M);
   const chute = buildBaseChute(scene, M);
   const feed = { queue: [], moving: null, setStopper: chute.setStopper };
   buildExisting(scene);
@@ -83,11 +83,6 @@ export function createWorld(stage: Stage, params: Params = { ...DEFAULT_PARAMS, 
     track: new Track([line(BOX_X0, Z_BASE, BOX_END, Z_BASE)], false), speed: SPEED_BOX, gap: 1, tex: null, y: Y_BOX,
     onExit: it => { w.stats.out++; scene.remove(it.obj); },
   });
-  // covers come toward the box line along +z, fed from the far side
-  w.mag = makeLine<CoverItem>({
-    track: new Track([line(COVER_X, MAG_Z0, COVER_X, Z_MAG + 0.1)], false), speed: 0.4, gap: 0.36, tex: null, y: Y_BOX,
-    onExit: it => scene.remove(it.obj),
-  });
 
   // station 1
   // release stop (cadence) before station 1
@@ -107,8 +102,9 @@ export function createWorld(stage: Stage, params: Params = { ...DEFAULT_PARAMS, 
   station(w.boxes, w.boxes.track.sAtX(0, UP_X), it => !it.tv, it => { w.baseAt = it; });
   station(w.boxes, w.boxes.track.sAtX(0, COVER_X), it => !it.covered, it => { w.gantry.target = it; });
   w.clamp = { seq: [], pose: [], group: cl.group, set: cl.setClamp, tv: null, busy: false };
-  station(w.mag, w.mag.track.length - 0.11, () => true, () => {});
   w.gantry = { seq: [], pose: [], head: gt.head, set: gt.setGantry, cover: null, target: null, busy: false };
+  w.erector = { seq: [], pose: [], box: null, ready: null, arm: 0, count: ERECT.n, setHead: er.setHead, setArm: er.setArm, setStack: er.setStack };
+  w.zone = null;
 
   const lights = {
     bagger: andons.make(scene, bag.top.x, bag.top.y, bag.top.z),
@@ -123,7 +119,13 @@ export function createWorld(stage: Stage, params: Params = { ...DEFAULT_PARAMS, 
 /** Clamps waiting over the TV that the upender stands up: [z, TV bottom height, open 0–1]. */
 const clampHome = (): Pose => [PIVOT_Z - LYING_Y, Y_PACK + 0.02, 1];
 const gantryHigh = (w: World) => Y_BOX + coverOf(w.params.inch).h + hOf(w) + 0.2;
-const gantryHome = (w: World): Pose => [Z_MAG, gantryHigh(w)];
+/** Empty, the gantry waits high over the box line (clear of the erector table). */
+const gantryHome = (w: World): Pose => [Z_BASE, gantryHigh(w)];
+/** Erector: transfer height of the grip (the standing box clears the table by 15 cm), the grip over the stack, at the table. */
+const erHigh = (w: World) => Math.max(ERECT.yS, Y_BOX + coverOf(w.params.inch).h / 2) + 0.15;
+const erHome = (w: World): Pose => [ERECT.zS, erHigh(w), 1, 0];
+const erDur = (a: Pose, b: Pose) => 0.3 + Math.max(Math.abs(b[0] - a[0]) / ERECT_SPEED.z, Math.abs(b[1] - a[1]) / ERECT_SPEED.y, Math.abs(b[2] - a[2]) * ERECT_SPEED.turnS, Math.abs(b[3] - a[3]) * ERECT_SPEED.openS);
+const _q = new THREE.Quaternion(), _p = new THREE.Vector3(), XA = new THREE.Vector3(1, 0, 0);
 /** Linear axes: 0.8 m/s with a short ramp (the clamp opening is the third axis of the clamps). */
 const axisDur = (a: Pose, b: Pose) => 0.35 + Math.max(...a.map((v, i) => Math.abs(b[i] - v) / (i === 2 ? 2.5 : 0.8)));
 
@@ -137,6 +139,18 @@ function applyMachines(w: World) {
     w.clamp.tv.obj.quaternion.copy(TV_BOXED);
   }
   w.gantry.set(w.gantry.pose[0], w.gantry.pose[1]);
+  // erector: the head; the folded box in it hangs from the grip (middle of panel A's outer face); the arm
+  const e = w.erector, { l, d, h: ch } = coverOf(w.params.inch), [ez, ey, et, eu] = e.pose;
+  e.setHead(ez, ey, et);
+  if (e.box) {
+    _q.setFromAxisAngle(XA, (et * Math.PI) / 2);
+    _p.set(0, ch / 2, -d / 2).applyQuaternion(_q);
+    e.box.obj.quaternion.copy(_q);
+    e.box.obj.position.set(COVER_X - _p.x, ey - _p.y, ez - _p.z);
+    e.box.set(eu);
+  }
+  e.setArm(e.arm, l, d);
+  e.setStack(e.count, l, d, ch);
 }
 
 // ---------- station 3 ----------
@@ -192,46 +206,88 @@ function updateClamp(w: World) {
 
 // ---------- station 4 ----------
 function updateGantry(w: World) {
-  const g = w.gantry, ch = coverOf(w.params.inch).h, high = gantryHigh(w);
+  const g = w.gantry, ch = coverOf(w.params.inch).h, high = gantryHigh(w), e = w.erector;
   if (g.seq.length) return;
   if (!g.cover) {
-    const head = w.mag.items.find(it => it.hold);
-    if (!head) return;
+    // the open tube on the erector table, once the erector head is out of the way
+    const tube = e.ready;
+    if (!tube || w.zone) return;
+    w.zone = 'gantry';
     g.seq.push(
-      { to: [Z_MAG, Y_BOX + ch], durFn: axisDur },
+      { to: [Z_MAG, high], durFn: axisDur },
+      { to: [Z_MAG, Y_BOX + ch], durFn: axisDur }, // pads either side of the long walls, under the top edge
       { dur: 0.4 }, // vacuum level confirmed
       { fn: () => {
-        w.mag.items.splice(w.mag.items.indexOf(head), 1);
         g.head.updateWorldMatrix(true, false);
-        g.head.attach(head.obj);
-        g.cover = head;
+        g.head.attach(tube.obj);
+        g.cover = tube;
+        e.ready = null;
       } },
       { to: [Z_MAG, high], durFn: axisDur },
+      { to: [Z_BASE, high], durFn: axisDur },
+      { fn: () => { w.zone = null; } },
     );
   } else if (g.target && g.target.hold) {
     const box = g.target;
     g.seq.push(
       { to: [Z_BASE, high], durFn: axisDur },
-      { to: [Z_BASE, Y_BOX + 0.004 + ch], durFn: axisDur }, // the cover slides down over the TV and the tray
+      { to: [Z_BASE, Y_BOX + 0.004 + ch], durFn: axisDur }, // the tube slides down over the TV and the tray
       { dur: 0.3 },
       { fn: () => {
-        const cv = g.cover!;
+        const tube = g.cover!;
         box.inner.updateWorldMatrix(true, false);
-        box.inner.attach(cv.obj);
-        cv.obj.position.set(0, 0.004, 0);
-        cv.obj.quaternion.identity();
+        box.inner.attach(tube.obj); // as it was let go: centred on the base, flaps up
         box.covered = true;
         box.hold = null;
         g.cover = null;
         g.target = null;
         w.stats.packed++;
       } },
-      { to: [Z_BASE, high], durFn: axisDur },
       { to: gantryHome(w), durFn: axisDur },
     );
   }
 }
 
+/**
+ * Tube erector: picks the next folded box from the stack and holds it lifted; when its table is empty, the arm is back
+ * and the gantry is away, it stands the box on the table, the arm opens it into a tube, the head lets go and goes back.
+ */
+function updateErector(w: World, dt: number) {
+  const e = w.erector, { d, h: ch } = coverOf(w.params.inch), yT = erHigh(w);
+  // while opening, the arm follows panel B; it swings back only once the tube has been lifted clear of it
+  if (e.box && e.pose[3] > 0) e.arm = e.pose[3];
+  else if (!e.ready && e.arm > 0 && (!w.gantry.cover || w.gantry.pose[1] - ch > Y_BOX + 0.6)) e.arm = Math.max(0, e.arm - dt / 0.8);
+  if (e.seq.length) return;
+  const zT = Z_MAG - d / 2; // grip at the table: panel A's outer face
+  if (!e.box) {
+    e.seq.push(
+      { to: erHome(w), durFn: erDur },
+      { to: [ERECT.zS, ERECT.yS, 1, 0], durFn: erDur },
+      { dur: 0.3 }, // vacuum
+      { fn: () => {
+        const t = makeTube(w.M, w.params.inch);
+        w.scene.add(t.obj);
+        e.box = t;
+        e.count--;
+        if (e.count < 3) e.count = ERECT.n; // pallet changed from outside (PROVISIONAL: no stop for it)
+      } },
+      { to: erHome(w), durFn: erDur },
+    );
+  } else if (!e.ready && e.arm === 0 && !w.zone) {
+    w.zone = 'erector';
+    e.seq.push(
+      { to: [zT - 0.05, yT, 0, 0], durFn: erDur }, // turns it up on the way
+      { to: [zT, Y_BOX + ch / 2 + 0.003, 0, 0], durFn: erDur },
+      { fn: () => { e.arm = 0; } },
+      { to: [zT, Y_BOX + ch / 2 + 0.003, 0, 1], durFn: erDur }, // the arm pulls panel B round: a tube
+      { dur: 0.2 },
+      { fn: () => { e.arm = 1; e.ready = e.box; e.box = null; } },
+      { to: [zT - 0.2, Y_BOX + ch / 2, 0, 0], dur: 0.5 },
+      { to: [Z_MAG - 0.8, yT, 0.5, 0], durFn: erDur },
+      { fn: () => { w.zone = null; } },
+    );
+  }
+}
 // ---------- feeding ----------
 function addPallet(w: World, s: number) {
   const obj = makePallet(w.M), inch = w.params.inch;
@@ -277,10 +333,13 @@ function updateChute(w: World, dt: number) {
   }
 }
 
-function addCover(w: World, s: number) {
-  const obj = makeCover(w.M, w.params.inch); // the magazine runs along +z: the cover's length ends up along the line
-  w.scene.add(obj);
-  w.mag.items.push({ obj, s, hold: null, passed: new Set() });
+/** An open tube standing on the erector table (line start). */
+function openTube(w: World): Tube {
+  const t = makeTube(w.M, w.params.inch);
+  t.set(1);
+  t.obj.position.set(COVER_X, Y_BOX, Z_MAG);
+  w.scene.add(t.obj);
+  return t;
 }
 
 /** Where the feeder sets a base down (along the box line). */
@@ -296,13 +355,12 @@ function updateFeed(w: World, dt: number) {
   if (startFree(w.test)) addPallet(w, 0);
   if (w.due >= 1) { const held = w.test.items.find(p => p.hold === w.release); if (held) { held.hold = null; w.due -= 1; } }
   // the chute keeps three empty bases on the box line: its stopper lets one slide on when the photo-eye sees the box
-  // line clear (the base before has moved a pitch on); the magazine is kept with six covers
+  // line clear (the base before has moved a pitch on)
   if (!w.feed.moving && w.feed.queue.length && w.boxes.items.filter(b => !b.tv).length < 3 && w.boxes.items.every(b => b.s >= FEED_S + w.boxes.gap)) {
     w.feed.moving = { ...w.feed.queue.shift()!, t: 0 };
     w.feed.setStopper(true);
   }
   updateChute(w, dt);
-  if (w.mag.items.length + (w.gantry.cover ? 1 : 0) < 6 && startFree(w.mag)) addCover(w, 0);
 }
 
 /** Advance the line by dt simulated seconds. */
@@ -313,7 +371,6 @@ export function step(w: World, dt: number) {
   updateLine(w.test, dt);
   updateLine(w.pack, dt);
   updateLine(w.boxes, dt);
-  updateLine(w.mag, dt);
   updateRobot(w, w.robot, dt);
 
   // station 2: the bag goes on from the TV's bottom edge (far side); the mouth frame travels across to the top edge
@@ -342,6 +399,8 @@ export function step(w: World, dt: number) {
   runSeq(w.clamp, dt);
   if (u.seq.length || w.clamp.seq.length) st.upT += dt;
   // station 4
+  updateErector(w, dt);
+  runSeq(w.erector, dt);
   updateGantry(w);
   runSeq(w.gantry, dt);
   if (w.gantry.seq.length) st.gantryT += dt;
@@ -357,8 +416,8 @@ export function resetStats(w: World) {
 
 /** Restart the line from empty for the model in w.params (lot change). */
 export function resetLine(w: World) {
-  for (const L of [w.test, w.pack, w.boxes, w.mag] as const) { L.items.forEach(it => w.scene.remove(it.obj)); L.items.length = 0; }
-  for (const o of [w.upender.tv, w.clamp.tv, w.gantry.cover]) if (o) o.obj.parent?.remove(o.obj);
+  for (const L of [w.test, w.pack, w.boxes] as const) { L.items.forEach(it => w.scene.remove(it.obj)); L.items.length = 0; }
+  for (const o of [w.upender.tv, w.clamp.tv, w.gantry.cover, w.erector.box, w.erector.ready]) if (o) o.obj.parent?.remove(o.obj);
   resetRobot(w, w.robot);
   const inch: Inch = w.params.inch, tw = wOf(w);
   // per model: pitch on the packing line (the TV's width along it), the gate before the table, the box pitch
@@ -385,7 +444,9 @@ export function resetLine(w: World) {
   w.feed.setStopper(false);
   for (let k = 0; k < CHUTE_N; k++) { const b = newBase(w); b.obj.position.copy(chuteSlot(k)); w.feed.queue.push(b); }
   void inch;
-  for (let k = 0; k < 6; k++) addCover(w, w.mag.track.length - 0.11 - k * w.mag.gap);
+  // station 4 starts with an open tube on the erector table and a full stack of folded boxes
+  Object.assign(w.erector, { seq: [], pose: erHome(w), box: null, ready: openTube(w), arm: 1, count: ERECT.n });
+  w.zone = null;
   applyMachines(w);
   resetStats(w);
 }
