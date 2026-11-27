@@ -22,16 +22,21 @@ export const TEST_X0 = -12, TEST_X1 = 18.2; // along the whole layout; pallets r
  *  one TV is let go at the line cadence of the model. */
 export const RELEASE_X = -4.6;
 export const SPEED_TEST = 0.8;
-export const PICK_X = 0; // pallet stop of station 1
+/** Station 1 sits where the infeed has room behind the bagger for two TVs waiting, 75" included (see DROP_X). */
+export const STATION_X = -0.4;
+export const PICK_X = STATION_X; // pallet stop of station 1
 
 // ---------- station 1: transfer robot ----------
-export const ROBOT = { x: 0, z: -1.25, ped: 0.8 };
+export const ROBOT = { x: STATION_X, z: -1.25, ped: 0.8 };
 /** Flange → cup faces of the VGP30 straight on the flange (adapter and a 100 mm spacer). */
 export const GRIP_D = 0.2;
 
 // ---------- packing line (TV lying screen-down, width along the belt, top edge toward the robot) ----------
-export const Z_PACK = -2.55, Y_PACK = 0.85, BELT_PACK = 1.9, PACK_X0 = -1.3, SPEED_PACK = 0.6;
-export const DROP_X = 0; // where the robot sets the TV down
+export const Z_PACK = -2.55, Y_PACK = 0.85, BELT_PACK = 1.9, PACK_X0 = -1.5, SPEED_PACK = 0.6;
+/** Where the robot sets the TV down: the last place of the queue before the bagger (1 inside, 2 waiting). */
+export const DROP_X = STATION_X;
+/** TVs that may wait on the infeed for the bagger (the one inside not counted). */
+export const QUEUE_MAX = 2;
 /** Every TV is set down with its bottom edge on this line (far side of the belt): the upender pivots there. */
 export const Z_EDGE = Z_PACK - 0.45;
 /** Station 2: automatic bagger (housing from x0 to x1, w across); the TV stops in the middle for the bag. */
@@ -75,7 +80,7 @@ export const SHADOW_FRUSTUM = { left: -13, right: 13, top: 10, bottom: -10, near
 
 export const VIEWS: Record<string, ViewDef> = {
   linha: { pos: [-4.5, 7.5, 6.5], target: [5.5, 0.6, -2.8] },
-  robo: { pos: [-3.2, 2.9, 1.9], target: [0, 1.2, -1.5] },
+  robo: { pos: [-3.6, 2.9, 1.9], target: [-0.4, 1.2, -1.5] },
   ensaque: { pos: [1.2, 2.6, 0.6], target: [4.2, 1.0, -2.6] },
   vertical: { pos: [UP_X + 2.6, 2.7, -0.9], target: [UP_X, 1.0, -3.3] },
   bases: { pos: [-6.5, 7.5, -10.5], target: [5, 0.6, -2.8] }, // from the far side: the box line parallel to the packing line

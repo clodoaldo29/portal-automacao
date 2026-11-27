@@ -12,7 +12,7 @@ import { ZU50, urIK } from '../../sim/robots/ur-kinematics';
 import { runSeq, type Pose } from '../../sim/sequencer';
 import { elbowLift } from '../transfer-flow/transfers';
 import type { Transfer } from '../transfer-flow/types';
-import { DROP_X, GRIP_D, LYING_Y, PAL_W, PICK_X, ROBOT, SEAT_Y, SIZES, TV_BACK, Y_PACK, Y_TEST, Z_EDGE, Z_PACK, Z_TEST } from './config';
+import { DROP_X, GRIP_D, LYING_Y, PAL_W, PICK_X, QUEUE_MAX, ROBOT, SEAT_Y, SIZES, TV_BACK, Y_PACK, Y_TEST, Z_EDGE, Z_PACK, Z_TEST } from './config';
 import { TV_LYING, makeBag } from './products';
 import type { PackItem, Robot, World } from './types';
 
@@ -164,7 +164,7 @@ function release(w: World, r: Robot) {
 }
 
 export function updateRobot(w: World, r: Robot, dt: number) {
-  if (r.state === 'idle' && r.pallet && r.pallet.hold && dropFree(w) && r.seq.every(s => s.ready)) startJob(w, r);
+  if (r.state === 'idle' && r.pallet && r.pallet.hold && dropFree(w) && queued(w) < QUEUE_MAX && r.seq.every(s => s.ready)) startJob(w, r);
   runSeq(r, dt);
   const err = track(r, 14);
   if (plateClear(r)) for (const it of w.test.items) if (it.hold === r.gate) it.hold = null;
@@ -185,3 +185,6 @@ export function resetRobot(w: World, r: Robot) {
  * from here on, so the next pallet may come on to the pick point.
  */
 const plateClear = (r: Robot) => r.state === 'idle';
+
+/** TVs on the infeed waiting for the bagger (the one inside the cabin and the bagged ones not counted). */
+const queued = (w: World) => w.pack.items.filter(it => !it.bagged && it !== w.bagger.inside).length;
