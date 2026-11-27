@@ -155,7 +155,8 @@ ficam em `public/clientes.json`, ligados aos projetos pelo nome (`"client"` do p
   "logo": "clientes/multi.svg", "description": "O que fazemos para o cliente." }
 ```
 
-Logos em `public/clientes/`. Sem `logo`, o cartão mostra as iniciais na cor do cliente. Cliente cadastrado sem projeto
+Texto do cartão (`description`): **no máximo 3 linhas curtas e objetivas** (cerca de 80 caracteres), o que o
+cliente é e o que fazemos para ele; o teste do portal falha se passar de 3 linhas. Logos em `public/clientes/`. Sem `logo`, o cartão mostra as iniciais na cor do cliente. Cliente cadastrado sem projeto
 ganha cartão e área vazia, depois dos que têm projetos. Um cliente que aparece no `projetos.json` sem estar no
 `clientes.json` também ganha cartão (com as iniciais do nome).
 

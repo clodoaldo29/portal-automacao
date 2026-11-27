@@ -138,7 +138,6 @@ function clientCard(c: Client) {
     d.style.color = `var(--st-${s.id})`;
     return el('span', {}, d, `${n} ${s.label.toLowerCase()}`);
   })));
-  if (!own.length) b.append(el('div', { className: 'mix' }, 'Nenhum projeto publicado ainda'));
   b.append(el('span', { className: 'open-sim' + (own.length ? '' : ' soon'), textContent: own.length ? `Ver ${own.length} ${own.length === 1 ? 'projeto' : 'projetos'}` : 'Abrir área do cliente' }));
   const last = lastUpdate(own);
   if (last) b.append(el('div', { className: 'foot', textContent: `Atualizado em ${fmtDate(last)}` }));

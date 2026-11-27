@@ -102,8 +102,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .logo.sm.has-img img { object-position: left center; }
 .open-sim.soon { background: var(--surface-2); color: var(--ink); border: 1px solid var(--line); }
 .client-card h2 { margin: 0; font-family: var(--font-display); font-size: 22px; font-weight: 700; line-height: 1.05; }
-.client-card .desc { -webkit-line-clamp: 2; }
-.mix { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13.5px; color: var(--muted); }
+/* client text: at most 3 short lines, small type (the text is written to fit; the clamp is only a safety net) */
+.client-card .desc { font-size: 12.5px; line-height: 1.4; -webkit-line-clamp: 3; }
+.mix { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12.5px; color: var(--muted); }
 .mix span { display: inline-flex; align-items: center; gap: 6px; }
 .mix .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
 .crumb { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 22px; padding-top: 20px; }

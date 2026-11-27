@@ -33,6 +33,16 @@ test('the portal opens on the client cards: by their first project in projetos.j
   expect(names).toEqual([...withProjects, ...known.map(c => c.name).filter(n => !withProjects.includes(n))]);
   expect(names[0]).toBe('Grupo Multilaser');
   expect(names).toContain('Denso');
+  // the client text fits in 3 lines, whole (no "…"): write it short
+  for (const width of [1280, 800, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    const cut = await page.locator('a.client-card .desc').evaluateAll(ps => ps.filter(p => {
+      const lh = parseFloat(getComputedStyle(p).lineHeight);
+      return p.scrollHeight > p.clientHeight + 1 || p.clientHeight > lh * 3 + 1;
+    }).map(p => p.textContent));
+    expect(cut, `client text over 3 lines at ${width} px`).toEqual([]);
+  }
+  await page.setViewportSize({ width: 1280, height: 900 });
   // every logo of clientes.json loads
   await page.waitForLoadState('networkidle');
   const broken = await page.locator('a.client-card .logo img').evaluateAll(imgs => imgs.filter(i => !(i as HTMLImageElement).naturalWidth).length);

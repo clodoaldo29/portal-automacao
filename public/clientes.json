@@ -5,7 +5,7 @@
     "initials": "GM",
     "color": "#5000be",
     "logo": "clientes/multi.svg",
-    "description": "Linhas de televisores: parafusamento, transferência, solda e embalagem."
+    "description": "Linhas de TVs: parafusamento, transferência, solda e embalagem."
   },
   {
     "id": "adata",
@@ -13,7 +13,7 @@
     "initials": "AT",
     "color": "#1f4fa8",
     "logo": "clientes/adata.svg",
-    "description": "Planta de memórias e semicondutores: gêmeo digital, inspeção, movimentação e embalagem."
+    "description": "Memórias e semicondutores: gêmeo digital, inspeção, movimentação e embalagem."
   },
   {
     "id": "denso",
