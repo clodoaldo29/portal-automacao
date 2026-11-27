@@ -131,7 +131,8 @@ function clientCard(c: Client) {
   a.append(head);
   const b = el('div', { className: 'body' });
   b.append(el('h2', { textContent: c.name }));
-  if (c.description) b.append(el('p', { className: 'desc', textContent: c.description }));
+  // every block keeps its place even when empty: text, status, button and date line up across the cards
+  b.append(el('p', { className: 'desc', textContent: c.description || '' }));
   const counts = STATUS.map(s => [s, own.filter(p => p.status === s.id).length] as const).filter(([, n]) => n);
   b.append(el('div', { className: 'mix' }, counts.map(([s, n]) => {
     const d = el('span', { className: 'dot' });
@@ -140,7 +141,7 @@ function clientCard(c: Client) {
   })));
   b.append(el('span', { className: 'open-sim' + (own.length ? '' : ' soon'), textContent: own.length ? `Ver ${own.length} ${own.length === 1 ? 'projeto' : 'projetos'}` : 'Abrir área do cliente' }));
   const last = lastUpdate(own);
-  if (last) b.append(el('div', { className: 'foot', textContent: `Atualizado em ${fmtDate(last)}` }));
+  b.append(el('div', { className: 'foot', textContent: last ? `Atualizado em ${fmtDate(last)}` : ' ' }));
   a.append(b);
   return a;
 }

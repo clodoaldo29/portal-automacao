@@ -43,6 +43,15 @@ test('the portal opens on the client cards: by their first project in projetos.j
     expect(cut, `client text over 3 lines at ${width} px`).toEqual([]);
   }
   await page.setViewportSize({ width: 1280, height: 900 });
+  // the client cards in a row line up: same text box, status line, button and date at the same height
+  const parts = await page.locator('a.client-card').evaluateAll(cs => cs.map(c => {
+    const y = (s: string) => Math.round(c.querySelector(s)!.getBoundingClientRect().top);
+    return { row: Math.round(c.getBoundingClientRect().top), h: Math.round(c.getBoundingClientRect().height), mix: y('.mix'), btn: y('.open-sim'), foot: y('.foot') };
+  }));
+  for (const row of new Set(parts.map(p => p.row))) {
+    const r = parts.filter(p => p.row === row);
+    for (const k of ['h', 'mix', 'btn', 'foot'] as const) expect(new Set(r.map(p => p[k])).size, `client cards aligned (${k})`).toBe(1);
+  }
   // every logo of clientes.json loads
   await page.waitForLoadState('networkidle');
   const broken = await page.locator('a.client-card .logo img').evaluateAll(imgs => imgs.filter(i => !(i as HTMLImageElement).naturalWidth).length);
