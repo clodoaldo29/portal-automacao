@@ -5,3 +5,6 @@
 
 /projetos.json
   Cache-Control: no-cache
+
+/clientes.json
+  Cache-Control: no-cache

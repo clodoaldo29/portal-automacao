@@ -1,0 +1,18 @@
+[
+  {
+    "id": "multilaser",
+    "name": "Grupo Multilaser",
+    "initials": "GM",
+    "color": "#c43d3d",
+    "logo": "",
+    "description": "Linhas de televisores: parafusamento, transferência, solda e embalagem."
+  },
+  {
+    "id": "adata",
+    "name": "Adata Technology",
+    "initials": "AT",
+    "color": "#1572d6",
+    "logo": "",
+    "description": "Planta de memórias e semicondutores: gêmeo digital, inspeção, movimentação e embalagem."
+  }
+]

@@ -6,7 +6,7 @@ Portfólio de simulações 3D de linhas robotizadas. Vite + TypeScript + three.j
 ## Estrutura
 
 ```
-index.html                          portal (cartões lidos de public/projetos.json)
+index.html                          portal (clientes de public/clientes.json, projetos de public/projetos.json)
 projetos/<id>/index.html            página de cada simulação
 src/
   sim/                              biblioteca compartilhada pelas simulações
@@ -146,6 +146,17 @@ Gera `public/capas/<id>.png` (1600 × 900) em qualidade alta, sem barra, painel 
 Status aceitos: `estudo`, `validacao`, `aprovado`, `implantacao`, `pausado`.
 
 Os cartões aparecem na ordem do `projetos.json`: acrescente o projeto novo no fim da lista.
+
+O portal abre nos cartões dos clientes; o cartão do cliente abre os projetos dele (`/?cliente=<id>`). Os clientes
+ficam em `public/clientes.json`, ligados aos projetos pelo nome (`"client"` do projeto = `"name"` do cliente):
+
+```json
+{ "id": "multilaser", "name": "Grupo Multilaser", "initials": "GM", "color": "#c43d3d",
+  "logo": "capas/clientes/multilaser.png", "description": "O que fazemos para o cliente." }
+```
+
+Sem `logo`, o cartão mostra as iniciais na cor do cliente. Um cliente que aparece no `projetos.json` sem estar no
+`clientes.json` também ganha cartão (com as iniciais do nome).
 
 Quando os rótulos "UPH", "Robôs", "Produtos" e "Estações" não servirem, `metricLabels` troca o rótulo de cada
 métrica. Exemplo: `"metricLabels": { "uph": "Capacidade" }`.
